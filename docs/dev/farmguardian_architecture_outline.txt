@@ -12,7 +12,12 @@
  팀장: 나머지 — judge(rules.py는 순수, DB·HTTP 없음) / records / auth / ingest(PSIS·NCPMS·매개충 시드)
        / pests / zones(상세·속성 수정) / core(설정·DB·JWT·에러·today_kst) / seed_demo
 
-[Setup]
+[Tabs]  프론트 탭 4개 (첫 사용은 온보딩을 마쳐야 탭 사용)
+ 홈 = 내 밭·구역 상태 / 병해충 = 구역 → 병해충 → 약제 → 판정 → 기록
+ 조회수정 = 이력·구역·밭 / 프로필 = 출처·면책 안내, 로그아웃, 회원 탈퇴
+
+[Onboarding = Setup]  GET /me {onboarded} false면 아래 1~5, 끝나면 POST /me/onboarding
+                     (구역 없음·「누락 없음」 안 된 구역 → 422 ONBOARDING_INCOMPLETE, 멱등)
  1. 로그인          POST /auth/kakao → JWT
  2. 주소 검색        GET /addresses/search (juso → PNU)
                     GET /parcels?pnu → 그 지번과 겹치는 팜맵 필지 전체 (이웃 지번 필지 포함)
@@ -72,10 +77,15 @@
  2. 기록 취소        DELETE /zones/{id}/sprays/{sid}  (수정 API 없음, 취소 후 다시 입력)
  3. 밭 삭제          DELETE /fields/{id} → 구역·기록·판정 CASCADE (잘못 고른 필지, 다시 나누기)
 
+[Profile]
+ 1. 로그아웃         프론트가 토큰만 지움
+ 2. 회원 탈퇴        DELETE /me → users CASCADE(밭·구역·기록·판정) 커밋 후 카카오 연결 끊기(어드민 키)
+                    · 연결 끊기 실패해도 204 + 로그, 탈퇴 뒤 남은 JWT는 401
+
 [Data]
  참고(적재): crop · pest · pest_info(작물별 사진·설명·발생시기) · pest_symptom · pest_vector(매개충)
             · moa · pesticide · registration
- 사용자:     users · field · field_parcel(user_id, 지번, 논/밭, 촬영년도) · zone(geom, planted_at NULL,
+ 사용자:     users(onboarded_at) · field · field_parcel(user_id, 지번, 논/밭, 촬영년도) · zone(geom, planted_at NULL,
             history_confirmed) · spray_log(request_id) · judgment
 
 [Ingest]  수동 실행
