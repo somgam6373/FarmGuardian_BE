@@ -33,7 +33,7 @@
 | `PARCEL_ALREADY_USED` | 409 | 같은 사용자의 다른 밭이 쓰는 필지 | `{farmmap_ids: [string]}` |
 | `FIELD_ALREADY_SPLIT` | 409 | 이미 구역이 있는 밭에 구역 생성 | 없음 |
 | `DUPLICATE_SPRAY` | 409 | 같은 구역·약제·날짜 기록 존재 | `{existing: Spray}` |
-| `VALIDATION_ERROR` | 422 | 요청 값 오류 | `{errors: [{loc, msg, type}]}`. 입력값은 돌려주지 않는다 |
+| `VALIDATION_ERROR` | 422 | 요청 값 오류 | `{errors: [{loc, msg, type}]}`. 입력값은 돌려주지 않는다. 주소 검색에서 외부 API가 거절한 경우만 `{source: "juso", upstream_code}` |
 | `ONBOARDING_INCOMPLETE` | 422 | 구역이 없거나 「누락 없음」이 안 된 구역이 있음 | `{zone_count: int, unconfirmed_zone_ids: [int]}` **【결정】** |
 | `UPSTREAM_ERROR` | 502 | 외부 API 실패 | `{source: "juso"\|"farmmap"\|"kma", upstream_code?: string}` |
 
@@ -74,10 +74,14 @@ Weather       {issued_at: datetime, items: [{at: datetime, pty: int, pcp: string
                   앞으로 24시간, 시각별. pty = 강수형태 코드 (0 없음, 1 비, 2 비/눈, 3 눈, 4 소나기)
                   pcp = 1시간 강수량 원문 ("강수없음", "1mm 미만", "6.2mm", "30.0~50.0mm", "50.0mm 이상")
                   pop = 강수확률(%), 결측이면 null
-PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: string|null, description: string|null,
-               occurrence: string|null, source: string|null, vectors: [{id, name, source}]}
-                  photo_url~source는 이 작물의 도감 값 (엑셀 `2_`·`1_`, 없으면 null → 화면에 「없음」)
-                  vectors = 바이러스의 매개충 (자료가 없으면 빈 배열 → 「연결 자료 없음」)
+PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: string|null, photo_source: string|null,
+               description: string|null, occurrence: string|null, occurrence_source: string|null,
+               vectors: [{id, name, guide, source}]}
+                  이 작물의 도감 값 (엑셀 `2_병해충_도감`·`1_병해충_발생시기`, 없으면 null → 화면에 「없음」)
+                  photo_source = 사진 출처 (작물명 "토마토", 대체 "양배추(대체)", 보충 "옥수수(보충)", 사진이 없으면 null)
+                  description = 증상·피해. occurrence = 발생 시기 (발생 월·근거 문장), occurrence_source = 그 출처 (예 "NCPMS 설명", "PDF 경보")
+                  vectors = 바이러스의 매개충 (엑셀 `7_`). name = 연결된 도감 병해충 이름, guide = 앱 안내 문구 (예 "이 벌레를 잡는 약으로 안내"), source = 근거.
+                  자료가 없으면 빈 배열 → 「연결 자료 없음」
 ```
 
 ## 3. 인증·내 정보
@@ -90,7 +94,7 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
   - `field_name` 1~30자
   - `parcel_farmmap_ids` 문자열 1~20개, 중복 없음
 - 응답 201: `{id: int, username: string, field: Field}`
-- 오류: 409 `USERNAME_TAKEN`, 422 `VALIDATION_ERROR`(없는 `farmmap_id`면 `details`에 그 id를 담는다 **【결정】**), 502 `UPSTREAM_ERROR`(`source: "farmmap"`; 이때 사용자도 만들어지지 않는다)
+- 오류: 409 `USERNAME_TAKEN`, 422 `VALIDATION_ERROR`(없는 `farmmap_id`면 `errors[].loc`가 `["body", "parcel_farmmap_ids", 순번]`, `type`은 `not_found` **【결정】**), 502 `UPSTREAM_ERROR`(`source: "farmmap"`; 이때 사용자도 만들어지지 않는다)
 - 한 트랜잭션: 사용자 생성 → 필지 도형 조회(병렬, 동시 8개 이하) → 밭 저장.
 
 ### `POST /auth/login`
@@ -123,7 +127,7 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 
 - 쿼리: `keyword` (필수, 2~80자), `page` (기본 1). 페이지당 10건 고정.
 - 응답 200: `{total: int, items: [{road_addr: string, jibun_addr: string, pnu: string}]}` — `pnu`는 19자리 문자열
-- 오류: 422 `VALIDATION_ERROR` (검색어 규칙 위반: 한 글자, 숫자만, 특수문자·SQL 예약어, 너무 긴 검색어, 시도명만, 결과 9천 건 초과. `details.source: "juso"`와 `upstream_code`를 담는다), 502 `UPSTREAM_ERROR` (`source: "juso"`)
+- 오류: 422 `VALIDATION_ERROR` (검색어 규칙 위반: 한 글자, 숫자만, 특수문자·SQL 예약어, 너무 긴 검색어는 호출 전에 `errors`로 거절하고, 시도명만 입력·결과 9천 건 초과처럼 외부 API만 알 수 있는 경우는 `details = {source: "juso", upstream_code}`), 502 `UPSTREAM_ERROR` (`source: "juso"`)
 - 검색어의 특수문자와 SQL 예약어는 **호출 전에** 거절한다 (외부 API가 서버 IP를 차단할 수 있다).
 
 ### `GET /parcels` (인증 없음)
@@ -190,7 +194,7 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 ### `GET /pests/candidates`
 
 - 쿼리: `crop_id` (필수), `part` (필수, 증상 부위 목록의 값 중 하나)
-- 응답 200: `[PestCard]` (이름순)
+- 응답 200: `[PestCard]` (이름순). 부위가 여러 개인 병해충은 하나만 맞아도 나온다.
 - 오류: 404 (작물), 422 (`part` 값 오류)
 
 ### `GET /pests`
@@ -215,6 +219,18 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
   - `alternatives`는 병해충을 지목한 판정에만 계산한다 (같은 작물×병해충의 다른 약제 중 `OK`이고 작용기작이 다른 것). 지목하지 않았고 불가이면 `result.notices`에 안내 한 줄이 붙고 `alternatives`는 빈 배열.
   - `show_extension_office`: 「농업기술센터 문의」 안내를 보여줄지. 병해충을 지목했고 `verdict`가 `BLOCKED` 또는 `CAUTION`이며 대안이 0건일 때만 true (judge_rules §7)
 - 오류: 404 (구역·약제·병해충이 없음), 422
+- 그 작물·병해충에 **등록되지 않은 약제도 오류가 아니다.** 판정이 `BLOCKED`(①)로 나온다.
+
+### `CheckResult.facts` (프론트가 쓰는 값)
+
+자세한 규칙은 judge_rules §4. 값이 없으면 null이다.
+
+| key | facts |
+|---|---|
+| `registration` | `{crop_registered, pest_specified, registered_pests: [string], rows: int}` (경우에 따라 일부만 있다) |
+| `timing` | `{phi_days: int|null, harvest_from: date|null, rows: int, strict_use_method: string|null, no_limit: bool}` |
+| `count` | `{used: int, max_uses: int|null, remaining: int, remaining_after: int|null, since: date, item_name: string, strict_use_method: string|null, no_limit: bool}` |
+| `moa` | `{label: string, rule: "NO_LIMIT"|"CONSECUTIVE", max_consecutive: int|null, consecutive: int, unknown: int, window: [{id, sprayed_on, item_name, label: string|null}]}` |
 
 ## 8. 살포 기록
 

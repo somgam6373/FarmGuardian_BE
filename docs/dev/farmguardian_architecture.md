@@ -226,7 +226,7 @@ pick_alternatives(selected, others) -> list[JudgeResult]       # 필터만. 이�
 | `GET /crops/{id}/symptom-parts` | 증상 부위 목록 | → `[part]` | catalog |
 | `GET /pests/candidates` | 증상 부위로 병해충 후보 | `?crop_id&part` → `[PestCard]` | catalog |
 | `GET /pests` | 도감 목록·이름 검색 | `?crop_id&q?` → `[PestCard]` | catalog |
-| `GET /pesticides` | 등록 약제 목록 | `?crop_id&pest_id?` → `[{id, name, item_name, moa}]` | catalog |
+| `GET /pesticides` | 등록 약제 목록 | `?crop_id&pest_id?` → `[{id, name, item_name, moa, at_planting_only}]` | catalog |
 | `POST /zones/{id}/judgments` | 판정 | `{pesticide_id, pest_id?}` → `JudgeResponse` (저장함) | judgment |
 | `POST /zones/{id}/sprays` | 기록 (「살포 기록 저장」, 과거 이력) | `{pesticide_id, sprayed_on?, source, request_id, allow_duplicate?}` → `Spray` | spraying |
 | `GET /zones/{id}/sprays` | 이력 | `?limit&offset` → `{total, items: [Spray]}` | spraying |
@@ -257,8 +257,8 @@ rotation      {window_start | null, total, items: [{moa | null, count}]}
 Weather       {issued_at, items: [{at, pty, pcp, pop}]}
               issued_at = 예보 발표 시각(KST), at = 예보 시각, 앞으로 24시간.
               pty = 강수형태 코드, pcp = 1시간 강수량 원문 문자열 (예 "강수없음", "1.0mm"), pop = 강수확률(%)
-PestCard      {id, name, kind, photo_url, description, occurrence, source, vectors: [{id, name, source}]}
-              photo_url~source는 이 작물의 pest_info (없으면 null → 화면에 「없음」).
+PestCard      {id, name, kind, photo_url, photo_source, description, occurrence, occurrence_source, vectors: [{id, name, guide, source}]}
+              도감 값은 이 작물의 pest_info (없으면 null → 화면에 「없음」). 상세는 api_spec §2.
               vectors는 바이러스의 매개충 (자료가 없으면 빈 목록 → 화면에 「연결 자료 없음」)
 ```
 
@@ -377,7 +377,7 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 - **변환 구분 (`4_`):** `성공` 3,303행(숫자로 변환), `심을 때` 519행(정식기·파종기, 수확 전 일수 없음), `제한 없음` 41행(미생물·구리제), `확인 필요` 7행(숫자 칸 비어 있음). 이 값들을 판정에서 어떻게 다룰지는 **미결**이다 (judge_rules 개정).
 - **같은 키에 규칙이 둘인 줄**(주황 줄)은 엄격한 쪽으로 판정하자는 제안이 엑셀 안내 시트에 있다. 채택 여부는 **미결**이다.
 - **증상 부위 값**은 `2_`의 부위 칸이다: `덩이, 뿌리, 잎, 줄기, 벌레, 열매` (쉼표로 여러 개). `GET /crops/{id}/symptom-parts`는 이 중 그 작물에 행이 있는 값을 돌려준다.
-- **`PestCard`:** `kind` = 구분(`병`/`해충`), `description` = 증상·피해, `photo_url` = 대표 사진, 사진 출처는 작물명 또는 `(대체)`·`(보충)`·`사진 없음`이다. 값이 비면 null이다 (증상 11개, 학명 22개, 사진 14개가 비어 있다). `occurrence`는 발생 시기 테이블의 발생 월·근거 문장으로 채운다 (표기 형식은 프론트와 정한다).
+- **`PestCard`:** `kind` = 구분(`병`/`해충`), `description` = 증상·피해, `photo_url` = 대표 사진, 사진 출처는 작물명 또는 `(대체)`·`(보충)`·`사진 없음`이다. 값이 비면 null이다 (증상 11개, 학명 22개, 사진 14개가 비어 있다). `occurrence`는 발생 시기 테이블의 발생 월·근거 문장으로, `occurrence_source`는 그 출처(`NCPMS 설명`·`PDF 경보`)로 채운다 (표기 형식은 프론트와 정한다). `photo_source`는 사진 출처 칸 값이다. 매개충 `vectors`의 `guide`는 `7_`의 앱 안내 문구다.
 - **검증 (표 기반 pytest):** 변환 전후 행 수 일치, 같은 키 중복 0, `3_`과 `4_`의 (작물, 병해충, 약, 상표) 100% 일치, `5_`의 품목명이 `4_`의 약 이름을 모두 포함, `4_`의 병해충 이름이 `2_`에 있거나 「도감 없음」으로 표시, `7_`의 두 병해충 이름이 `pest`에 있음.
 - 엑셀이 바뀌면 같은 두 명령을 다시 실행한다. **엑셀 원본은 저장소에 올리지 않는다** (로컬 `docs/`에만 둔다). 저장소에는 변환한 JSON만 커밋하므로 엑셀 없이도 적재할 수 있다. 기준일이 달라지면 `data_asof`를 고친다.
 
