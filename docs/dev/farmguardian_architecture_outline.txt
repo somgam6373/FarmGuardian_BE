@@ -2,7 +2,7 @@
 상세: farmguardian_architecture.md / farmguardian_judge_rules.md / PRD 수정 제안: farmguardian_prd_feedback.md
 
 [Stack]
- FastAPI(동기) · PostgreSQL+PostGIS(5179) · SQLAlchemy 2 + Alembic · 카카오 로그인 → 자체 JWT
+ FastAPI(동기) · PostgreSQL+PostGIS(5179) · SQLAlchemy 2 + Alembic · 아이디·비밀번호 가입·로그인, X-User-Id 헤더 (시연용, 보안 최소)
  프론트는 별도 담당 (폴리곤 SVG 렌더링도 프론트, 지도 없음)
  지원 작물: 감자 · 배추 · 토마토 (모두 일년생)
 
@@ -10,7 +10,7 @@
  팀원: 팜맵·밭·구역 만들기 + 외부 연동
        integrations(juso·pnu·farmmap·GML 파서·kma) / fields(밭 생성·목록·삭제, 분할 split.py 순수, 구역 생성)
  팀장: 나머지 — judge(rules.py는 순수, DB·HTTP 없음) / records / auth / ingest(PSIS·NCPMS·매개충 시드)
-       / pests / zones(상세·속성 수정) / core(설정·DB·JWT·에러·today_kst) / seed_demo
+       / pests / zones(상세·속성 수정) / core(설정·DB·에러·today_kst) / seed_demo
 
 [Tabs]  프론트 탭 4개 (첫 사용은 온보딩을 마쳐야 탭 사용)
  홈 = 내 밭·구역 상태 / 병해충 = 구역 → 병해충 → 약제 → 판정 → 기록
@@ -18,12 +18,14 @@
 
 [Onboarding = Setup]  GET /me {onboarded} false면 아래 1~5, 끝나면 POST /me/onboarding
                      (구역 없음·「누락 없음」 안 된 구역 → 422 ONBOARDING_INCOMPLETE, 멱등)
- 1. 로그인          POST /auth/kakao → JWT
+ 1. 가입·로그인      POST /auth/signup {username, password, field_name, parcel_farmmap_ids[]} → id, 첫 밭 (2·3을 먼저 마친 뒤)
+                    POST /auth/login {username, password} → id. 이후 요청은 X-User-Id 헤더 (401: 없음·없는 사용자)
+                    · 아이디 중복 409 USERNAME_TAKEN, 필지 조회 실패 시 사용자도 안 만든다 (502)
  2. 주소 검색        GET /addresses/search (juso → PNU)
                     GET /parcels?pnu → 그 지번과 겹치는 팜맵 필지 전체 (이웃 지번 필지 포함)
                     · 필지마다 지번·논/밭/과수/시설·촬영년도, 조회 지번과 같은지(matches_query),
                       이미 다른 밭이 쓰는지(used_by_field_id)
- 3. 밭 만들기        POST /fields {name, 필지 id[]}
+ 3. 밭 만들기        (첫 밭은 가입이 만든다. 추가 밭은) POST /fields {name, 필지 id[]}
                     · 필지 도형 병렬 조회(동시 8개 이하), 등록 시 1회 → field_parcel.geom
                     · 밭 도형 = 필지 합집합 (떨어진 필지도 한 밭 가능)
                     · 필지는 사용자당 한 밭에만 (중복 시 409 PARCEL_ALREADY_USED)
@@ -78,9 +80,9 @@
  3. 밭 삭제          DELETE /fields/{id} → 구역·기록·판정 CASCADE (잘못 고른 필지, 다시 나누기)
 
 [Profile]
- 1. 로그아웃         프론트가 토큰만 지움
- 2. 회원 탈퇴        DELETE /me → users CASCADE(밭·구역·기록·판정) 커밋 후 카카오 연결 끊기(어드민 키)
-                    · 연결 끊기 실패해도 204 + 로그, 탈퇴 뒤 남은 JWT는 401
+ 1. 로그아웃         프론트가 저장한 id만 지움
+ 2. 회원 탈퇴        DELETE /me → users CASCADE(밭·구역·기록·판정), 204
+                    · 탈퇴 뒤 남은 X-User-Id는 401
 
 [Data]
  참고(적재): crop · pest · pest_info(작물별 사진·설명·발생시기) · pest_symptom · pest_vector(매개충)
@@ -96,7 +98,7 @@
  매개충 CSV(줄마다 출처) → pest_vector
 
 [Demo]
- python -m app.seed_demo → 데모 계정 + 배추 밭·구역 + 시연 사례 이력, JWT 출력
+ python -m app.seed_demo → 데모 계정 + 배추 밭·구역 + 시연 사례 이력, 데모 계정 id 출력
 
 [External]
  팜맵: 공공데이터포털 serviceKey, HTTP(SSL 없음) → 서버 간 호출만, URL 로그 금지

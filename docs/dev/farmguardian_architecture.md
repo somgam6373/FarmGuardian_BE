@@ -10,7 +10,7 @@
 
 농가가 구역·병해충·약제를 고르면 4체크(①등록 ②시기 ③횟수 ④작용기작)로 사용 가능 여부(가능/주의/불가/확인 필요)를 알려주는 앱의 **백엔드**.
 
-범위 안: 인증(첫 사용 온보딩 상태, 회원 탈퇴 포함), 밭(팜맵 필지)과 구역(밭 도형을 개수·방향·비율로 분할), 병해충 후보·도감 목록·이름 검색·매개충, 약제 목록, 판정, 살포 기록·조회·취소, 구역 위치의 강수 예보, 외부 데이터 연동·적재, 시연용 데모 데이터.
+범위 안: 인증(아이디·비밀번호 가입·로그인, 첫 사용 온보딩 상태, 회원 탈퇴 포함), 밭(팜맵 필지)과 구역(밭 도형을 개수·방향·비율로 분할), 병해충 후보·도감 목록·이름 검색·매개충, 약제 목록, 판정, 살포 기록·조회·취소, 구역 위치의 강수 예보, 외부 데이터 연동·적재, 시연용 데모 데이터.
 
 범위 밖: 프론트엔드 설계, 배포 상세, 구역 재분할·병합(P1. 지금은 밭을 지우고 다시 만든다), 선 긋기·경계 드래그 분할(P1), 주소 없는 수동 구역, 이력 수정(취소 후 다시 입력), 포장지 OCR·희석 계산·논문 실측값(P1), 날씨 기반 살포 판정, 알림.
 
@@ -20,8 +20,8 @@
 |---|---|
 | DB | PostgreSQL + **PostGIS**. 필지·밭·구역 도형은 `geometry(MultiPolygon, 5179)` |
 | 면적 | `ST_Area(zone.geom)` (SRID 5179가 미터 평면이므로 결과가 ㎡). **팜맵 기준 참고값**이며 지적 면적과 다를 수 있다 |
-| 로그인 | **카카오 소셜 로그인.** 사용자 식별은 카카오 회원번호만 저장 (동의항목 없음) |
-| 세션 | 백엔드가 발급하는 JWT 하나 (HS256). refresh 토큰 없음, 만료는 길게 |
+| 로그인 | **아이디·비밀번호 가입과 로그인.** 가입 때 팜맵 필지를 함께 등록해 첫 밭을 만든다. 카카오 로그인은 쓰지 않는다. 해커톤 시연용이라 보안은 최소로 한다 (2026-10-28) |
+| 세션 | 토큰 없음. 가입·로그인 응답의 `id`를 프론트가 저장해 모든 요청에 `X-User-Id` 헤더로 보낸다. 비밀번호는 `hashlib.scrypt`로 해시해 저장한다 |
 | 프레임워크 | FastAPI, **동기** 엔드포인트 |
 | DB 접근 | SQLAlchemy 2.0 (동기) + GeoAlchemy2 + Alembic |
 | 코드 구조 | **기능별 모듈 + 판정 코어 격리** (§4) |
@@ -40,21 +40,21 @@
 | 팜맵 필지 | 팜맵 조회 Open API(공공데이터포털). 밭의 필지 단위는 **팜맵 필지(`fmapInnb`)** 이지 지번이 아니다. 한 지번이 여러 필지일 수 있고 PNU 조회는 이웃 지번과 겹치는 필지까지 돌려준다. 법적 효력 없는 참고 자료 |
 | 날씨 | 기상청 단기예보. 구역 중심점의 격자 좌표로 **요청 시 조회, 저장·캐시 없음.** 판정과 별도 엔드포인트라 날씨가 실패해도 판정은 동작한다 |
 | 살포 기록 | 클라이언트가 보내는 `request_id`로 **재시도를 한 번만 반영.** 같은 구역·상표·날짜 기록이 있으면 409로 묻고 `allow_duplicate`로 별도 저장. 취소 = 삭제 |
-| 화면 구조 | 프론트 탭 4개: **홈**(내 밭·구역 상태), **병해충**(구역 → 병해충 → 약제 → 판정 → 기록), **조회수정**(이력·구역·밭), **프로필**(출처·면책 안내, 로그아웃, 회원 탈퇴). 첫 사용은 카카오 로그인 → 밭 등록·구역 나누기 → 과거 살포 입력·「누락 없음」 확인을 마쳐야 탭을 쓸 수 있다 (2026-10-11) |
+| 화면 구조 | 프론트 탭 4개: **홈**(내 밭·구역 상태), **병해충**(구역 → 병해충 → 약제 → 판정 → 기록), **조회수정**(이력·구역·밭), **프로필**(출처·면책 안내, 로그아웃, 회원 탈퇴). 첫 사용은 가입(필지 등록으로 첫 밭 생성) → 구역 나누기 → 과거 살포 입력·「누락 없음」 확인을 마쳐야 탭을 쓸 수 있다 (2026-10-11) |
 | 온보딩 상태 | `users.onboarded_at`. 프론트가 온보딩 끝에 `POST /me/onboarding`으로 기록한다. 구역의 「누락 없음」은 정식일이 바뀌면 풀리므로 온보딩 완료 여부로 쓰지 않는다 |
-| 회원 탈퇴 | `DELETE /me`: 사용자와 밭·구역·기록·판정을 모두 지우고 카카오 연결을 끊는다 |
+| 회원 탈퇴 | `DELETE /me`: 사용자와 밭·구역·기록·판정을 모두 지운다 |
 
 ## 3. 시스템 구성
 
 ```
-프론트(SPA) ── HTTPS/JSON, Bearer JWT ──▶ FastAPI (app/)
+프론트(SPA) ── HTTPS/JSON, X-User-Id ──▶ FastAPI (app/)
                                             │
      ┌─────────┬─────────┬─────────┬───────┴─┬──────────┬─────────┐
    auth/    fields/    zones/    judge/   records/    pests/
               │
         integrations/
               │
-  도로명주소 · 팜맵 · 기상청 · 카카오 (요청 시 호출)        PostgreSQL + PostGIS
+  도로명주소 · 팜맵 · 기상청 (요청 시 호출)        PostgreSQL + PostGIS
                                                                    ▲
                         PSIS · NCPMS · 매개충 시드 ── ingest (수동 실행) ──┘
 ```
@@ -63,8 +63,8 @@
 
 ```
 app/
-  core/          설정, DB 세션, JWT, 에러 형식, 공통 의존성, today_kst()
-  auth/          카카오 로그인, users                                     (팀장)
+  core/          설정, DB 세션, 에러 형식, 공통 의존성, today_kst()
+  auth/          가입·로그인, users                                       (팀장)
   fields/        밭 생성·목록·삭제, 분할 미리보기, 구역 생성, split.py(순수)    (팀원)
   zones/         구역 상세·속성 수정, 구역 저장·요약 서비스 함수              (팀장)
   integrations/  juso.py, pnu.py, farmmap.py (GML 파서), kma.py (격자 변환·예보)  (팀원)
@@ -94,8 +94,8 @@ openapi.json
 PSIS·팜맵·NCPMS 필드와의 대응을 괄호로 표시한다.
 
 ```
-users(id, provider, provider_uid, onboarded_at NULL, created_at)
-                                                           UNIQUE(provider, provider_uid). onboarded_at = 첫 사용 온보딩 완료 시각
+users(id, username, password_hash, onboarded_at NULL, created_at)
+                                                           UNIQUE(username). onboarded_at = 첫 사용 온보딩 완료 시각
 crop(id, name, ext_code)                                   ext_code = cropCd. UNIQUE(ext_code)
 pest(id, name, kind NULL, ncpms_code NULL)                 name = diseaseWeedName. UNIQUE(name)
 pest_info(pest_id, crop_id, photo_url NULL, description NULL,
@@ -179,17 +179,18 @@ pick_alternatives(selected, others) -> list[JudgeResult]       # 필터만. 이�
 
 ## 7. API
 
-모든 엔드포인트는 JWT가 필요하다 (`/auth/kakao`만 예외). `/fields/{id}/*`, `/zones/{id}/*`는 소유자 검사를 하고 남의 것은 **404**를 돌려준다.
+모든 엔드포인트는 `X-User-Id` 헤더가 필요하다 (`/auth/*`, `GET /addresses/search`, `GET /parcels`만 예외). 헤더가 없거나 없는 사용자이면 401. `/fields/{id}/*`, `/zones/{id}/*`는 소유자 검사를 하고 남의 것은 **404**를 돌려준다.
 
 | 메서드 경로 | 용도 | 요청 → 응답 핵심 | 모듈 |
 |---|---|---|---|
-| `POST /auth/kakao` | 로그인 | `{code, redirect_uri}` → `{access_token}` | auth |
+| `POST /auth/signup` | 가입 + 첫 밭 생성 | `{username, password, field_name, parcel_farmmap_ids[]}` → 201 `{id, username, field: Field}` | auth |
+| `POST /auth/login` | 로그인 | `{username, password}` → `{id, username}` (틀리면 401) | auth |
 | `GET /me` | 내 정보 (온보딩 여부) | → `{id, onboarded}` | auth |
 | `POST /me/onboarding` | 온보딩 완료 기록 | → `{id, onboarded: true}` | auth |
 | `DELETE /me` | 회원 탈퇴 | → 204 | auth |
 | `GET /crops` | 작물 목록 | → `[{id, name}]` | zones |
-| `GET /addresses/search` | 주소 검색 | `?keyword&page` → `[{road_addr, jibun_addr, pnu}]` | integrations |
-| `GET /parcels` | 주소와 겹치는 팜맵 필지 조회 | `?pnu` → `[Parcel]` (선택 화면용 폴리곤, 이웃 지번 필지 포함) | integrations |
+| `GET /addresses/search` | 주소 검색 (인증 없음. 가입 전에 쓴다) | `?keyword&page` → `[{road_addr, jibun_addr, pnu}]` | integrations |
+| `GET /parcels` | 주소와 겹치는 팜맵 필지 조회 (인증 없음. 로그인 전이면 `used_by_field_id`는 null) | `?pnu` → `[Parcel]` (선택 화면용 폴리곤, 이웃 지번 필지 포함) | integrations |
 | `POST /fields` | 밭 생성 | `{name, parcel_farmmap_ids[]}` → `Field` | fields |
 | `GET /fields` | 내 밭 (밭별 구역 요약) | → `[Field]` | fields |
 | `DELETE /fields/{id}` | 밭 삭제 (구역·기록·판정 포함) | → 204 | fields |
@@ -238,8 +239,9 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 ```
 
 동작 규칙:
-- **온보딩:** 프론트는 로그인 직후 `GET /me`의 `onboarded`가 false면 온보딩(밭 등록 → 구역 나누기 → 구역별 과거 살포 입력·「누락 없음」)으로 보낸다. 중간에 나갔다 오면 `GET /fields`(구역 유무, 구역별 `history_confirmed`)로 어디까지 했는지 보고 이어서 한다. 끝나면 `POST /me/onboarding`. 서버는 구역이 1개 이상이고 모든 구역이 「누락 없음」일 때만 기록하고, 아니면 422 `ONBOARDING_INCOMPLETE`. 이미 완료면 그대로 200 (멱등). 온보딩 뒤에 밭을 더 만들 때는 막지 않는다.
-- **회원 탈퇴:** DB 삭제(`users` CASCADE)를 먼저 커밋하고, 카카오 연결 끊기는 그다음 시도한다. 연결 끊기가 실패해도 데이터는 이미 지워졌으므로 204를 돌려주고 로그만 남긴다. 탈퇴 뒤 남은 JWT는 사용자가 없으므로 401.
+- **가입:** 한 트랜잭션에서 사용자를 만들고, 밭 생성(`POST /fields`와 같은 규칙: 필지 1~20개, 도형 병렬 조회, 합집합 저장)까지 한다. 필지 조회가 실패하면 502 `UPSTREAM_ERROR`이고 사용자도 만들어지지 않는다. 아이디 중복은 409 `USERNAME_TAKEN`. 다른 회원이 같은 필지를 써도 막지 않는다 (`PARCEL_ALREADY_USED`는 같은 사용자의 다른 밭이 쓰는 필지에만). 가입 뒤 밭 추가·삭제는 `POST /fields`, `DELETE /fields/{id}`.
+- **온보딩:** 프론트는 로그인 직후 `GET /me`의 `onboarded`가 false면 온보딩(구역 나누기 → 구역별 과거 살포 입력·「누락 없음」)으로 보낸다. 중간에 나갔다 오면 `GET /fields`(구역 유무, 구역별 `history_confirmed`)로 어디까지 했는지 보고 이어서 한다. 끝나면 `POST /me/onboarding`. 서버는 구역이 1개 이상이고 모든 구역이 「누락 없음」일 때만 기록하고, 아니면 422 `ONBOARDING_INCOMPLETE`. 이미 완료면 그대로 200 (멱등). 온보딩 뒤에 밭을 더 만들 때는 막지 않는다.
+- **회원 탈퇴:** DB 삭제(`users` CASCADE) 후 204. 탈퇴 뒤 남은 `X-User-Id`는 사용자가 없으므로 401.
 - **작물 변경 = 새 작기.** `PATCH`에서 `crop_id`가 바뀌면 `planted_at`은 요청 값, 없으면 NULL이 된다. NULL이면 ③은 정식일을 넣을 때까지 확인 필요다.
 - **`planted_at` 값이 바뀌면 `history_confirmed`는 false**가 된다 (같은 요청에서 명시하면 그 값). 기록은 지우지 않는다. 이번 작기에 드는 기록은 프론트가 `sprayed_on >= planted_at`으로 구분해 보여준다 (PRD §4-2-2).
 - **폴리곤 좌표:** 프론트가 y축을 뒤집어 SVG로 그린다.
@@ -289,13 +291,11 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 | PNU 조립 | `integrations/pnu.py` | `assemble_pnu(admCd, lnbrMnnm, lnbrSlno, mtYn)` | **순수 함수**, 스펙 §2 공식 |
 | 팜맵 | `integrations/farmmap.py` | `parcels_by_pnu(pnu)`, `parcel_by_id(id)`, `parse_farmmap_response(xml)`(순수) | 공공데이터포털 `serviceKey`. 아래 상세 |
 | 기상청 | `integrations/kma.py` | `latlon_to_grid(lat, lon)`(순수), `village_forecast(nx, ny, now)`, `parse_forecast(json, now)`(순수) | 공공데이터포털 `serviceKey`. 아래 상세 |
-| 카카오 | `auth/kakao.py` | `exchange_code()`, `fetch_user_id()`, `unlink(user_id)` | 연결 끊기는 어드민 키 |
 | PSIS | `ingest/psis.py` | `python -m app.ingest.psis` | 수동 실행, cron은 나중 |
 | NCPMS | `ingest/ncpms.py` | `python -m app.ingest.ncpms` | 1회 적재로 시작 |
 | 매개충 시드 | `ingest/vectors.py`, `ingest/seed/pest_vector.csv` | `python -m app.ingest.vectors` | 수작업 CSV. 아래 상세 |
 
 - 공통: `httpx` 동기 클라이언트, 타임아웃 5초, 재시도 없음. 실패는 **502 `UPSTREAM_ERROR`** + `details.source`.
-- 카카오 흐름: 프론트가 `code`를 받아 `POST /auth/kakao`로 전달 → 백엔드가 토큰 교환과 `GET /v2/user/me` 호출 → `users` upsert → JWT 발급. 회원 탈퇴 때는 `POST /v1/user/unlink`(어드민 키, `target_id_type=user_id`)로 연결을 끊는다. 카카오 액세스 토큰은 저장하지 않는다. REST API 키·어드민 키는 서버에만 둔다.
 - 테스트: `httpx.MockTransport`로 가짜 응답을 쓴다. **PSIS·팜맵 명세서의 예시 응답을 fixture로 저장**하고, S1 조사에서 받은 실제 응답을 더해 재사용한다.
 
 ### 팜맵 조회 (`integrations/farmmap.py`)
@@ -357,6 +357,7 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
   | code | HTTP |
   |---|---|
   | `UNAUTHORIZED` | 401 |
+  | `USERNAME_TAKEN` | 409 |
   | `NOT_FOUND` | 404 |
   | `VALIDATION_ERROR` | 422 |
   | `ONBOARDING_INCOMPLETE` | 422 |
@@ -365,8 +366,8 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
   | `DUPLICATE_SPRAY` | 409 |
   | `UPSTREAM_ERROR` | 502 |
 
-- **설정:** `pydantic-settings`로 환경변수를 읽는다 (`DATABASE_URL`, `JWT_SECRET`, `KAKAO_*`(REST API 키·어드민 키), `JUSO_CONFM_KEY`, `FARMMAP_API_KEY`, `KMA_API_KEY`, `PSIS_API_KEY`, `NCPMS_API_KEY`, `CORS_ORIGINS`). 누락되면 기동에 실패한다. 토큰과 키는 로그에 남기지 않는다.
-- **인증:** PyJWT. `core`의 `current_user`, `get_owned_field(field_id)`, `get_owned_zone(zone_id)` 의존성이 소유자 검사를 **한 곳에서** 처리한다. 토큰이 유효해도 사용자가 없으면(탈퇴) 401.
+- **설정:** `pydantic-settings`로 환경변수를 읽는다 (`DATABASE_URL`, `JUSO_CONFM_KEY`, `FARMMAP_API_KEY`, `KMA_API_KEY`, `PSIS_API_KEY`, `NCPMS_API_KEY`, `CORS_ORIGINS`). 누락되면 기동에 실패한다. 토큰과 키는 로그에 남기지 않는다.
+- **인증:** `X-User-Id` 헤더. `core`의 `current_user`, `get_owned_field(field_id)`, `get_owned_zone(zone_id)` 의존성이 소유자 검사를 **한 곳에서** 처리한다. 헤더가 없거나 사용자가 없으면(탈퇴) 401. 보안은 최소로 한다 (시연용): 남의 `id`를 알면 접근할 수 있다.
 - **DB:** 요청당 세션 1개. 첫 마이그레이션에서 `CREATE EXTENSION postgis`.
 - **날짜:** "오늘"은 항상 **KST**(`today_kst()`)다. 서버 시간대에 따라 ③ 횟수와 기본 살포일이 하루 어긋나는 것을 막는다.
 - **CORS:** 프론트가 분리되어 있으므로 `CORSMiddleware`를 쓰고 `CORS_ORIGINS`로 허용 도메인을 지정한다.
@@ -377,10 +378,10 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
   - `fields/split.py`: 표 기반 pytest. 직사각형 2등분, 6:4, L자 밭, 기울어진 밭, 구멍 있는 밭, 비율 1개.
   - 연동·PSIS 파서·팜맵 파서·`latlon_to_grid`·예보 파서: §8의 fixture(명세서 예시 응답 포함)와 표 기반 pytest.
   - PSIS 적재 (테스트 DB): 같은 fixture 두 번 적재 = 변화 없음, 두 번째 응답에서 뺀 행은 삭제되고 `pesticide`는 남음, 0건·절반 미만·중간 오류 응답은 롤백되어 기존 행 유지, `--allow-shrink`면 삭제.
-  - API: `TestClient` + **실제 PostGIS 테스트 DB** (`ST_*` 때문에 SQLite 불가). 테스트마다 트랜잭션 롤백. 밭 생성 409, 분할 결정성(미리보기 = 생성 결과), `FIELD_ALREADY_SPLIT`, 밭 삭제 CASCADE, 기록 재시도(같은 `request_id`)·중복 409, `planted_at` 변경 시 `history_confirmed` 초기화, 온보딩 완료 422·멱등, 회원 탈퇴 CASCADE·탈퇴 후 401(카카오 연결 끊기 실패여도 204)을 여기서 다룬다.
+  - API: `TestClient` + **실제 PostGIS 테스트 DB** (`ST_*` 때문에 SQLite 불가). 테스트마다 트랜잭션 롤백. 밭 생성 409, 분할 결정성(미리보기 = 생성 결과), `FIELD_ALREADY_SPLIT`, 밭 삭제 CASCADE, 기록 재시도(같은 `request_id`)·중복 409, `planted_at` 변경 시 `history_confirmed` 초기화, 온보딩 완료 422·멱등, 회원 탈퇴 CASCADE·탈퇴 후 401, 가입(중복 아이디 409, 필지 조회 실패 시 사용자 미생성), 로그인 실패 401을 여기서 다룬다.
   - 문구 검사: `message`·`notices` 템플릿에 금지어(`추천 예측 예상 가능성 위험 확률 안전 문제없`)가 없는지 스캔.
   - S3에 e2e 스모크 1개 (데모 시드 기준).
-- **데모 데이터:** `python -m app.seed_demo`가 데모 계정(`provider = 'demo'`)과 배추 밭·구역, 시연 사례별 이력을 넣고 그 계정의 JWT를 출력한다. 실제 농가 기록과 계정으로 구분된다. 사례: 통과, 같은 계통 반복(④ 주의), 횟수 소진(③ 불가), 누락 확인 전(③④ 확인 필요), 병해충 미선택. 약제와 이력은 PSIS 적재 후 배추·배추좀나방 실제 행으로 확정한다 (PRD §4.3).
+- **데모 데이터:** `python -m app.seed_demo`가 데모 계정(아이디 `demo`)과 배추 밭·구역, 시연 사례별 이력을 넣고 그 계정의 `id`를 출력한다. 실제 농가 기록과 계정으로 구분된다. 사례: 통과, 같은 계통 반복(④ 주의), 횟수 소진(③ 불가), 누락 확인 전(③④ 확인 필요), 병해충 미선택. 약제와 이력은 PSIS 적재 후 배추·배추좀나방 실제 행으로 확정한다 (PRD §4.3).
 
 ## 10. 미결 사항
 
@@ -396,7 +397,7 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 3. **다작용점 약제의 ④ 제외 여부.** 농학 전문가 확인.
 4. **면책 문구.** 제품·법무 확인.
 5. **별표 8 매핑표** (한글 작용기작 기호 → FRAC·IRAC) 담당과 전달 시점.
-6. **프론트와 합의:** 「상태 요약」의 의미 (`last_spray` + `last_judgment`로 가정, 오래된 판정이 현재 상태처럼 보이는 위험), 편중도 화면(작기 비율), 대안·약제 목록 묶음 방식, 카카오 Redirect URI, 필지 선택 화면 (`matches_query`·`used_by_field_id` 표시), **분할 방향 표현**(긴 변 기준 `crosswise`/`lengthwise`), 정식일 라벨(감자는 옮겨심지 않으므로 「심은 날」 검토), 매개충 안내 고정 문구, 날씨 표시와 실패 상태, 밭 삭제 확인, 기록 중복 409 화면.
+6. **프론트와 합의:** 「상태 요약」의 의미 (`last_spray` + `last_judgment`로 가정, 오래된 판정이 현재 상태처럼 보이는 위험), 편중도 화면(작기 비율), 대안·약제 목록 묶음 방식, 필지 선택 화면 (`matches_query`·`used_by_field_id` 표시), **분할 방향 표현**(긴 변 기준 `crosswise`/`lengthwise`), 정식일 라벨(감자는 옮겨심지 않으므로 「심은 날」 검토), 매개충 안내 고정 문구, 날씨 표시와 실패 상태, 밭 삭제 확인, 기록 중복 409 화면.
 7. **외부 확인:** 도로명주소·팜맵·기상청·PSIS·NCPMS 키. 팜맵 최신성은 명세서 예시의 영상촬영년도가 2016이라 실제 응답의 `vdptYr`로 확인한다. 공공데이터포털 팜맵·기상청 키의 일일 호출 한도.
 8. **NCPMS 병해충과 PSIS 병해충명 매칭** (도감 사진·증상 부위 연결). 이름 표기가 달라 매칭 규칙이 필요하다. 이름 검색이 있어서 매칭 실패가 치명적이지는 않다.
 9. **서버 고정 출력 IP.** 팜맵 오류코드 32(등록되지 않은 IP)가 있다. 필요하면 배포 환경에서 고정 IP를 마련해 키 신청 때 등록한다.
@@ -408,7 +409,7 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 
 - git 저장소와 원격(`origin`)은 준비됐다 (2026-10-05).
 - `docker-compose`로 `postgis/postgis` 개발 DB (팀원 S1 첫 작업).
-- 1일차 신청: 도로명주소 API 승인키, **팜맵 조회 API**(공공데이터포털 활용신청, 서버 고정 IP 등록이 필요한지 확인), **기상청 단기예보 조회서비스**(공공데이터포털 활용신청), 카카오 개발자 앱 등록, **PSIS·NCPMS API 키** (PSIS는 `psis.rda.go.kr`에서 발급. 샘플 조사에 필요하며 발급 대기시간이 있다).
+- 1일차 신청: 도로명주소 API 승인키, **팜맵 조회 API**(공공데이터포털 활용신청, 서버 고정 IP 등록이 필요한지 확인), **기상청 단기예보 조회서비스**(공공데이터포털 활용신청), **PSIS·NCPMS API 키** (PSIS는 `psis.rda.go.kr`에서 발급. 샘플 조사에 필요하며 발급 대기시간이 있다).
 
 ## 12. 다른 문서에 반영된 변경점
 
@@ -425,3 +426,7 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 - 이 문서 §8: PSIS 적재에 등록 취소 반영(응답에서 빠진 `registration` 행 삭제, 급감·0건·오류 시 롤백) 추가.
 - `farmguardian_team_plan.md`: 스프린트 3개(2주 가정)로 재작성, 담당 이름(준혁·혜빈님·DB) 반영, 작업 배정은 백로그 엑셀 기준. 이 문서 §9의 e2e 시점을 S3로.
 - 화면 구조(탭 4개: 홈·병해충·조회수정·프로필)와 첫 사용 온보딩, 회원 탈퇴 반영: 이 문서 §2·§5(`users.onboarded_at`, users CASCADE)·§7(`GET /me`, `POST /me/onboarding`, `DELETE /me`, `ZoneSummary.history_confirmed`, `ONBOARDING_INCOMPLETE`)·§8(카카오 연결 끊기), flow_spec §1, team_plan §3·§4, outline, prd_feedback, 백로그 엑셀.
+
+2026-10-28 (해커톤 시연용 인증 단순화):
+- 카카오 로그인·JWT를 빼고 아이디·비밀번호 가입·로그인으로 바꿨다. 가입 때 필지를 등록해 첫 밭을 만든다. 사용자는 `X-User-Id` 헤더로 식별한다. 이 문서 §2·§3·§4·§5(`users`)·§7(`/auth/signup`, `/auth/login`, `USERNAME_TAKEN`, 가입 규칙)·§8(카카오 삭제)·§9(설정·인증·테스트·데모 시드)·§11을 고쳤다.
+- 같이 고친 문서: `farmguardian_flow_spec.md`(온보딩 1단계·프로필), `farmguardian_team_plan.md`(스택·담당·키 신청·스프린트·협업 규칙), `farmguardian_architecture_outline.txt`, `farmguardian_prd_feedback.md`(#1·#9·#10), 백로그 엑셀 BE(BE-02·15·17·19)·FE(FE-06).
