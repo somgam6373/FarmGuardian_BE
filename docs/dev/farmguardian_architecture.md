@@ -24,7 +24,7 @@
 | 세션 | 토큰 없음. 가입·로그인 응답의 `id`를 프론트가 저장해 모든 요청에 `X-User-Id` 헤더로 보낸다. 비밀번호는 `hashlib.scrypt`로 해시해 저장한다 |
 | 프레임워크 | FastAPI, **동기** 엔드포인트 |
 | DB 접근 | SQLAlchemy 2.0 (동기) + GeoAlchemy2 + Alembic |
-| 코드 구조 | **기능별 모듈 + 판정 코어 격리** (§4) |
+| 코드 구조 | **DDD: 바운디드 컨텍스트 5개(identity·farm·catalog·judgment·spraying) × 4층(domain·application·infrastructure·presentation)** (§4) |
 | 판정 모델 | Pydantic 모델 하나를 `judge()` 입출력과 API 응답에 공통 사용 |
 | 상태 코드 | `OK / CAUTION / BLOCKED / NEEDS_CHECK` (가능 / 주의 / 불가 / 확인 필요). PRD 표기(GREEN·AMBER·RED·UNKNOWN)는 쓰지 않는다. 색이 아니라 의미 이름이라 화면 색이 바뀌어도 계약이 그대로다 |
 | 지도 | 사용 안 함. 폴리곤 좌표를 내려주고 프론트가 SVG로 렌더링. 분할 미리보기도 같은 방식 |
@@ -49,45 +49,63 @@
 ```
 프론트(SPA) ── HTTPS/JSON, X-User-Id ──▶ FastAPI (app/)
                                             │
-     ┌─────────┬─────────┬─────────┬───────┴─┬──────────┬─────────┐
-   auth/    fields/    zones/    judge/   records/    pests/
-              │
-        integrations/
-              │
+     ┌──────────┬──────────┬──────────┬──────┴─────┬──────────┐
+  identity/    farm/     catalog/   judgment/   spraying/
+                 │           ▲
+    farm/infrastructure/     │
+        integrations         │
+                 │           │
   도로명주소 · 팜맵 · 기상청 (요청 시 호출)        PostgreSQL + PostGIS
                                                                    ▲
-                        PSIS · NCPMS · 매개충 시드 ── ingest (수동 실행) ──┘
+              PSIS · NCPMS · 매개충 시드 ── catalog ingest (수동 실행) ──┘
 ```
 
 ## 4. 코드 구조
 
+DDD로 나눈다. **바운디드 컨텍스트 5개**를 최상위 폴더로 두고, 각 컨텍스트 안을 `domain / application / infrastructure / presentation` 4층으로 나눈다.
+
 ```
 app/
-  core/          설정, DB 세션, 에러 형식, 공통 의존성, today_kst()
-  auth/          가입·로그인, users                                       (팀장)
-  fields/        밭 생성·목록·삭제, 분할 미리보기, 구역 생성, split.py(순수)    (팀원)
-  zones/         구역 상세·속성 수정, 구역 저장·요약 서비스 함수              (팀장)
-  integrations/  juso.py, pnu.py, farmmap.py (GML 파서), kma.py (격자 변환·예보)  (팀원)
-  ingest/        PSIS·NCPMS 적재, PSIS 문자열 파서, 매개충 시드 적재          (팀장)
-  pests/         증상 부위, 병해충 후보·도감 목록·이름 검색                  (팀장)
-  judge/         schemas.py, rules.py(순수), service.py, router.py        (팀장)
-  records/       spray_log 기록·조회·취소                                 (팀장)
-  seed_demo.py   시연용 데모 계정·밭·구역·이력                             (팀장)
-migrations/
+  core/                       설정, DB 세션, 에러 형식, 공통 의존성, today_kst()
+  identity/                   사용자 가입·로그인, users                              (팀장)
+  farm/                       밭(field)·구역(zone) 애그리거트                          (밭·분할·연동 = 팀원, 구역 = 팀장)
+    domain/                   밭·구역 엔티티, split.py(분할 위치 계산, 순수)
+    application/              field_service.py (팀원), zone_service.py (팀장)
+    infrastructure/           models.py, 리포지토리
+      integrations/           juso.py, pnu.py, farmmap.py (GML 파서), kma.py (격자 변환·예보)
+    presentation/             router.py, schemas.py
+  catalog/                    참고 데이터: 작물·병해충·약제·등록·작용기작               (팀장)
+    domain/                   pest, pesticide, registration, moa, PSIS 문자열 파서(순수)
+    application/              병해충 후보·도감 목록·이름 검색, 약제 목록
+    infrastructure/           models.py
+      ingest/                 psis.py, ncpms.py, vectors.py, seed/pest_vector.csv
+    presentation/             router.py, schemas.py
+  judgment/                   4체크 판정                                               (팀장)
+    domain/                   schemas.py, rules.py (순수)
+    application/              service.py (판정 실행·저장, rotation_summary)
+    presentation/             router.py
+  spraying/                   살포 기록(spray_log) 기록·조회·취소                      (팀장)
+    domain/ application/ infrastructure/ presentation/
+  seed_demo.py                시연용 데모 계정·밭·구역·이력                             (팀장)
 tests/
 openapi.json
 ```
 
-기능 폴더마다 `router.py / service.py / models.py / schemas.py`를 둔다.
+층별 규칙:
+- `domain`: 엔티티·값 객체·순수 규칙. DB·HTTP·FastAPI를 임포트하지 않는다. `judgment/domain/schemas.py`, `judgment/domain/rules.py`, `farm/domain/split.py`가 이 규칙의 핵심이다.
+- `application`: 유스케이스(서비스 함수). `domain`과 같은 컨텍스트의 `infrastructure`를 쓴다. 트랜잭션 경계는 여기다.
+- `infrastructure`: SQLAlchemy 모델·리포지토리, 외부 API 클라이언트, 적재 스크립트.
+- `presentation`: FastAPI 라우터와 요청·응답 스키마. `application`만 호출한다.
+- 의존 방향은 `presentation → application → domain`, `application → infrastructure`다. `domain`은 아무것도 가리키지 않는다.
 
-규칙:
-- `judge/schemas.py`, `judge/rules.py`, `fields/split.py`는 DB·HTTP를 임포트하지 않는다 (순수).
-- 다른 기능 모듈은 `service`만 임포트한다. 남의 `models`를 직접 쓰지 않는다. 경계를 넘는 호출:
-  - 구역 상세의 편중도: `judge.service.rotation_summary`
-  - 구역 생성: `fields.service`가 `zones.service.create_many(field_id, user_id, parts)`를 호출 (zone 행은 `zones` 소유)
-  - 밭 목록의 구역 요약: `zones.service.summaries(field_ids)`
-  - 날씨: `integrations`가 `zones.service.centroid_wgs84(zone_id)`로 위치를 받는다
-- 폴더가 담당자 경계다. 경계를 넘는 수정은 상대 리뷰를 받는다. 위의 `zones.service` 함수 세 개는 팀장이 제공한다.
+컨텍스트 사이 규칙:
+- 다른 컨텍스트는 상대의 **`application` 서비스 함수만** 임포트한다. 남의 `domain` 엔티티나 `infrastructure` 모델을 직접 쓰지 않는다. 경계를 넘는 호출:
+  - 구역 상세의 편중도: `farm`이 `judgment.application.service.rotation_summary`를 호출
+  - 가입: `identity`가 `farm.application.field_service`로 첫 밭을 만든다
+  - 판정 입력: `judgment`가 `farm`(구역·정식일), `catalog`(약제·등록), `spraying`(이력)의 `application` 서비스로 값을 받아 `rules.py`에 넘긴다. `judgment`에는 `infrastructure`가 없다
+  - 날씨: `farm.infrastructure.integrations.kma`가 같은 컨텍스트의 `zone_service.centroid_wgs84(zone_id)`로 위치를 받는다
+- `farm` 안에서 밭(팀원)과 구역(팀장)은 서비스 파일로 담당을 나눈다. 구역 생성은 `field_service`가 `zone_service.create_many(field_id, user_id, parts)`를 호출하고, 밭 목록의 구역 요약은 `zone_service.summaries(field_ids)`다. 이 함수 세 개(`create_many`, `summaries`, `centroid_wgs84`)는 팀장이 제공한다.
+- 폴더가 담당자 경계다. 경계를 넘는 수정은 상대 리뷰를 받는다.
 
 ## 5. DB 스키마
 
@@ -181,32 +199,32 @@ pick_alternatives(selected, others) -> list[JudgeResult]       # 필터만. 이�
 
 모든 엔드포인트는 `X-User-Id` 헤더가 필요하다 (`/auth/*`, `GET /addresses/search`, `GET /parcels`만 예외). 헤더가 없거나 없는 사용자이면 401. `/fields/{id}/*`, `/zones/{id}/*`는 소유자 검사를 하고 남의 것은 **404**를 돌려준다.
 
-| 메서드 경로 | 용도 | 요청 → 응답 핵심 | 모듈 |
+| 메서드 경로 | 용도 | 요청 → 응답 핵심 | 컨텍스트 |
 |---|---|---|---|
-| `POST /auth/signup` | 가입 + 첫 밭 생성 | `{username, password, field_name, parcel_farmmap_ids[]}` → 201 `{id, username, field: Field}` | auth |
-| `POST /auth/login` | 로그인 | `{username, password}` → `{id, username}` (틀리면 401) | auth |
-| `GET /me` | 내 정보 (온보딩 여부) | → `{id, onboarded}` | auth |
-| `POST /me/onboarding` | 온보딩 완료 기록 | → `{id, onboarded: true}` | auth |
-| `DELETE /me` | 회원 탈퇴 | → 204 | auth |
-| `GET /crops` | 작물 목록 | → `[{id, name}]` | zones |
-| `GET /addresses/search` | 주소 검색 (인증 없음. 가입 전에 쓴다) | `?keyword&page` → `[{road_addr, jibun_addr, pnu}]` | integrations |
-| `GET /parcels` | 주소와 겹치는 팜맵 필지 조회 (인증 없음. 로그인 전이면 `used_by_field_id`는 null) | `?pnu` → `[Parcel]` (선택 화면용 폴리곤, 이웃 지번 필지 포함) | integrations |
-| `POST /fields` | 밭 생성 | `{name, parcel_farmmap_ids[]}` → `Field` | fields |
-| `GET /fields` | 내 밭 (밭별 구역 요약) | → `[Field]` | fields |
-| `DELETE /fields/{id}` | 밭 삭제 (구역·기록·판정 포함) | → 204 | fields |
-| `POST /fields/{id}/split-preview` | 분할 미리보기 (저장 안 함) | `{direction, ratios}` → `[SplitPiece]` | fields |
-| `POST /fields/{id}/zones` | 구역 생성 | `{direction, ratios, zones: [ZoneSpec]}` → `[Zone]` | fields |
-| `GET /zones/{id}` | 구역 상세 | → `Zone` + `rotation` + `recent_judgments` | zones |
-| `PATCH /zones/{id}` | 구역 수정 | `{name?, crop_id?, planted_at?, history_confirmed?}` → `Zone` | zones |
-| `GET /zones/{id}/weather` | 구역 위치 강수 예보 | → `Weather` | integrations |
-| `GET /crops/{id}/symptom-parts` | 증상 부위 목록 | → `[part]` | pests |
-| `GET /pests/candidates` | 증상 부위로 병해충 후보 | `?crop_id&part` → `[PestCard]` | pests |
-| `GET /pests` | 도감 목록·이름 검색 | `?crop_id&q?` → `[PestCard]` | pests |
-| `GET /pesticides` | 등록 약제 목록 | `?crop_id&pest_id?` → `[{id, name, item_name, moa}]` | judge |
-| `POST /zones/{id}/judgments` | 판정 | `{pesticide_id, pest_id?}` → `JudgeResponse` (저장함) | judge |
-| `POST /zones/{id}/sprays` | 기록 (「살포 기록 저장」, 과거 이력) | `{pesticide_id, sprayed_on?, source, request_id, allow_duplicate?}` → `Spray` | records |
-| `GET /zones/{id}/sprays` | 이력 | `?limit&offset` → `[Spray]` | records |
-| `DELETE /zones/{id}/sprays/{sid}` | 기록 취소 | - | records |
+| `POST /auth/signup` | 가입 + 첫 밭 생성 | `{username, password, field_name, parcel_farmmap_ids[]}` → 201 `{id, username, field: Field}` | identity |
+| `POST /auth/login` | 로그인 | `{username, password}` → `{id, username}` (틀리면 401) | identity |
+| `GET /me` | 내 정보 (온보딩 여부) | → `{id, onboarded}` | identity |
+| `POST /me/onboarding` | 온보딩 완료 기록 | → `{id, onboarded: true}` | identity |
+| `DELETE /me` | 회원 탈퇴 | → 204 | identity |
+| `GET /crops` | 작물 목록 | → `[{id, name}]` | catalog |
+| `GET /addresses/search` | 주소 검색 (인증 없음. 가입 전에 쓴다) | `?keyword&page` → `[{road_addr, jibun_addr, pnu}]` | farm |
+| `GET /parcels` | 주소와 겹치는 팜맵 필지 조회 (인증 없음. 로그인 전이면 `used_by_field_id`는 null) | `?pnu` → `[Parcel]` (선택 화면용 폴리곤, 이웃 지번 필지 포함) | farm |
+| `POST /fields` | 밭 생성 | `{name, parcel_farmmap_ids[]}` → `Field` | farm |
+| `GET /fields` | 내 밭 (밭별 구역 요약) | → `[Field]` | farm |
+| `DELETE /fields/{id}` | 밭 삭제 (구역·기록·판정 포함) | → 204 | farm |
+| `POST /fields/{id}/split-preview` | 분할 미리보기 (저장 안 함) | `{direction, ratios}` → `[SplitPiece]` | farm |
+| `POST /fields/{id}/zones` | 구역 생성 | `{direction, ratios, zones: [ZoneSpec]}` → `[Zone]` | farm |
+| `GET /zones/{id}` | 구역 상세 | → `Zone` + `rotation` + `recent_judgments` | farm |
+| `PATCH /zones/{id}` | 구역 수정 | `{name?, crop_id?, planted_at?, history_confirmed?}` → `Zone` | farm |
+| `GET /zones/{id}/weather` | 구역 위치 강수 예보 | → `Weather` | farm |
+| `GET /crops/{id}/symptom-parts` | 증상 부위 목록 | → `[part]` | catalog |
+| `GET /pests/candidates` | 증상 부위로 병해충 후보 | `?crop_id&part` → `[PestCard]` | catalog |
+| `GET /pests` | 도감 목록·이름 검색 | `?crop_id&q?` → `[PestCard]` | catalog |
+| `GET /pesticides` | 등록 약제 목록 | `?crop_id&pest_id?` → `[{id, name, item_name, moa}]` | catalog |
+| `POST /zones/{id}/judgments` | 판정 | `{pesticide_id, pest_id?}` → `JudgeResponse` (저장함) | judgment |
+| `POST /zones/{id}/sprays` | 기록 (「살포 기록 저장」, 과거 이력) | `{pesticide_id, sprayed_on?, source, request_id, allow_duplicate?}` → `Spray` | spraying |
+| `GET /zones/{id}/sprays` | 이력 | `?limit&offset` → `[Spray]` | spraying |
+| `DELETE /zones/{id}/sprays/{sid}` | 기록 취소 | - | spraying |
 
 공통 응답 모양:
 
@@ -273,7 +291,7 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
   - `crosswise`: 자르는 선이 짧은 변과 나란하다 → 긴 변을 따라 토막이 난다.
   - `lengthwise`: 자르는 선이 긴 변과 나란하다 → 긴 띠가 나란히 생긴다.
 - `ratios`: 양의 정수 1~10개. 균등 분할 = `[1, 1, 1]`. 1개면 밭 전체가 구역 하나다.
-- 계산: 밭 도형을 긴 변이 x축이 되게 회전한다 → 자르는 위치를 이분 탐색해 누적 면적이 비율과 맞게 찾는다 (허용 오차 전체 면적의 0.1%) → 각 띠를 `ST_Intersection`으로 잘라 원래 각도로 되돌린다. 위치 찾기는 순수 함수 `fields/split.py: cut_positions(rings, ratios) -> list[float]` (반평면 클리핑 + 신발끈 공식, 의존성 추가 없음), 도형 생성은 PostGIS다.
+- 계산: 밭 도형을 긴 변이 x축이 되게 회전한다 → 자르는 위치를 이분 탐색해 누적 면적이 비율과 맞게 찾는다 (허용 오차 전체 면적의 0.1%) → 각 띠를 `ST_Intersection`으로 잘라 원래 각도로 되돌린다. 위치 찾기는 순수 함수 `farm/domain/split.py: cut_positions(rings, ratios) -> list[float]` (반평면 클리핑 + 신발끈 공식, 의존성 추가 없음), 도형 생성은 PostGIS다.
 - 오목한 밭은 띠 하나가 조각 여러 개(MultiPolygon)일 수 있다. 그대로 한 구역이다.
 - 같은 입력이면 같은 결과다 (결정적). 생성 요청에서 서버가 다시 계산한다.
 - `zones` 길이는 `ratios` 길이와 같아야 한다 (아니면 422). `name`·`crop_id` 필수, `planted_at` 선택.
@@ -287,18 +305,18 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 
 | 연동 | 파일 | 함수 | 비고 |
 |---|---|---|---|
-| 도로명주소 | `integrations/juso.py` | `search(keyword, page)` | 승인키는 서버 전용 |
-| PNU 조립 | `integrations/pnu.py` | `assemble_pnu(admCd, lnbrMnnm, lnbrSlno, mtYn)` | **순수 함수**, 스펙 §2 공식 |
-| 팜맵 | `integrations/farmmap.py` | `parcels_by_pnu(pnu)`, `parcel_by_id(id)`, `parse_farmmap_response(xml)`(순수) | 공공데이터포털 `serviceKey`. 아래 상세 |
-| 기상청 | `integrations/kma.py` | `latlon_to_grid(lat, lon)`(순수), `village_forecast(nx, ny, now)`, `parse_forecast(json, now)`(순수) | 공공데이터포털 `serviceKey`. 아래 상세 |
-| PSIS | `ingest/psis.py` | `python -m app.ingest.psis` | 수동 실행, cron은 나중 |
-| NCPMS | `ingest/ncpms.py` | `python -m app.ingest.ncpms` | 1회 적재로 시작 |
-| 매개충 시드 | `ingest/vectors.py`, `ingest/seed/pest_vector.csv` | `python -m app.ingest.vectors` | 수작업 CSV. 아래 상세 |
+| 도로명주소 | `farm/infrastructure/integrations/juso.py` | `search(keyword, page)` | 승인키는 서버 전용 |
+| PNU 조립 | `farm/infrastructure/integrations/pnu.py` | `assemble_pnu(admCd, lnbrMnnm, lnbrSlno, mtYn)` | **순수 함수**, 스펙 §2 공식 |
+| 팜맵 | `farm/infrastructure/integrations/farmmap.py` | `parcels_by_pnu(pnu)`, `parcel_by_id(id)`, `parse_farmmap_response(xml)`(순수) | 공공데이터포털 `serviceKey`. 아래 상세 |
+| 기상청 | `farm/infrastructure/integrations/kma.py` | `latlon_to_grid(lat, lon)`(순수), `village_forecast(nx, ny, now)`, `parse_forecast(json, now)`(순수) | 공공데이터포털 `serviceKey`. 아래 상세 |
+| PSIS | `catalog/infrastructure/ingest/psis.py` | `python -m app.catalog.infrastructure.ingest.psis` | 수동 실행, cron은 나중 |
+| NCPMS | `catalog/infrastructure/ingest/ncpms.py` | `python -m app.catalog.infrastructure.ingest.ncpms` | 1회 적재로 시작 |
+| 매개충 시드 | `catalog/infrastructure/ingest/vectors.py`, `catalog/infrastructure/ingest/seed/pest_vector.csv` | `python -m app.catalog.infrastructure.ingest.vectors` | 수작업 CSV. 아래 상세 |
 
 - 공통: `httpx` 동기 클라이언트, 타임아웃 5초, 재시도 없음. 실패는 **502 `UPSTREAM_ERROR`** + `details.source`.
 - 테스트: `httpx.MockTransport`로 가짜 응답을 쓴다. **PSIS·팜맵 명세서의 예시 응답을 fixture로 저장**하고, S1 조사에서 받은 실제 응답을 더해 재사용한다.
 
-### 팜맵 조회 (`integrations/farmmap.py`)
+### 팜맵 조회 (`farm/infrastructure/integrations/farmmap.py`)
 
 명세서(`getFarmmapService`, 갱신주기 연 1회) 기준:
 - 호출: `GET http://apis.data.go.kr/B552895/getFarmmapService/{기능}?serviceKey=…&type=xml&…`. 키는 공공데이터포털에서 활용신청해 발급받고 URL 인코딩해서 보낸다.
@@ -311,7 +329,7 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 - **팜맵은 지적도가 아니며 법적 효력이 없다** (명세서 §2). 면적과 경계는 참고값이므로 화면에 그렇게 표시해야 한다 (§10).
 - 응답은 평균 600ms, 초당 50건 제한이다. 필지 조회는 병렬로 하되 동시에 8개 이하로 제한한다.
 
-### 기상청 단기예보 (`integrations/kma.py`)
+### 기상청 단기예보 (`farm/infrastructure/integrations/kma.py`)
 
 - 호출: 공공데이터포털 기상청 단기예보 조회서비스 `VilageFcstInfoService_2.0/getVilageFcst` (`serviceKey`, `dataType=JSON`, `base_date`, `base_time`, `nx`, `ny`, `numOfRows`). 키는 팜맵과 같은 공공데이터포털에서 활용신청한다.
 - 발표 시각은 02·05·08·11·14·17·20·23시(KST)이고 발표 약 10분 뒤부터 조회된다. `now(KST) − 10분` 이전의 가장 최근 발표 시각을 `base`로 쓰고 `issued_at`으로 내려준다.
@@ -321,7 +339,7 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 - 저장·캐시 없음. 호출 한도가 문제 되면 (`nx`, `ny`, `base`) 키로 메모리 캐시를 붙인다 (`# ponytail:` 표시).
 - "강수확률"은 기상청 용어다. 판정 문구의 금지어 검사(`확률`)는 판정 문구에만 적용한다.
 
-### PSIS 적재 (`ingest/psis.py`)
+### PSIS 적재 (`catalog/infrastructure/ingest/psis.py`)
 
 매뉴얼(ver 1.0) 기준:
 - 호출: `GET https://psis.rda.go.kr/openApi/service.do?apiKey=…&serviceCode=SVC01&serviceType=AA001&startPoint={페이지}&displayCount={≤99}&cropName=…&cropCheck=Y`. 인증 파라미터는 `apiKey`다 (매뉴얼 본문의 `serviceKey` 표기와 다름. 예시 URL을 따른다).
@@ -342,12 +360,12 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 - 파서가 `None`을 돌려줘도 원문은 `*_raw` 컬럼에 항상 저장한다.
 - 파싱 실패율은 S1 샘플 조사에서 측정한다 (judge_rules §10-3, §10-6).
 
-### NCPMS 적재 (`ingest/ncpms.py`)
+### NCPMS 적재 (`catalog/infrastructure/ingest/ncpms.py`)
 - 1회 적재로 시작. 지원 작물의 병해충 도감에서 PSIS 병해충명과 매칭되는 것에 `ncpms_code`, `pest_info`(사진, 설명, 발생시기, `source = "NCPMS 병해충 도감"`, `loaded_at`), `pest_symptom`(증상 부위)을 채운다.
 - 설명·발생시기·증상 부위가 실제 응답에 어떤 필드로 있는지 **S1 샘플 조사에서 확인**한다. 없으면 NULL이고 화면에 「없음」.
 
-### 매개충 시드 (`ingest/vectors.py`)
-- `ingest/seed/pest_vector.csv` (`crop, virus_name, vector_name, source`). 지원 작물 3종의 바이러스와 매개충을 원자료(NCPMS 도감 본문, 농사로 등)에서 손으로 옮기고 **출처를 줄마다 적는다.** 출처 없는 줄은 넣지 않는다.
+### 매개충 시드 (`catalog/infrastructure/ingest/vectors.py`)
+- `catalog/infrastructure/ingest/seed/pest_vector.csv` (`crop, virus_name, vector_name, source`). 지원 작물 3종의 바이러스와 매개충을 원자료(NCPMS 도감 본문, 농사로 등)에서 손으로 옮기고 **출처를 줄마다 적는다.** 출처 없는 줄은 넣지 않는다.
 - 적재는 멱등 (전체 삭제 후 다시 넣기, 한 트랜잭션). 이름이 `pest`에 없으면 건너뛰고 로그.
 
 ## 9. 공통 규칙
@@ -374,8 +392,8 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 - **계약 파일:** `openapi.json`을 저장소에 커밋한다 (`python -m app.export_openapi`로 생성). 이 파일을 바꾸는 PR은 프론트 승인이 필요하다.
 - **린트:** `ruff` (포맷 + 린트).
 - **테스트:**
-  - `judge/rules.py`: DB 없이 표 기반 pytest. 케이스 원본은 `farmguardian_judge_rules.md` §9.
-  - `fields/split.py`: 표 기반 pytest. 직사각형 2등분, 6:4, L자 밭, 기울어진 밭, 구멍 있는 밭, 비율 1개.
+  - `judgment/domain/rules.py`: DB 없이 표 기반 pytest. 케이스 원본은 `farmguardian_judge_rules.md` §9.
+  - `farm/domain/split.py`: 표 기반 pytest. 직사각형 2등분, 6:4, L자 밭, 기울어진 밭, 구멍 있는 밭, 비율 1개.
   - 연동·PSIS 파서·팜맵 파서·`latlon_to_grid`·예보 파서: §8의 fixture(명세서 예시 응답 포함)와 표 기반 pytest.
   - PSIS 적재 (테스트 DB): 같은 fixture 두 번 적재 = 변화 없음, 두 번째 응답에서 뺀 행은 삭제되고 `pesticide`는 남음, 0건·절반 미만·중간 오류 응답은 롤백되어 기존 행 유지, `--allow-shrink`면 삭제.
   - API: `TestClient` + **실제 PostGIS 테스트 DB** (`ST_*` 때문에 SQLite 불가). 테스트마다 트랜잭션 롤백. 밭 생성 409, 분할 결정성(미리보기 = 생성 결과), `FIELD_ALREADY_SPLIT`, 밭 삭제 CASCADE, 기록 재시도(같은 `request_id`)·중복 409, `planted_at` 변경 시 `history_confirmed` 초기화, 온보딩 완료 422·멱등, 회원 탈퇴 CASCADE·탈퇴 후 401, 가입(중복 아이디 409, 필지 조회 실패 시 사용자 미생성), 로그인 실패 401을 여기서 다룬다.
@@ -430,3 +448,6 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 2026-10-28 (해커톤 시연용 인증 단순화):
 - 카카오 로그인·JWT를 빼고 아이디·비밀번호 가입·로그인으로 바꿨다. 가입 때 필지를 등록해 첫 밭을 만든다. 사용자는 `X-User-Id` 헤더로 식별한다. 이 문서 §2·§3·§4·§5(`users`)·§7(`/auth/signup`, `/auth/login`, `USERNAME_TAKEN`, 가입 규칙)·§8(카카오 삭제)·§9(설정·인증·테스트·데모 시드)·§11을 고쳤다.
 - 같이 고친 문서: `farmguardian_flow_spec.md`(온보딩 1단계·프로필), `farmguardian_team_plan.md`(스택·담당·키 신청·스프린트·협업 규칙), `farmguardian_architecture_outline.txt`, `farmguardian_prd_feedback.md`(#1·#9·#10), 백로그 엑셀 BE(BE-02·15·17·19)·FE(FE-06).
+
+2026-10-28 (DDD 구조):
+- 코드 구조를 기능별 모듈에서 DDD(바운디드 컨텍스트 5개 × 4층)로 바꿨다. 이 문서 §2(코드 구조)·§3·§4·§7(컨텍스트 열)·§8(파일 경로)·§9(테스트 대상 경로)와 `farmguardian_judge_rules.md`(파일 경로), `farmguardian_team_plan.md`(담당·서비스 이름), `farmguardian_architecture_outline.txt`(Module)를 고쳤다. 기존 `fields`·`zones`는 `farm`으로, `pests`·`ingest`와 약제 조회는 `catalog`로, `judge`는 `judgment`로, `records`는 `spraying`으로, `auth`는 `identity`로 옮겼다.

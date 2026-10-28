@@ -3,7 +3,7 @@
 - 작성일: 2026-10-04, **개정 2026-10-11 (PRD 반영)**
 - 기준 문서: `PRD.md` §6, `farmguardian_flow_spec.md` §3, `docs/dev/farmguardian_architecture.md` §6
 - 이 문서는 **판정 규칙에 한해** 위 설계 문서보다 우선한다. 충돌하면 이 문서를 따르고 상대 문서를 고친다. PRD와 다르게 정한 항목은 `farmguardian_prd_feedback.md`에 PRD 수정 제안으로 남겼다.
-- 용도: 팀장은 이 문서대로 `judge/rules.py`를 구현하고, 팀원은 §9의 케이스 표를 `pytest.mark.parametrize`로 옮긴다.
+- 용도: 팀장은 이 문서대로 `judgment/domain/rules.py`를 구현하고, 팀원은 §9의 케이스 표를 `pytest.mark.parametrize`로 옮긴다.
 
 ## 1. 확정 결정 요약
 
@@ -28,7 +28,7 @@
 
 ## 2. 타입
 
-`judge/schemas.py` (Pydantic). 이 모듈과 `judge/rules.py`는 DB·HTTP를 임포트하지 않는다.
+`judgment/domain/schemas.py` (Pydantic). 이 모듈과 `judgment/domain/rules.py`는 DB·HTTP를 임포트하지 않는다.
 
 ```python
 class Verdict(str, Enum):        # 가능 / 주의 / 불가 / 확인 필요

@@ -6,11 +6,14 @@
  프론트는 별도 담당 (폴리곤 SVG 렌더링도 프론트, 지도 없음)
  지원 작물: 감자 · 배추 · 토마토 (모두 일년생)
 
-[Module]  폴더 = 담당
+[Module]  DDD: 컨텍스트 5개 × 4층(domain / application / infrastructure / presentation), 폴더 = 담당
  팀원: 팜맵·밭·구역 만들기 + 외부 연동
-       integrations(juso·pnu·farmmap·GML 파서·kma) / fields(밭 생성·목록·삭제, 분할 split.py 순수, 구역 생성)
- 팀장: 나머지 — judge(rules.py는 순수, DB·HTTP 없음) / records / auth / ingest(PSIS·NCPMS·매개충 시드)
-       / pests / zones(상세·속성 수정) / core(설정·DB·에러·today_kst) / seed_demo
+       farm — field_service(밭 생성·목록·삭제, 분할·구역 생성), domain/split.py(순수),
+              infrastructure/integrations(juso·pnu·farmmap·GML 파서·kma)
+ 팀장: 나머지 — judgment(domain/rules.py는 순수, DB·HTTP 없음) / spraying / identity
+       / catalog(약제·병해충 조회, infrastructure/ingest: PSIS·NCPMS·매개충 시드)
+       / farm의 zone_service(상세·속성 수정, 서비스 함수 3개) / core(설정·DB·에러·today_kst) / seed_demo
+ 규칙: 다른 컨텍스트는 상대의 application 서비스만 호출. domain은 DB·HTTP를 임포트하지 않는다
 
 [Tabs]  프론트 탭 4개 (첫 사용은 온보딩을 마쳐야 탭 사용)
  홈 = 내 밭·구역 상태 / 병해충 = 구역 → 병해충 → 약제 → 판정 → 기록
