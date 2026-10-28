@@ -2,7 +2,7 @@
 
 - 작성일: 2026-10-28
 - 이 문서는 **프론트와 맺는 API 계약**이다. 엔드포인트 24개의 요청·응답·오류를 한곳에 모았다.
-- 근거: `farmguardian_architecture.md` §7(API 표·동작 규칙)·§8(외부 연동), `farmguardian_judge_rules.md` §2(판정 타입). 판정 규칙의 세부는 judge_rules가 우선한다.
+- 근거: `팜가디언_아키텍처.md` §7(API 표·동작 규칙)·§8(외부 연동), `팜가디언_판정_규칙.md` §2(판정 타입). 판정 규칙의 세부는 judge_rules가 우선한다.
 - 구현 후에는 FastAPI가 만든 `openapi.json`이 기준이 되고, 이 문서와 어긋나면 이 문서를 고친다.
 - **【결정】** 표시는 이 문서를 쓰면서 새로 정한 값이다 (설계 문서에 없던 것). 프론트와 합의 때 확인한다.
 
@@ -256,12 +256,36 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 
 - 기록 취소(삭제). 응답 204. 404.
 
-## 9. 온보딩 흐름 (프론트 참고)
+## 9. 화면 흐름 (프론트 참고)
+
+탭 4개: 홈, 병해충, 조회수정, 프로필. 첫 사용은 온보딩을 마쳐야 탭을 쓸 수 있다.
+
+### 온보딩
 
 1. 주소 검색 `GET /addresses/search` → 필지 선택 `GET /parcels` → `POST /auth/signup` (첫 밭이 생긴다).
 2. 로그인한 사용자는 `GET /me`의 `onboarded`가 false면 온보딩으로 보낸다. 어디까지 했는지는 `GET /fields`(구역 유무, 구역별 `history_confirmed`)로 본다.
 3. 구역 나누기(`split-preview` → `POST /fields/{id}/zones`) → 구역별 과거 살포 입력(`POST /zones/{id}/sprays`)·「누락 없음」(`PATCH`) → `POST /me/onboarding`.
 4. 온보딩 뒤에도 밭 추가·삭제는 막지 않는다.
+
+### 홈
+- `GET /fields`: 밭별 구역과 상태 요약(`last_spray` + `last_judgment`, 기록이 없으면 「기록 없음」). 밭 추가는 온보딩의 필지 선택·구역 나누기 화면을 다시 쓴다.
+- `GET /zones/{id}`: 편중도(`rotation`) + 최근 판정 5건. 이력은 `GET /zones/{id}/sprays`.
+
+### 병해충 (판정)
+1. 구역 선택.
+2. 병해충 지목: `GET /crops/{id}/symptom-parts` → `GET /pests/candidates`, 또는 `GET /pests`(도감 목록·이름 검색). 바이러스면 `vectors`의 매개충을 고를 수 있고, 선택하지 않고 진행해도 된다.
+3. 약제 선택: `GET /pesticides`.
+4. `POST /zones/{id}/judgments` → 결과(체크 4개별 사유·근거 원문·데이터 조회일, 대안).
+5. 날씨: 판정과 따로 `GET /zones/{id}/weather`. 실패하면 「날씨 조회 실패」만 표시하고 판정 화면은 그대로 둔다.
+6. 「살포 기록 저장」: 저장 한 번에 `request_id`(UUID) 하나를 만들고 재시도에는 같은 값을 쓴다. 409 `DUPLICATE_SPRAY`면 「기존 기록 확인 / 실제 별도 살포로 저장 / 돌아가기」를 보여주고, 별도 살포면 `allow_duplicate: true`로 다시 보낸다.
+
+### 조회수정
+- 이력 목록·취소(취소 = 삭제), 과거 살포 추가 입력(판정을 거치지 않음).
+- 구역 수정(`PATCH`): 이름·작물·정식일·「누락 없음」. 작물을 바꾸면 정식일을 새로 넣거나 비운다. 정식일이 바뀌면 백엔드가 「누락 없음」을 풀어 둔다.
+- 밭 삭제: 구역·기록 포함. 잘못 고른 필지나 다시 나누기용이며 확인 화면이 필요하다.
+
+### 프로필
+- 공공데이터 출처·면책 안내, 로그아웃(저장한 id만 지움), 회원 탈퇴(`DELETE /me`, 확인 화면 필수).
 
 ## 10. 외부 API와의 대응 (참고)
 
@@ -272,4 +296,4 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 | `/zones/{id}/weather` | 기상청 단기예보 `getVilageFcst` |
 | 병해충·약제·판정 | 요청 중 외부 호출 없음 (엑셀 7개를 JSON으로 바꿔 미리 적재한 DB) |
 
-외부 요청·응답의 상세는 `farmguardian_architecture.md` §8.
+외부 요청·응답의 상세는 `팜가디언_아키텍처.md` §8.
