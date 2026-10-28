@@ -17,6 +17,9 @@ __pycache__/
 
 # 개인 전달용 안내 문서
 /docs/dev/팜가디언_프로젝트_사용_안내.txt
+/docs/dev/팜가디언_PRD_수정_제안.md
+/docs/dev/farmguardian_backlog_BE.xlsx
+/docs/dev/farmguardian_backlog_FE.xlsx
 
 # 외부 API 원문 문서
 /docs/info/
