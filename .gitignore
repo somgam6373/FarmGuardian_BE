@@ -5,3 +5,8 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 *.stackdump
+
+# 엑셀 원본 데이터 (JSON만 커밋한다)
+/docs/*.xlsx
+# 엑셀 임시 파일
+~$*
