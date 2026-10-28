@@ -41,7 +41,7 @@
 
 ```
 Moa           {label_kr: string, system: string|null, code: string|null}
-                  label_kr = PSIS 작용기작 표시 (예 "라3"), system·code = FRAC·IRAC (예 "FRAC", "4")
+                  label_kr = 국내 계열 코드 (예 "라3"), system·code = 국제 코드 (예 "FRAC", "24"; 엑셀 `5_약계열`의 「FRAC 24」를 나눈 값)
 Crop          {id: int, name: string}
 Pesticide     {id: int, name: string, item_name: string, moa: Moa|null}
                   name = 상표명, item_name = 품목명
@@ -76,7 +76,7 @@ Weather       {issued_at: datetime, items: [{at: datetime, pty: int, pcp: string
                   pop = 강수확률(%), 결측이면 null
 PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: string|null, description: string|null,
                occurrence: string|null, source: string|null, vectors: [{id, name, source}]}
-                  photo_url~source는 이 작물의 NCPMS 도감 값 (없으면 null → 화면에 「없음」)
+                  photo_url~source는 이 작물의 도감 값 (엑셀 `2_`·`1_`, 없으면 null → 화면에 「없음」)
                   vectors = 바이러스의 매개충 (자료가 없으면 빈 배열 → 「연결 자료 없음」)
 ```
 
@@ -184,19 +184,19 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 
 ### `GET /crops/{id}/symptom-parts`
 
-- 응답 200: `[string]` — 이 작물에 병해충이 연결된 증상 부위 (`유묘, 잎, 뿌리, 줄기, 가지, 열매, 꽃, 기타` 중). **【결정】** 문자열 배열
+- 응답 200: `[string]` — 이 작물에 병해충이 연결된 증상 부위 (`덩이, 뿌리, 잎, 줄기, 벌레, 열매` 중, 엑셀 `2_병해충_도감`의 부위 값). **【결정】** 문자열 배열
 - 오류: 404
 
 ### `GET /pests/candidates`
 
-- 쿼리: `crop_id` (필수), `part` (필수, 위 값 중 하나)
+- 쿼리: `crop_id` (필수), `part` (필수, 증상 부위 목록의 값 중 하나)
 - 응답 200: `[PestCard]` (이름순)
 - 오류: 404 (작물), 422 (`part` 값 오류)
 
 ### `GET /pests`
 
 - 쿼리: `crop_id` (필수), `q` (선택, 이름 부분 일치)
-- 응답 200: `[PestCard]` — 그 작물에 등록된 병해충, 이름순. NCPMS 매칭이 없는 병해충도 나온다. 페이징 없음 **【결정】**
+- 응답 200: `[PestCard]` — 그 작물에 등록된 병해충, 이름순. 도감에 없는 병해충도 나온다. 페이징 없음 **【결정】**
 - 오류: 404
 
 ### `GET /pesticides`
@@ -252,6 +252,6 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 | `/addresses/search` | 도로명주소 검색 API → `admCd`·`mtYn`·`lnbrMnnm`·`lnbrSlno`로 PNU 조립 |
 | `/parcels`, 밭 생성, 가입 | 팜맵 `getPnuBasedFarmmapInfo`, `getIdBasedFarmmapInfo` |
 | `/zones/{id}/weather` | 기상청 단기예보 `getVilageFcst` |
-| 병해충·약제·판정 | 요청 중 외부 호출 없음 (PSIS·NCPMS는 미리 적재한 DB) |
+| 병해충·약제·판정 | 요청 중 외부 호출 없음 (엑셀 7개를 JSON으로 바꿔 미리 적재한 DB) |
 
 외부 요청·응답의 상세는 `farmguardian_architecture.md` §8.

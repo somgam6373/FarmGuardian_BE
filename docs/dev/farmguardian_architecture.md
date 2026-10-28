@@ -36,7 +36,7 @@
 | ② 시기 | 수확 예정일 입력 없음. "오늘 살포하면 N월 N일부터 수확 가능"을 계산해 표시 (`BLOCKED` 없음) |
 | ③ 집계 단위 | **품목명(`item_name`) 기준 합산.** 성분 단위는 미확인 (judge_rules §10-1) |
 | 편중도 | 작기 전체 비율 (④ 판정의 최근 3회 창과 별개). 정식일이 없으면 전체 이력 |
-| 약제 원천 | PSIS 목록 API(`SVC01`) 한 번으로 행 단위 전부 적재 (§8). 갱신일을 주지 않으므로 `data_asof` = 적재일 |
+| 약제·병해충 원천 | **엑셀 7개**(`docs/*.xlsx`, 팀이 PSIS·NCPMS 자료를 정리한 것, 기준일 2026-10-05)를 JSON으로 바꿔 DB에 적재한다. PSIS·NCPMS API는 호출하지 않는다 (2026-10-28 결정, §8). `data_asof` = 엑셀 기준일 |
 | 팜맵 필지 | 팜맵 조회 Open API(공공데이터포털). 밭의 필지 단위는 **팜맵 필지(`fmapInnb`)** 이지 지번이 아니다. 한 지번이 여러 필지일 수 있고 PNU 조회는 이웃 지번과 겹치는 필지까지 돌려준다. 법적 효력 없는 참고 자료 |
 | 날씨 | 기상청 단기예보. 구역 중심점의 격자 좌표로 **요청 시 조회, 저장·캐시 없음.** 판정과 별도 엔드포인트라 날씨가 실패해도 판정은 동작한다 |
 | 살포 기록 | 클라이언트가 보내는 `request_id`로 **재시도를 한 번만 반영.** 같은 구역·상표·날짜 기록이 있으면 409로 묻고 `allow_duplicate`로 별도 저장. 취소 = 삭제 |
@@ -57,7 +57,7 @@
                  │           │
   도로명주소 · 팜맵 · 기상청 (요청 시 호출)        PostgreSQL + PostGIS
                                                                    ▲
-              PSIS · NCPMS · 매개충 시드 ── catalog ingest (수동 실행) ──┘
+              엑셀 7개 → JSON ── catalog 적재 (수동 실행) ──┘
 ```
 
 ## 4. 코드 구조
@@ -75,10 +75,10 @@ app/
       integrations/           juso.py, pnu.py, farmmap.py (GML 파서), kma.py (격자 변환·예보)
     presentation/             router.py, schemas.py
   catalog/                    참고 데이터: 작물·병해충·약제·등록·작용기작               (팀장)
-    domain/                   pest, pesticide, registration, moa, PSIS 문자열 파서(순수)
+    domain/                   pest, pesticide, registration, moa
     application/              병해충 후보·도감 목록·이름 검색, 약제 목록
     infrastructure/           models.py
-      ingest/                 psis.py, ncpms.py, vectors.py, seed/pest_vector.csv
+      ingest/                 xlsx_to_json.py, load.py, data/*.json
     presentation/             router.py, schemas.py
   judgment/                   4체크 판정                                               (팀장)
     domain/                   schemas.py, rules.py (순수)
@@ -109,19 +109,19 @@ openapi.json
 
 ## 5. DB 스키마
 
-PSIS·팜맵·NCPMS 필드와의 대응을 괄호로 표시한다.
+엑셀·팜맵 필드와의 대응을 괄호로 표시한다. **PSIS·NCPMS 원본 코드는 엑셀에 없다 (§5 끝의 「엑셀 적재에 따른 조정」 참조).**
 
 ```
 users(id, username, password_hash, onboarded_at NULL, created_at)
                                                            UNIQUE(username). onboarded_at = 첫 사용 온보딩 완료 시각
 crop(id, name, ext_code)                                   ext_code = cropCd. UNIQUE(ext_code)
-pest(id, name, kind NULL, ncpms_code NULL)                 name = diseaseWeedName. UNIQUE(name). kind = '병' | '해충' (NCPMS 목록 출처로 정함, 매칭 없으면 NULL)
+pest(id, name, kind NULL, ncpms_code NULL)                 name = diseaseWeedName. UNIQUE(name). kind = '병' | '해충' (엑셀 `2_병해충_도감`의 구분)
 pest_info(pest_id, crop_id, photo_url NULL, description NULL,
-          occurrence NULL, source, loaded_at)              PK(pest_id, crop_id). NCPMS 도감(작물별)의
+          occurrence NULL, source, loaded_at)              PK(pest_id, crop_id). 엑셀 `2_병해충_도감`(작물별)의
                                                            사진·설명·발생시기. source·loaded_at = 출처·기준 시점
 pest_symptom(pest_id, crop_id, part)                       PK 3개. 증상 부위 → 후보
 pest_vector(virus_pest_id, vector_pest_id, source)         PK(virus_pest_id, vector_pest_id). 바이러스 → 매개충.
-                                                           수작업 시드 CSV, 출처 필수
+                                                           엑셀 `7_바이러스_매개충`, 근거(출처) 필수
 moa(id, label_kr, system NULL, code NULL)                  label_kr = indictSymbl (예: 라3). UNIQUE(label_kr)
                                                            system/code = FRAC·IRAC (별표 8 매핑으로 채움)
 pesticide(id, psis_code, name, item_name, company,
@@ -166,9 +166,13 @@ judgment(id, zone_id, pest_id NULL, pesticide_id, verdict,
 - **필지는 사용자당 한 밭에만 속한다** (`UNIQUE(user_id, farmmap_id)`).
 - 팜맵은 지적도가 아니라 실제 경작 구획을 판독한 지도이고 법적 효력이 없다. 면적·경계는 참고값이다.
 - 판정은 호출마다 `judgment`에 저장한다. `result`에 근거 원문·기준일 스냅샷이 들어 있어 데이터가 바뀌어도 당시 화면을 재현할 수 있다.
-- `registration.loaded_at`의 날짜가 `data_asof`다. 화면에서는 "데이터 조회일"로 표기한다 (PSIS가 갱신일을 주지 않으므로 "기준일"이라 쓰지 않는다).
-- 병해충은 PSIS에 코드가 없고 이름 문자열뿐이다. `pest.name`을 PSIS 이름으로 만들고 NCPMS 연결(`ncpms_code`, `pest_info`, `pest_symptom`)은 별도 매칭으로 채운다. 매칭이 안 된 병해충도 이름 검색으로 고를 수 있다 (사진·설명은 「없음」).
-- 매개충(`pest_vector`)의 두 병해충은 모두 `pest` 행(PSIS 이름)이어야 한다. 시드 적재 때 이름이 `pest`에 없으면 그 줄을 건너뛰고 로그를 남긴다.
+- `data_asof`는 엑셀 기준일(2026-10-05, `4_약사용규칙` 안내 시트의 수정본 날짜)이다. 화면에서는 "데이터 조회일"로 표기한다.
+- 병해충은 코드 없이 **이름 문자열**로 연결한다. 엑셀 `2_병해충_도감`의 이름(NCPMS 도감 이름)이 기준이고, `3_`·`4_`의 병해충 이름과 같아야 한다. 도감에 없는 병해충(PSIS에만 있는 13개)은 사진·증상이 「없음」이다.
+- 매개충(`pest_vector`)의 두 병해충은 모두 `pest` 행이어야 한다. 적재 때 이름이 `pest`에 없으면 그 줄을 건너뛰고 로그를 남긴다.
+- **엑셀 적재에 따른 스키마 조정 (초안, 스키마를 확정할 때 반영한다):**
+  - 없어지는 것: `crop.ext_code`, `pesticide.psis_code`, `registration.psis_use_seq`, `pest.ncpms_code` (엑셀에 PSIS·NCPMS 코드가 없다). `registration`의 구분 키는 `(crop, pest, pesticide, 사용 방법, 희석배수)`다.
+  - 생기는 것: `registration.use_method`(사용 방법), `dilution`(희석배수 원문), `usage_type`(`성공`·`심을 때`·`제한 없음`·`확인 필요`), `note`(비고), `pesticide.company`와 `first_reg_date`(`3_`에서), `pest.scientific_name`, 발생 시기 테이블(`1_`), 사진 테이블(`2_`의 사진 시트), `moa`의 국제 코드(`system`·`code`는 `5_약계열`의 「FRAC 24」 같은 값을 나눠 채운다).
+  - ④ 반복 규칙(`6_반복규칙`)을 어떻게 저장·적용할지는 판정 규칙 개정과 함께 정한다 (미결).
 
 ## 6. `judge()` 타입
 
@@ -311,12 +315,10 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 | PNU 조립 | `farm/infrastructure/integrations/pnu.py` | `assemble_pnu(admCd, lnbrMnnm, lnbrSlno, mtYn)` | **순수 함수**, 스펙 §2 공식 |
 | 팜맵 | `farm/infrastructure/integrations/farmmap.py` | `parcels_by_pnu(pnu)`, `parcel_by_id(id)`, `parse_farmmap_response(xml)`(순수) | 공공데이터포털 `serviceKey`. 아래 상세 |
 | 기상청 | `farm/infrastructure/integrations/kma.py` | `latlon_to_grid(lat, lon)`(순수), `village_forecast(nx, ny, now)`, `parse_forecast(json, now)`(순수) | 공공데이터포털 `serviceKey`. 아래 상세 |
-| PSIS | `catalog/infrastructure/ingest/psis.py` | `python -m app.catalog.infrastructure.ingest.psis` | 수동 실행, cron은 나중 |
-| NCPMS | `catalog/infrastructure/ingest/ncpms.py` | `python -m app.catalog.infrastructure.ingest.ncpms` | 1회 적재로 시작 |
-| 매개충 시드 | `catalog/infrastructure/ingest/vectors.py`, `catalog/infrastructure/ingest/seed/pest_vector.csv` | `python -m app.catalog.infrastructure.ingest.vectors` | 수작업 CSV. 아래 상세 |
+| 약·병해충 데이터 | `catalog/infrastructure/ingest/xlsx_to_json.py`, `load.py` | `python -m app.catalog.infrastructure.ingest.xlsx_to_json`, `…ingest.load` | 외부 API 호출 없음. 엑셀 → JSON → DB. 아래 「데이터 적재」 |
 
 - 공통: `httpx` 동기 클라이언트, 타임아웃 5초, 재시도 없음. 실패는 **502 `UPSTREAM_ERROR`** + `details.source`.
-- 테스트: `httpx.MockTransport`로 가짜 응답을 쓴다. **PSIS·팜맵 명세서의 예시 응답을 fixture로 저장**하고, S1 조사에서 받은 실제 응답을 더해 재사용한다.
+- 테스트: `httpx.MockTransport`로 가짜 응답을 쓴다. **팜맵·도로명주소·기상청 명세서의 예시 응답을 fixture로 저장**하고, 키를 받아 얻은 실제 응답을 더해 재사용한다.
 
 ### 도로명주소 검색 (`farm/infrastructure/integrations/juso.py`)
 
@@ -354,62 +356,30 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 - 저장·캐시 없음. 호출 한도가 문제 되면 (`nx`, `ny`, `base`) 키로 메모리 캐시를 붙인다 (`# ponytail:` 표시).
 - "강수확률"은 기상청 용어다. 판정 문구의 금지어 검사(`확률`)는 판정 문구에만 적용한다.
 
-### PSIS 적재 (`catalog/infrastructure/ingest/psis.py`)
+### 데이터 적재 (엑셀 → JSON → DB, `catalog/infrastructure/ingest/`)
 
-매뉴얼(ver 1.0) 기준:
-- 호출 (매뉴얼 ver 1.0 목록 조회 요청 명세 확인): `GET https://psis.rda.go.kr/openApi/service.do?apiKey=…&serviceCode=SVC01&serviceType=AA001&startPoint={페이지}&displayCount={≤99}&cropName=…&cropCheck=Y`. 필수는 `apiKey`·`serviceCode`·`serviceType`·`displayCount`·`startPoint` 5개다. `serviceType`은 `AA001`(XML)만 쓴다 (`AA002`는 AJAX). 인증 파라미터는 `apiKey`다 (매뉴얼 개요의 `serviceKey` 표기와 다름. 요청 명세·예시 URL을 따른다). **`startPoint`는 시작 위치가 아니라 페이지 번호**(1부터)이고, `displayCount`는 두 자리(최대 99)다. 필터는 `cropName`·`cropName2~4`(각각 `cropCheck`로 정확 일치), `diseaseWeedName`(`similarFlag=Y`면 유사 병해충도 포함), `pestiKorName`, `pestiBrandName`, `compName`, `useName`이다.
-- 응답은 **XML**. 표준 라이브러리 `xml.etree.ElementTree`로 파싱한다.
-- 제한: 초당 10건 이하. 호출 사이에 약 0.15초 간격을 둔다. 에러는 `errorCode`·`errorMsg`로 온다: `ERR_101` 인증키 미등록, `ERR_102` 인증키 일시 중지, `ERR_103` 서비스 코드 오류, `ERR_104` 권한 없음, `ERR_105` 인증되지 않은 도메인(현재 미적용), `ERR_201` 파라미터 누락·오류, `ERR_901` 서버 오류. 모두 적재 실패로 보고 롤백한다.
-- **지원 작물만 적재**한다: 감자·배추·토마토. `cropName`(최대 4개)과 `cropCheck=Y`로 작물별로 페이지를 돈다.
-- 상세 API(`SVC02`, 요청은 `pestiCode`+`diseaseUseSeq`)는 쓰지 않는다. **매뉴얼의 목록 응답 예시에 `useSuittime`, `useNum`, `dilutUnit`, `pestiUse`가 이미 있다** (SVC02 응답에 더 있는 것은 독성 `toxicName`·`fishToxicGubun`, 주성분 함량 `regCpntQnty`로, 판정에 쓰지 않는다). 목록 응답의 전체 필드: `pestiCode`, `diseaseUseSeq`, `cropName`, `diseaseWeedName`, `useName`, `pestiKorName`, `pestiBrandName`, `compName`, `engName`, `cmpaItmNm`(제조/수입), `indictSymbl`, `applyFirstRegDate`, `cropCd`, `cropLrclCd`, `cropLrclNm`, `pestiUse`, `dilutUnit`, `useSuittime`, `useNum`, `wafindex`. 응답 머리는 `totalCount`, 오류 시 `errorCode`·`errorMsg`. **예시 값이 실제 응답에서도 채워지는 비율은 S1 샘플 조사에서 확인**한다.
-- **PSIS `cropCd`(4자리 숫자, 예 `1000`)는 NCPMS 작물 코드(8자리, 예 `VC021001`)와 다른 체계다.** 두 시스템의 작물은 작물 이름(감자·배추·토마토)으로 연결하고, `crop.ext_code`는 PSIS `cropCd`만 담는다. NCPMS 코드는 `crop`에 따로 저장하지 않고 적재 설정에 상수로 둔다 (지원 작물이 3개뿐이다).
-- 매핑: `pestiCode` → `pesticide.psis_code`, `diseaseUseSeq` → `registration.psis_use_seq`, `cropCd` → `crop.ext_code`, `diseaseWeedName` → `pest.name`, `indictSymbl` → `moa.label_kr`, `pestiKorName` → `item_name`, `pestiBrandName` → `name`, `engName` → `ingredient_en`, `useName` → `use_name`.
-- **멱등:** `pesticide(psis_code)`, `registration(pesticide_id, psis_use_seq)` 기준 upsert, 한 트랜잭션, 실패 시 롤백(기존 데이터 유지). 성공 시 `loaded_at`을 갱신한다. 판정 입력 `psis_asof`는 가장 최근 적재일이다.
-- **등록 취소 반영 (삭제 규칙):** upsert만 하면 PSIS에서 등록이 취소된 행이 DB에 남아 계속 "등록됨"으로 판정된다. 그래서 작물별로 페이지를 끝까지 받은 뒤, 그 작물의 `registration` 중 **이번 응답에 없는 (`pesticide_id`, `psis_use_seq`) 행을 같은 트랜잭션에서 삭제**한다.
-  - 지우는 것은 `registration`뿐이다. `pesticide`·`pest`·`moa`는 남긴다 (`spray_log`가 `pesticide`를 참조하고, 과거 기록 화면에 약제 이름이 필요하다). `judgment.result`는 스냅샷이라 영향이 없다.
-  - 결과: 등록이 취소된 약제는 약제 목록에서 빠지고, 이미 고른 판정을 다시 돌리면 ①이 `BLOCKED`(이 작물에는 등록되어 있지 않습니다)가 된다. 위험한 방향("가능" 오판)을 막는 쪽이다.
-  - **잘린 응답으로 대량 삭제하는 것을 막는다.** 한 작물이라도 다음이면 삭제하지 않고 **전체를 롤백**하고 오류를 남긴다: 페이지 호출 중 오류(`errorCode`·HTTP 실패), 그 작물 응답 0건, 그 작물 등록 행이 기존의 절반 미만으로 줄어듦. 실제로 크게 줄어든 경우는 확인 후 `--allow-shrink` 옵션으로 다시 실행한다.
+**2026-10-28 결정:** PSIS·NCPMS API는 호출하지 않는다. 팀이 두 시스템의 자료를 정리한 엑셀 7개를 쓴다 (로컬 `docs/` 바로 아래, 기준일 2026-10-05, 저장소에는 올리지 않는다). 그래서 PSIS·NCPMS 키 신청, 문자열 파서(수확 전 일수·횟수 변환), 별표 8 매핑 작업이 필요 없다 (엑셀에 이미 들어 있다).
 
-### PSIS 문자열 파서 (순수 함수 + 테스트, 팀장 작업)
-- `parse_phi(useSuittime) -> int | None`: 숫자 하나만 있으면 그 일수 (「수확 14일 전까지」, 「수확 14일전」 → 14). 「당일」이 들어 있으면 0. **숫자가 둘 이상(서로 다른 값)이거나 숫자가 없으면 `None`.**
-- `parse_max_uses(useNum) -> int | None`: 「N회」의 N (「5회 이내」 → 5). 숫자가 없거나 서로 다른 숫자가 둘 이상이면 `None`.
-- 파서가 `None`을 돌려줘도 원문은 `*_raw` 컬럼에 항상 저장한다.
-- 파싱 실패율은 S1 샘플 조사에서 측정한다 (judge_rules §10-3, §10-6).
+- 단계: ① `python -m app.catalog.infrastructure.ingest.xlsx_to_json`이 `docs/*.xlsx`를 `ingest/data/*.json`으로 바꾼다 (JSON을 커밋한다). ② `python -m app.catalog.infrastructure.ingest.load`가 JSON을 DB에 넣는다. 파일 위치와 명령 이름은 제 제안이다.
+- **멱등:** 적재는 해당 테이블을 전부 지우고 다시 넣는 한 트랜잭션이다. 실패하면 롤백되어 기존 데이터가 남는다. 사용자 데이터(`spray_log` 등)가 `pesticide`를 참조하므로 `pesticide`는 자연 키(품목명+상표명)로 upsert하고 지우지 않는다. 엑셀이 곧 전체 목록이라 PSIS 때의 「등록 취소 반영」 규칙은 필요 없다 (파일에서 빠진 행은 삭제된다).
+- `data_asof` = 엑셀 기준일 (2026-10-05).
 
-### NCPMS 적재 (`catalog/infrastructure/ingest/ncpms.py`)
-- 1회 적재로 시작. 지원 작물의 병해충 도감에서 PSIS 병해충명과 매칭되는 것에 `ncpms_code`, `pest_info`(사진, 설명, 발생시기, `source = "NCPMS 병해충 도감"`, `loaded_at`), `pest_symptom`(증상 부위)을 채운다.
-- **쓰는 서비스는 5개다.** 호출: `GET http://ncpms.rda.go.kr/npmsAPI/service?apiKey=…&serviceCode=…&serviceType=AA001`. **`serviceType`은 필수**다 (`AA001` = XML, `AA003` = JSON. 매뉴얼 HWP 기준이고 샘플 코드에는 빠져 있다). 응답 머리는 `buildTime`, `totalCount`, `startPoint`, `displayCount`, 오류 시 `errorCode`·`errorMsg`. 자료원: 매뉴얼 `docs/info/ncpms/ncpms_openapi_manual.hwp`(검색 서비스 명세), 샘플 코드(상세·사진검색), `ncpms_code_list.xlsx`.
+| 엑셀 | 내용 | 규모 | 들어갈 곳 |
+|---|---|---|---|
+| `1_병해충_발생시기` | 작물·병해충별 발생 월, 출처(`NCPMS 설명` 36·`PDF 경보` 15), 지역, 재배형태, 등급(예보·주의보), 근거 문장 | 51행 | 발생 시기 테이블 → `PestCard.occurrence` |
+| `2_병해충_도감` | 병해충(구분 병 60·해충 56, 학명, 부위, 증상·피해, 대표 사진, 사진 출처)과 사진 시트 | 116행 + 사진 185행 | `pest`, `pest_info`, `pest_symptom`, 사진 테이블 |
+| `3_병해충별_등록약` | PSIS 등록 약(회사, 최초 등록일 포함). **중복 행이 있다** (4,133행 → 고유 3,868행) | 4,133행 | `pesticide.company`·`first_reg_date`만 가져온다 (나머지는 `4_`와 같은 키) |
+| `4_약사용규칙` | 작물×병해충×약(상표)×사용 방법×희석배수, **수확 전 일수·최대 횟수를 숫자로 변환**, 변환 구분, 계열 코드, 원문 | 3,870행 (배추 2,253·감자 821·토마토 796) | `registration` |
+| `5_약계열` | 품목명 → 국내 계열 코드, 국제 코드(`FRAC 24`·`IRAC 28`·`미분류`·`확인`) | 652행 | `moa`, `pesticide.moa_id` |
+| `6_반복규칙` | ④ 계열 반복 규칙 (대상별 최근 N번 중, 연속 N번, 시즌 최대) | 6행 | **미결** (판정 규칙 개정과 함께) |
+| `7_바이러스_매개충` | 바이러스 → 매개충 → 연결할 도감 병해충, 등록약 줄 수, 앱 안내, 근거 | 12행 | `pest_vector` |
 
-  | 서비스 | `serviceCode` | 주요 파라미터 | 응답에서 쓰는 필드 | 자료원 |
-  |---|---|---|---|---|
-  | 병 검색 | `SVC01` | `cropName`(작물명, 또는 `sickNameKor`), `displayCount`(**최대 50**), `startPoint`(**최대 500**) | `list/item`: `cropName`, `sickNameKor`, `sickNameEng`, `thumbImg`, `oriImg`, `sickKey` | 매뉴얼 |
-  | 해충 검색 | `SVC03` | `cropName`(또는 `insectKorName`), `displayCount`, `startPoint` | `cropName`, `insectKorName`, `speciesName`, `thumbImg`, `oriImg`, `insectKey` | 매뉴얼 |
-  | 작물 소분류별 이미지 검색 (사진검색 3) | `SVC13` | `cropCode`, `categoryCode`(`pest` = 병·해충·천적곤충), `partName`, `pestName`, `startPoint` | `pestKey`, `pestName`, `category`, `thumbImg` | 샘플 코드만 |
-  | 병 상세정보 | `SVC05` | `sickKey` | `sickNameKor`, `infectionRoute`, `developmentCondition`, `symptoms`, `preventionMethod`, `etc`, `imageList/item(imageTitle, image)`, `virusList/item(virusName)` | 샘플 코드만 |
-  | 해충 상세정보 | `SVC07` | `insectKey` | `insectSpeciesKor`, `ecologyInfo`, `damageInfo`, `preventMethod`, `imageList/item(imageTitle, image)` | 샘플 코드만 |
-
-- **매뉴얼 HWP에는 검색 서비스(`SVC01`·`SVC03`)만 있고 상세정보·사진검색(`SVC05`·`SVC07`·`SVC13`)은 없다.** 이 셋의 파라미터·필드는 샘플 코드에서 읽은 것이라 키를 받아 실제 응답으로 확인한다. 샘플 코드가 `serviceType` 없이 호출하므로 이 서비스들에서 `serviceType`이 필요한지도 함께 확인한다.
-- **목록 적재는 `SVC01`·`SVC03`을 `cropName`(감자·배추·토마토)으로 돌린다.** 병·해충 한글명(`sickNameKor`, `insectKorName`)이 PSIS 병해충명과 매칭하는 키이고, `sickKey`·`insectKey`가 `ncpms_code`다. **한 번에 최대 50건, `startPoint`는 최대 500**이라 작물당 550건을 넘으면 더 가져올 수 없다 (감자·배추·토마토는 넘지 않을 것으로 보고 적재 때 `totalCount`로 확인한다).
-- `SVC13`은 **증상 부위로 거르는 용도로만** 쓴다 (아래). 응답의 `pestKey`가 `SVC01`·`SVC03`의 `sickKey`·`insectKey`와 같은 값인지 확인한다 (같다고 가정하고 `category`로 병/해충을 가른다).
-- **증상 부위 → 병해충 후보는 `SVC13`의 `partName`이 해결한다.** 병·해충(`categoryCode=pest`)의 부위 값은 `유묘, 잎, 뿌리, 줄기, 가지, 열매, 꽃, 기타` 8개다. 적재 때 작물×부위로 `SVC13`을 돌려 나온 `pestKey`로 `pest_symptom(pest_id, crop_id, part)`를 채운다. `GET /crops/{id}/symptom-parts`는 이 8개 중 그 작물에 행이 있는 것만 돌려준다.
-- **작물 코드 (`cropCode`, 코드목록.xlsx):** 감자 `FC050501`, 배추 `VC021001`, 토마토 `VC010803`. PSIS `cropCd`와는 다른 체계이므로 작물은 이름으로 연결한다 (PSIS 절 참조).
-- **`pest_info` 매핑 (제 판단, 가이드 해석):**
-
-  | `pest_info` | 병 (`SVC05`) | 해충 (`SVC07`) |
-  |---|---|---|
-  | `photo_url` | `imageList`의 첫 `image` | `imageList`의 첫 `image` (없으면 `SVC13`의 `thumbImg`) |
-  | `description` | `symptoms` (증상) | `damageInfo` (피해) |
-  | `occurrence` | `developmentCondition` (발생 조건) | `ecologyInfo` (생태) |
-
-  NCPMS에는 「발생시기」라는 이름의 필드가 없다. 병은 「발병 조건」, 해충은 「생태」 서술이 가장 가깝다. 값이 비면 NULL이고 화면에 「없음」이다. 판정에는 쓰지 않는다.
-- **`pest.kind`**는 매칭된 NCPMS 목록이 병 검색(`SVC01`)이면 `병`, 해충 검색(`SVC03`)이면 `해충`이다. 매칭이 없으면 NULL이다 (화면에 구분 표시 없음).
-- 병 상세의 `virusList`는 **병원체(바이러스) 이름**이다. 매개충이 아니므로 `pest_vector`는 그대로 수작업 CSV로 채운다.
-- 매칭: NCPMS `pestName`과 PSIS 병해충명이 같으면 연결하고, 이름 표기가 다르면 매칭하지 않는다 (§10-8).
-- 샘플 코드의 호출은 HTTP(SSL 없음)이고 키가 URL에 실린다. 팜맵과 같이 요청 URL을 로그에 남기지 않는다.
-
-### 매개충 시드 (`catalog/infrastructure/ingest/vectors.py`)
-- `catalog/infrastructure/ingest/seed/pest_vector.csv` (`crop, virus_name, vector_name, source`). 지원 작물 3종의 바이러스와 매개충을 원자료(NCPMS 도감 본문, 농사로 등)에서 손으로 옮기고 **출처를 줄마다 적는다.** 출처 없는 줄은 넣지 않는다.
-- 적재는 멱등 (전체 삭제 후 다시 넣기, 한 트랜잭션). 이름이 `pest`에 없으면 건너뛰고 로그.
+- **변환 구분 (`4_`):** `성공` 3,303행(숫자로 변환), `심을 때` 519행(정식기·파종기, 수확 전 일수 없음), `제한 없음` 41행(미생물·구리제), `확인 필요` 7행(숫자 칸 비어 있음). 이 값들을 판정에서 어떻게 다룰지는 **미결**이다 (judge_rules 개정).
+- **같은 키에 규칙이 둘인 줄**(주황 줄)은 엄격한 쪽으로 판정하자는 제안이 엑셀 안내 시트에 있다. 채택 여부는 **미결**이다.
+- **증상 부위 값**은 `2_`의 부위 칸이다: `덩이, 뿌리, 잎, 줄기, 벌레, 열매` (쉼표로 여러 개). `GET /crops/{id}/symptom-parts`는 이 중 그 작물에 행이 있는 값을 돌려준다.
+- **`PestCard`:** `kind` = 구분(`병`/`해충`), `description` = 증상·피해, `photo_url` = 대표 사진, 사진 출처는 작물명 또는 `(대체)`·`(보충)`·`사진 없음`이다. 값이 비면 null이다 (증상 11개, 학명 22개, 사진 14개가 비어 있다). `occurrence`는 발생 시기 테이블의 발생 월·근거 문장으로 채운다 (표기 형식은 프론트와 정한다).
+- **검증 (표 기반 pytest):** 변환 전후 행 수 일치, 같은 키 중복 0, `3_`과 `4_`의 (작물, 병해충, 약, 상표) 100% 일치, `5_`의 품목명이 `4_`의 약 이름을 모두 포함, `4_`의 병해충 이름이 `2_`에 있거나 「도감 없음」으로 표시, `7_`의 두 병해충 이름이 `pest`에 있음.
+- 엑셀이 바뀌면 같은 두 명령을 다시 실행한다. **엑셀 원본은 저장소에 올리지 않는다** (로컬 `docs/`에만 둔다). 저장소에는 변환한 JSON만 커밋하므로 엑셀 없이도 적재할 수 있다. 기준일이 달라지면 `data_asof`를 고친다.
 
 ## 9. 공통 규칙
 
@@ -427,7 +397,7 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
   | `DUPLICATE_SPRAY` | 409 |
   | `UPSTREAM_ERROR` | 502 |
 
-- **설정:** `pydantic-settings`로 환경변수를 읽는다 (`DATABASE_URL`, `JUSO_CONFM_KEY`, `FARMMAP_API_KEY`, `KMA_API_KEY`, `PSIS_API_KEY`, `NCPMS_API_KEY`, `CORS_ORIGINS`). 누락되면 기동에 실패한다. 토큰과 키는 로그에 남기지 않는다.
+- **설정:** `pydantic-settings`로 환경변수를 읽는다 (`DATABASE_URL`, `JUSO_CONFM_KEY`, `FARMMAP_API_KEY`, `KMA_API_KEY`, `CORS_ORIGINS`). 누락되면 기동에 실패한다. 토큰과 키는 로그에 남기지 않는다.
 - **인증:** `X-User-Id` 헤더. `core`의 `current_user`, `get_owned_field(field_id)`, `get_owned_zone(zone_id)` 의존성이 소유자 검사를 **한 곳에서** 처리한다. 헤더가 없거나 사용자가 없으면(탈퇴) 401. 보안은 최소로 한다 (시연용): 남의 `id`를 알면 접근할 수 있다.
 - **DB:** 요청당 세션 1개. 첫 마이그레이션에서 `CREATE EXTENSION postgis`.
 - **날짜:** "오늘"은 항상 **KST**(`today_kst()`)다. 서버 시간대에 따라 ③ 횟수와 기본 살포일이 하루 어긋나는 것을 막는다.
@@ -437,8 +407,8 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 - **테스트:**
   - `judgment/domain/rules.py`: DB 없이 표 기반 pytest. 케이스 원본은 `farmguardian_judge_rules.md` §9.
   - `farm/domain/split.py`: 표 기반 pytest. 직사각형 2등분, 6:4, L자 밭, 기울어진 밭, 구멍 있는 밭, 비율 1개.
-  - 연동·PSIS 파서·팜맵 파서·`latlon_to_grid`·예보 파서: §8의 fixture(명세서 예시 응답 포함)와 표 기반 pytest.
-  - PSIS 적재 (테스트 DB): 같은 fixture 두 번 적재 = 변화 없음, 두 번째 응답에서 뺀 행은 삭제되고 `pesticide`는 남음, 0건·절반 미만·중간 오류 응답은 롤백되어 기존 행 유지, `--allow-shrink`면 삭제.
+  - 연동·팜맵 파서·`latlon_to_grid`·예보 파서: §8의 fixture(명세서 예시 응답 포함)와 표 기반 pytest.
+  - 데이터 적재 (테스트 DB): 같은 JSON을 두 번 적재 = 변화 없음, 중간 오류는 롤백되어 기존 행 유지, §8 「검증」 항목.
   - API: `TestClient` + **실제 PostGIS 테스트 DB** (`ST_*` 때문에 SQLite 불가). 테스트마다 트랜잭션 롤백. 밭 생성 409, 분할 결정성(미리보기 = 생성 결과), `FIELD_ALREADY_SPLIT`, 밭 삭제 CASCADE, 기록 재시도(같은 `request_id`)·중복 409, `planted_at` 변경 시 `history_confirmed` 초기화, 온보딩 완료 422·멱등, 회원 탈퇴 CASCADE·탈퇴 후 401, 가입(중복 아이디 409, 필지 조회 실패 시 사용자 미생성), 로그인 실패 401을 여기서 다룬다.
   - 문구 검사: `message`·`notices` 템플릿에 금지어(`추천 예측 예상 가능성 위험 확률 안전 문제없`)가 없는지 스캔.
   - S3에 e2e 스모크 1개 (데모 시드 기준).
@@ -455,23 +425,23 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 
 **남은 것**
 1. **성분 단위 합산 여부.** 틀리면 "가능"이 잘못 나오는 위험한 방향이다. **출시 전 확인.**
-2. **PSIS·NCPMS 샘플 조사 (S1 월요일).** 스키마 동결 전에 끝낸다. PSIS 항목은 judge_rules §10-3·§10-7. NCPMS 필드 대응은 매뉴얼 샘플 코드로 확인했다 (§8). 실제 응답에서 값이 비는 비율과 PSIS 병해충명과의 일치율은 키를 받아 확인한다.
+2. **엑셀 데이터 검수 (S1).** PSIS·NCPMS API 조사는 엑셀 적재로 대체했다 (§8). 스키마 동결 전에 `확인 필요` 7행, 같은 키에 규칙이 둘인 줄, 도감에 없는 병해충 13개, 비어 있는 증상·사진을 확인한다. 판정 규칙 항목(judge_rules §10-3·§10-7)은 엑셀 변환 결과로 다시 본다.
 3. **다작용점 약제의 ④ 제외 여부.** 농학 전문가 확인.
 4. **면책 문구.** 제품·법무 확인.
 5. **별표 8 매핑표** (한글 작용기작 기호 → FRAC·IRAC) 담당과 전달 시점.
 6. **프론트와 합의:** 「상태 요약」의 의미 (`last_spray` + `last_judgment`로 가정, 오래된 판정이 현재 상태처럼 보이는 위험), 편중도 화면(작기 비율), 대안·약제 목록 묶음 방식, 필지 선택 화면 (`matches_query`·`used_by_field_id` 표시), **분할 방향 표현**(긴 변 기준 `crosswise`/`lengthwise`), 정식일 라벨(감자는 옮겨심지 않으므로 「심은 날」 검토), 매개충 안내 고정 문구, 날씨 표시와 실패 상태, 밭 삭제 확인, 기록 중복 409 화면.
-7. **외부 확인:** 도로명주소·팜맵·기상청·PSIS·NCPMS 키. 팜맵 최신성은 명세서 예시의 영상촬영년도가 2016이라 실제 응답의 `vdptYr`로 확인한다. 공공데이터포털 팜맵·기상청 키의 일일 호출 한도.
-8. **NCPMS 병해충과 PSIS 병해충명 매칭** (도감 사진·증상 부위 연결). 이름 표기가 달라 매칭 규칙이 필요하다. 이름 검색이 있어서 매칭 실패가 치명적이지는 않다.
+7. **외부 확인:** 도로명주소·팜맵·기상청 키. 팜맵 최신성은 명세서 예시의 영상촬영년도가 2016이라 실제 응답의 `vdptYr`로 확인한다. 공공데이터포털 팜맵·기상청 키의 일일 호출 한도.
+8. **병해충 이름 연결.** 엑셀 `2_`의 이름과 `3_`·`4_`의 이름이 같아야 한다 (적재 검증, §8). 도감에 없는 병해충은 사진·증상이 「없음」이다.
 9. **서버 고정 출력 IP.** 팜맵 오류코드 32(등록되지 않은 IP)가 있다. 필요하면 배포 환경에서 고정 IP를 마련해 키 신청 때 등록한다.
 10. **팜맵 면적·경계 안내 문구.** PRD는 「실제 경작 경계」라고 부르지만 지적도가 아니고 법적 효력이 없는 참고값이다. 화면 표시 방법을 면책 문구와 함께 정한다.
-11. **매개충 시드 자료.** 지원 작물 3종의 바이러스·매개충을 누가 어떤 원자료로 옮길지.
+11. **매개충 자료.** 엑셀 `7_바이러스_매개충`(12행)으로 대체했다. 근거 문구와 등록약 0줄인 벌레의 안내(상담 안내)만 확인한다.
 12. **팜맵에 없는 밭.** 수동 구역을 뺐으므로 팜맵이 필지를 돌려주지 않는 밭은 등록할 수 없다. S1 금요일 실호출에서 확인하고, 문제가 크면 수동 구역을 다시 검토한다.
 
 ## 11. 착수 전 준비물
 
 - git 저장소와 원격(`origin`)은 준비됐다 (2026-10-05).
 - `docker-compose`로 `postgis/postgis` 개발 DB (팀원 S1 첫 작업).
-- 1일차 신청: 도로명주소 API 승인키, **팜맵 조회 API**(공공데이터포털 활용신청, 서버 고정 IP 등록이 필요한지 확인), **기상청 단기예보 조회서비스**(공공데이터포털 활용신청), **PSIS·NCPMS API 키** (PSIS는 `psis.rda.go.kr`에서 발급. 샘플 조사에 필요하며 발급 대기시간이 있다).
+- 1일차 신청: 도로명주소 API 승인키, **팜맵 조회 API**(공공데이터포털 활용신청, 서버 고정 IP 등록이 필요한지 확인), **기상청 단기예보 조회서비스**(공공데이터포털 활용신청). PSIS·NCPMS 키는 엑셀 적재로 대체해 신청하지 않는다.
 
 ## 12. 다른 문서에 반영된 변경점
 
@@ -495,5 +465,6 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 
 2026-10-28 (DDD 구조):
 - 도로명주소 검색 API 가이드와 기상청 단기예보 활용가이드(261019)를 받아 §8을 확정했다: 도로명주소 요청·응답·오류 코드·검색어 필터링, 기상청 호출 URL·응답 모양·`PTY`·`PCP` 표기. 인증키 파라미터 이름(`serviceKey` 대 `authKey`)은 키 발급 때 확인한다.
+- **PSIS·NCPMS API 적재를 엑셀 7개(`docs/*.xlsx`) → JSON → DB 적재로 대체했다 (§2·§3·§4·§5·§8·§9·§11). 아래 NCPMS 매뉴얼 항목은 이 결정 전에 쓴 이력이다.**
 - NCPMS 매뉴얼을 받아 §8 NCPMS 적재를 확정했다: 쓰는 서비스 5개(`SVC01`·`SVC03` 목록, `SVC13` 부위 검색, `SVC05`·`SVC07` 상세), 필수 `serviceType`, 페이지 한도(50건·시작 500), 증상 부위 8개 값, 작물 코드, `pest_info` 필드 매핑. API 응답 모양(`PestCard`)은 바뀌지 않았다.
 - 코드 구조를 기능별 모듈에서 DDD(바운디드 컨텍스트 5개 × 4층)로 바꿨다. 이 문서 §2(코드 구조)·§3·§4·§7(컨텍스트 열)·§8(파일 경로)·§9(테스트 대상 경로)와 `farmguardian_judge_rules.md`(파일 경로), `farmguardian_team_plan.md`(담당·서비스 이름), `farmguardian_architecture_outline.txt`(Module)를 고쳤다. 기존 `fields`·`zones`는 `farm`으로, `pests`·`ingest`와 약제 조회는 `catalog`로, `judge`는 `judgment`로, `records`는 `spraying`으로, `auth`는 `identity`로 옮겼다.

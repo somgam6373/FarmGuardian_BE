@@ -11,7 +11,7 @@
        farm — field_service(밭 생성·목록·삭제, 분할·구역 생성), domain/split.py(순수),
               infrastructure/integrations(juso·pnu·farmmap·GML 파서·kma)
  팀장: 나머지 — judgment(domain/rules.py는 순수, DB·HTTP 없음) / spraying / identity
-       / catalog(약제·병해충 조회, infrastructure/ingest: PSIS·NCPMS·매개충 시드)
+       / catalog(약제·병해충 조회, infrastructure/ingest: 엑셀 → JSON → DB 적재)
        / farm의 zone_service(상세·속성 수정, 서비스 함수 3개) / core(설정·DB·에러·today_kst) / seed_demo
  규칙: 다른 컨텍스트는 상대의 application 서비스만 호출. domain은 DB·HTTP를 임포트하지 않는다
 
@@ -45,11 +45,11 @@
 [Judge]
  1. 구역 선택        (프론트)
  2. 병해충 지목      GET /crops/{id}/symptom-parts → GET /pests/candidates
-                    GET /pests?crop_id&q  ← 도감 목록·이름 검색 (NCPMS에 없는 PSIS 병해충도)
+                    GET /pests?crop_id&q  ← 도감 목록·이름 검색 (도감에 없는 병해충도)
                     · PestCard: 사진·설명·발생시기(참고, 출처·기준 시점) · 바이러스면 매개충 목록
                     · 매개충을 고르면 일반 병해충처럼 판정 (바이러스 치료로 설명 금지)
                     · 선택 안 하고 진행 가능
- 3. 약제 목록        GET /pesticides?crop_id&pest_id  ← DB(PSIS 적재분), 요청 시 PSIS 호출 없음
+ 3. 약제 목록        GET /pesticides?crop_id&pest_id  ← DB(엑셀 적재분), 요청 중 외부 호출 없음
  4. 약제 선택        POST /zones/{id}/judgments → judge()
       ① 등록   작물×병해충×상표 행 있나 (병해충 미지정 → 확인 필요, 작물 미등록 → 불가)
       ② 시기   오늘 + PHI = 수확 가능일 표시 (불가 없음)
@@ -88,17 +88,16 @@
                     · 탈퇴 뒤 남은 X-User-Id는 401
 
 [Data]
- 참고(적재): crop · pest · pest_info(작물별 사진·설명·발생시기) · pest_symptom · pest_vector(매개충)
+ 참고(적재): crop · pest · pest_info(작물별 사진·증상·발생시기) · pest_symptom · pest_vector(매개충)
             · moa · pesticide · registration
  사용자:     users(onboarded_at) · field · field_parcel(user_id, 지번, 논/밭, 촬영년도) · zone(geom, planted_at NULL,
             history_confirmed) · spray_log(request_id) · judgment
 
 [Ingest]  수동 실행
- PSIS 목록 API(XML) → 문자열 파서(PHI·횟수, 못 읽으면 None + 원문 보관) → upsert(멱등)
-   → 작물별로 응답에서 빠진 registration 행 삭제 (등록 취소 반영, pesticide는 남김)
-   → 오류·0건·절반 미만으로 급감하면 전체 롤백 (확인 후 --allow-shrink)
- NCPMS 도감 → pest_info · pest_symptom (1회)
- 매개충 CSV(줄마다 출처) → pest_vector
+ 엑셀 7개(docs/*.xlsx) → xlsx_to_json → ingest/data/*.json → load → DB (전체 교체, 한 트랜잭션, 실패 시 롤백)
+   4_약사용규칙 → registration (수확 전 일수·횟수는 엑셀에서 변환됨) / 5_약계열 → moa
+   2_병해충_도감 → pest·pest_info·pest_symptom / 1_발생시기 / 7_바이러스_매개충 → pest_vector
+   6_반복규칙은 판정 규칙 개정과 함께 반영 (미결). PSIS·NCPMS API는 호출하지 않는다 (2026-10-28)
 
 [Demo]
  python -m app.seed_demo → 데모 계정 + 배추 밭·구역 + 시연 사례 이력, 데모 계정 id 출력
@@ -113,7 +112,7 @@
 
 [Open]
  · 성분 단위 합산 여부    ← 출시 전 확인 (틀리면 "가능"이 잘못 나옴)
- · PSIS·NCPMS 샘플 조사   ← S1 월요일 (사용 시기 조건 비율, NCPMS 설명·발생시기 필드)
+ · 엑셀 데이터 검수   ← S1 (확인 필요 행, 같은 키 규칙 2개, 도감에 없는 병해충)
  · 팜맵 서버 고정 IP 등록 필요 여부 (오류코드 32), 일일 호출 한도
  · 면책 문구, 팜맵 면적·경계 안내 문구
  · 상태 요약 의미, 별표 8 매핑표, 다작용점 약제 처리, 매개충 시드 자료
