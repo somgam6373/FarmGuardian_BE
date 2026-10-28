@@ -202,7 +202,8 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 ### `GET /pesticides`
 
 - 쿼리: `crop_id` (필수), `pest_id` (선택. 없으면 그 작물 등록 약제 전체)
-- 응답 200: `[Pesticide]` — 작용기작 → 품목명 → 상표명 순 **【결정】**. 페이징 없음 **【결정】**
+- 응답 200: `[Pesticide + {at_planting_only: bool}]` — 작용기작 → 품목명 → 상표명 순 **【결정】**. 페이징 없음 **【결정】**
+  - `at_planting_only`: 이 작물(·병해충)의 등록 행이 모두 「심을 때」 사용 유형이면 true. 프론트가 「심을 때 쓰는 약」으로 묶어 보여준다 (judge_rules §3). 이 약은 판정에서 ②가 `NEEDS_CHECK`다.
 - 오류: 404
 
 ## 7. 판정

@@ -130,7 +130,7 @@ pesticide(id, psis_code, name, item_name, company,
                                                            ingredient_en = engName, use_name = useName
 registration(id, crop_id, pest_id, pesticide_id, psis_use_seq,
              phi_days NULL, max_uses NULL,
-             use_suittime_raw, use_num_raw, dilut_raw, use_timing_raw,
+             use_suittime_raw, use_num_raw, dilut_raw, use_method, usage_type,
              loaded_at)                                    psis_use_seq = diseaseUseSeq
                                                            UNIQUE(pesticide_id, psis_use_seq)
                                                            CHECK phi_days >= 0, max_uses > 0
@@ -159,7 +159,7 @@ judgment(id, zone_id, pest_id NULL, pesticide_id, verdict,
 규칙이 스키마에 붙는 방식 (세부 판정은 judge_rules):
 - ①등록 = `registration` 행 존재. ②③ 값 = `phi_days`, `max_uses`. 병해충 미지목이면 ①은 확인 필요이고 ②③은 고른 상표의 작물 행 전체에서 가장 엄격한 값. **PSIS가 준 문자열을 못 읽은 행은 값이 NULL**이고 원문 컬럼에 남아 있어 `NEEDS_CHECK`와 근거 표시에 쓴다.
 - ③ 횟수 = `spray_log`를 `pesticide.item_name`으로 조인해 **같은 품목명**이고 `sprayed_on >= planted_at`인 건수. `planted_at`이 NULL이면 확인 필요. 작물을 바꾸면 `planted_at`을 새 값이나 NULL로 바꾸므로 다시 센다. **작기 테이블은 두지 않는다.**
-- ④ = 구역 이력 최근 3건의 약제 → `moa.label_kr` 비교.
+- ④ = 구역 이력을 최근순으로 보고 고른 약제와 `moa.label_kr`이 같은 기록이 **연속**된 건수를 계열별 허용 횟수(`6_반복규칙`)와 비교 (judge_rules §4).
 - 「누락 없음」 = `zone.history_confirmed`. `planted_at` 값이 바뀌면 `false`로 되돌린다 (같은 요청에서 `history_confirmed`를 명시하면 그 값).
 - 구역 면적 = `ST_Area(zone.geom)`, 밭 면적 = `ST_Area(field.geom)`.
 - 필지 도형은 밭을 만들 때 팜맵에서 **1회** 받아 저장한다 (스펙 §1). 밭 도형은 그 합집합이고 구역 도형은 밭을 자른 것이라 다시 받지 않는다.
