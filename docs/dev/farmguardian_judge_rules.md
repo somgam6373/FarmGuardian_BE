@@ -89,7 +89,7 @@ def rotation_summary(history, planted_at) -> RotationSummary
 def pick_alternatives(selected: JudgeResult, others: list[JudgeResult]) -> list[JudgeResult]
 ```
 
-`Alternative`(`pesticide_id, name, item_name, moa`)은 서비스가 `pick_alternatives` 결과에 이름을 채워 만든다.
+`Alternative`(`id, name, item_name, moa`)은 서비스가 `pick_alternatives` 결과에 이름을 채워 만든다. API에서는 `Pesticide`와 같은 모양이라 약제 id 필드 이름이 `id`다 (`JudgeResult.pesticide_id`는 판정 안의 이름이라 그대로).
 
 ## 3. 공통 규칙
 

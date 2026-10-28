@@ -66,7 +66,7 @@ CheckResult   {key: "registration"|"timing"|"count"|"moa", status: Verdict, mess
 JudgeResult   {pesticide_id: int, moa: Moa|null, verdict: Verdict, checks: [CheckResult],
                notices: [string], data_asof: date}
                   checks는 항상 4개, 순서 registration → timing → count → moa. data_asof 표기는 "데이터 조회일"
-Alternative   {pesticide_id: int, name: string, item_name: string, moa: Moa|null}
+Alternative   {id: int, name: string, item_name: string, moa: Moa|null}      Pesticide와 같은 모양
 JudgeResponse {judgment_id: int, result: JudgeResult, alternatives: [Alternative], show_extension_office: bool}
 Rotation      {window_start: date|null, total: int, items: [{moa: Moa|null, count: int}]}
                   window_start가 null이면 정식일이 없어 전체 기록 기준. 비율은 프론트가 count/total
@@ -74,7 +74,7 @@ Weather       {issued_at: datetime, items: [{at: datetime, pty: int, pcp: string
                   앞으로 24시간, 시각별. pty = 강수형태 코드 (0 없음, 1 비, 2 비/눈, 3 눈, 4 소나기)
                   pcp = 1시간 강수량 원문 ("강수없음", "1mm 미만", "6.2mm", "30.0~50.0mm", "50.0mm 이상")
                   pop = 강수확률(%), 결측이면 null
-PestCard      {id: int, name: string, kind: string|null, photo_url: string|null, description: string|null,
+PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: string|null, description: string|null,
                occurrence: string|null, source: string|null, vectors: [{id, name, source}]}
                   photo_url~source는 이 작물의 NCPMS 도감 값 (없으면 null → 화면에 「없음」)
                   vectors = 바이러스의 매개충 (자료가 없으면 빈 배열 → 「연결 자료 없음」)
@@ -202,7 +202,7 @@ PestCard      {id: int, name: string, kind: string|null, photo_url: string|null,
 ### `GET /pesticides`
 
 - 쿼리: `crop_id` (필수), `pest_id` (선택. 없으면 그 작물 등록 약제 전체)
-- 응답 200: `[Pesticide]` — 작용기작 → 품목명 → 상표명 순. 페이징 없음 **【결정】**
+- 응답 200: `[Pesticide]` — 작용기작 → 품목명 → 상표명 순 **【결정】**. 페이징 없음 **【결정】**
 - 오류: 404
 
 ## 7. 판정
@@ -223,7 +223,7 @@ PestCard      {id: int, name: string, kind: string|null, photo_url: string|null,
   - `sprayed_on` 기본값 = 오늘(KST), **미래 날짜는 422**
   - `request_id`는 프론트가 「저장」 동작마다 만들고, 재시도에는 같은 값을 쓴다.
 - 처리 순서:
-  1. 같은 `request_id`가 이미 있으면 그 기록을 **200**으로 돌려준다 (다시 저장하지 않음).
+  1. 같은 `request_id`가 **같은 구역**에 이미 있으면 그 기록을 **200**으로 돌려준다 (다시 저장하지 않음). 다른 구역·다른 사용자의 기록이면 기록을 보여주지 않고 **422** `VALIDATION_ERROR` **【결정】**.
   2. 같은 구역·`pesticide_id`·`sprayed_on` 기록이 있고 `allow_duplicate`가 true가 아니면 **409** `DUPLICATE_SPRAY` + `details.existing`. 별도 살포로 저장하려면 같은 `request_id`에 `allow_duplicate: true`를 붙여 다시 보낸다.
   3. 저장하고 **201** `Spray`.
 - 오류: 404, 409, 422

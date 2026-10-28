@@ -115,7 +115,7 @@ PSIS·팜맵·NCPMS 필드와의 대응을 괄호로 표시한다.
 users(id, username, password_hash, onboarded_at NULL, created_at)
                                                            UNIQUE(username). onboarded_at = 첫 사용 온보딩 완료 시각
 crop(id, name, ext_code)                                   ext_code = cropCd. UNIQUE(ext_code)
-pest(id, name, kind NULL, ncpms_code NULL)                 name = diseaseWeedName. UNIQUE(name)
+pest(id, name, kind NULL, ncpms_code NULL)                 name = diseaseWeedName. UNIQUE(name). kind = '병' | '해충' (NCPMS 목록 출처로 정함, 매칭 없으면 NULL)
 pest_info(pest_id, crop_id, photo_url NULL, description NULL,
           occurrence NULL, source, loaded_at)              PK(pest_id, crop_id). NCPMS 도감(작물별)의
                                                            사진·설명·발생시기. source·loaded_at = 출처·기준 시점
@@ -244,7 +244,7 @@ ZoneSummary   {id, name, crop, planted_at | null, history_confirmed, area_m2, ge
 ZoneSpec      {name, crop_id, planted_at?}
 SplitPiece    {geometry, area_m2}             순서 = 방향의 시작 쪽부터, ratios 순서와 같다
 Spray         {id, pesticide: {id, name, item_name, moa}, sprayed_on, source}
-Alternative   {pesticide_id, name, item_name, moa}
+Alternative   {id, name, item_name, moa}          Pesticide와 같은 모양
 JudgeResponse {judgment_id, result: JudgeResult, alternatives: [Alternative],
                show_extension_office: bool}
 rotation      {window_start | null, total, items: [{moa | null, count}]}
@@ -267,7 +267,7 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 - **폴리곤 좌표:** 프론트가 y축을 뒤집어 SVG로 그린다.
 - **살포일:** 미래 날짜는 422로 거부한다 (횟수 창이 꼬이는 것을 막음). 기본값은 `today_kst()`.
 - **살포 기록 저장 순서:**
-  1. 같은 `request_id`가 이미 있으면 그 기록을 200으로 돌려준다 (재시도. 다시 저장하지 않음).
+  1. 같은 `request_id`가 **같은 구역**에 이미 있으면 그 기록을 200으로 돌려준다 (재시도. 다시 저장하지 않음). 다른 구역·다른 사용자의 기록이면 그 기록은 보여주지 않고 422 `VALIDATION_ERROR`를 돌려준다.
   2. 같은 구역·`pesticide_id`·`sprayed_on` 기록이 있고 `allow_duplicate`가 true가 아니면 409 `DUPLICATE_SPRAY` + `details.existing`(Spray). 프론트는 「기존 기록 확인 / 실제 별도 살포로 저장 / 돌아가기」를 보여주고, 별도 살포면 같은 `request_id`로 `allow_duplicate: true`를 붙여 다시 보낸다 (409 때는 저장하지 않았으므로 1번에 걸리지 않는다).
   3. 저장하고 201.
 - `request_id`는 프론트가 「저장」 동작 하나마다 UUID 하나를 만들고, 네트워크 재시도에는 같은 값을 쓴다.
@@ -402,6 +402,7 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
   | `occurrence` | `developmentCondition` (발생 조건) | `ecologyInfo` (생태) |
 
   NCPMS에는 「발생시기」라는 이름의 필드가 없다. 병은 「발병 조건」, 해충은 「생태」 서술이 가장 가깝다. 값이 비면 NULL이고 화면에 「없음」이다. 판정에는 쓰지 않는다.
+- **`pest.kind`**는 매칭된 NCPMS 목록이 병 검색(`SVC01`)이면 `병`, 해충 검색(`SVC03`)이면 `해충`이다. 매칭이 없으면 NULL이다 (화면에 구분 표시 없음).
 - 병 상세의 `virusList`는 **병원체(바이러스) 이름**이다. 매개충이 아니므로 `pest_vector`는 그대로 수작업 CSV로 채운다.
 - 매칭: NCPMS `pestName`과 PSIS 병해충명이 같으면 연결하고, 이름 표기가 다르면 매칭하지 않는다 (§10-8).
 - 샘플 코드의 호출은 HTTP(SSL 없음)이고 키가 URL에 실린다. 팜맵과 같이 요청 URL을 로그에 남기지 않는다.
@@ -441,6 +442,7 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
   - API: `TestClient` + **실제 PostGIS 테스트 DB** (`ST_*` 때문에 SQLite 불가). 테스트마다 트랜잭션 롤백. 밭 생성 409, 분할 결정성(미리보기 = 생성 결과), `FIELD_ALREADY_SPLIT`, 밭 삭제 CASCADE, 기록 재시도(같은 `request_id`)·중복 409, `planted_at` 변경 시 `history_confirmed` 초기화, 온보딩 완료 422·멱등, 회원 탈퇴 CASCADE·탈퇴 후 401, 가입(중복 아이디 409, 필지 조회 실패 시 사용자 미생성), 로그인 실패 401을 여기서 다룬다.
   - 문구 검사: `message`·`notices` 템플릿에 금지어(`추천 예측 예상 가능성 위험 확률 안전 문제없`)가 없는지 스캔.
   - S3에 e2e 스모크 1개 (데모 시드 기준).
+- **개발용 사용자 (S1):** 가입 API(S3) 전에도 프론트와 백엔드가 `X-User-Id`로 진행할 수 있도록, S1에 사용자 하나(아이디 `dev`)를 만드는 시드를 먼저 둔다 (`python -m app.seed_demo --dev-user`, 밭·구역 없이 사용자만). 프론트는 이 사용자의 `id`를 고정 헤더로 쓴다.
 - **데모 데이터:** `python -m app.seed_demo`가 데모 계정(아이디 `demo`)과 배추 밭·구역, 시연 사례별 이력을 넣고 그 계정의 `id`를 출력한다. 실제 농가 기록과 계정으로 구분된다. 사례: 통과, 같은 계통 반복(④ 주의), 횟수 소진(③ 불가), 누락 확인 전(③④ 확인 필요), 병해충 미선택. 약제와 이력은 PSIS 적재 후 배추·배추좀나방 실제 행으로 확정한다 (PRD §4.3).
 
 ## 10. 미결 사항
