@@ -1,0 +1,102 @@
+프로젝트를 처음 받아서 개발을 시작하는 데 필요한 것을 순서대로 적었습니다.
+1. 처음 세팅하기
+2. 코드 구조 (DDD)
+3. 혜빈님이 맡은 일과 파일 위치
+4. API 명세서 보는 법
+5. 문서 목록과 모를 때 물어볼 곳
+
+==============================================================
+1. 처음 세팅하기
+==============================================================
+
+(1) 저장소 받기
+    git clone <저장소 주소>
+    cd FarmGuardian_BE
+    git checkout test        # 지금 작업 브랜치는 test
+
+(2) Python 3.13 가상환경과 패키지
+    python -m venv .venv
+    .venv\Scripts\activate           (Windows)
+    pip install -r requirements-dev.txt
+
+(3) 서버 실행과 확인
+    uvicorn app.main:app --reload
+    브라우저에서 http://localhost:8000/health 를 열어 {"status": "ok"}가 나오면 됩니다.
+    http://localhost:8000/docs 에서 API 문서(자동 생성)를 볼 수 있습니다.
+
+자주 쓰는 명령
+    uvicorn app.main:app --reload   개발 서버
+    pytest                          테스트
+    ruff check .                    린트 (줄 길이 100, 규칙 E/F/I)
+
+
+==============================================================
+2. 코드 구조 (DDD)
+==============================================================
+
+DDD(도메인 주도 설계)로 나눴습니다. 기능별로 폴더(컨텍스트)를 만들고, 각 폴더 안을 4개 층으로 나눕니다.
+
+  app/
+    core/        설정, DB 세션, 에러 형식, 공통 의존성, today_kst()   (이미 있음, 준혁 담당)
+    identity/    가입·로그인, users                                  (준혁)
+    farm/        밭(field)과 구역(zone)                               (혜빈님 + 날씨만 준혁)
+    catalog/     작물·병해충·약제·등록 기준 (엑셀에서 적재)           (준혁)
+    judgment/    4체크 판정                                          (준혁)
+    spraying/    살포 기록                                           (준혁)
+
+  각 컨텍스트의 4개 층
+    domain/          엔티티와 순수한 규칙. DB·HTTP·FastAPI를 가져다 쓰지 않는다.
+    application/     유스케이스(서비스 함수). 트랜잭션은 여기서 정한다.
+    infrastructure/  SQLAlchemy 모델·리포지토리, 외부 API 클라이언트, 적재 스크립트.
+    presentation/    FastAPI 라우터와 요청·응답 스키마(pydantic). application만 호출한다.
+
+
+==============================================================
+3. 혜빈님이 맡은 일과 파일 위치
+==============================================================
+
+혜빈님 = 팜맵 + 밭·구역
+
+  영역            파일 위치                                         API
+  --------------  ------------------------------------------------  ----------------------------------
+  주소 검색       farm/infrastructure/integrations/juso.py          GET /addresses/search
+  PNU 조립        farm/infrastructure/integrations/pnu.py          (순수 함수)
+  팜맵 연동       farm/infrastructure/integrations/farmmap.py      GET /parcels
+                  (클라이언트 + GML 파서)
+  밭              farm/application/field_service.py                POST /fields, GET /fields,
+                                                                   DELETE /fields/{id}
+  구역 분할       farm/domain/split.py (순수 함수)                  POST /fields/{id}/split-preview,
+                  farm/application/field_service.py                 POST /fields/{id}/zones
+  구역 상세·수정  farm/application/zone_service.py                  GET /zones/{id}, PATCH /zones/{id}
+  모델            farm/infrastructure/models.py                    (밭·필지·구역 테이블)
+  라우터          farm/presentation/router.py, schemas.py          (위 API들의 FastAPI 엔드포인트)
+
+==============================================================
+4. API 명세서 보는 법
+==============================================================
+
+혜빈님 담당 API 요약 (9개)
+  GET  /addresses/search?keyword&page        주소 검색 -> {total, items[{road_addr, jibun_addr, pnu}]}
+  GET  /parcels?pnu                          겹치는 팜맵 필지 -> Parcel[]
+  POST /fields                               밭 등록 {name, parcel_farmmap_ids[]} -> 201 Field
+  GET  /fields                               내 밭 목록 -> Field[] (구역 요약 포함)
+  DELETE /fields/{id}                        밭 삭제 -> 204 (구역·기록·판정까지 삭제)
+  POST /fields/{id}/split-preview            {direction, ratios[]} -> SplitPiece[] (저장 안 함)
+  POST /fields/{id}/zones                    {direction, ratios[], zones[]} -> 201 Zone[]
+  GET  /zones/{id}                           구역 상세 + 편중도(rotation) + 최근 판정 5건
+  PATCH /zones/{id}                          {name?, crop_id?, planted_at?, history_confirmed?} -> Zone
+
+==============================================================
+5. 문서 목록과 모를 때 물어볼 곳
+==============================================================
+
+docs/dev/
+  팜가디언_역할분담_일정.md        누가 무엇을 맡는지
+  팜가디언_아키텍처.md             DDD 구조(§4), DB 스키마(§5), 외부 연동(§8), 공통 규칙(§9)
+  팜가디언_API_명세.md             API 계약 (프론트와의 약속)
+  팜가디언_판정_규칙.md            4체크 판정 규칙 (준혁 담당 영역이라 필요할 때만)
+  팜가디언_PRD_수정_제안.md        PRD에 보낸 수정 제안
+  farmguardian_backlog_BE.xlsx    BE 작업 목록 (담당·스프린트·완료 체크)
+  farmguardian_backlog_FE.xlsx    FE 작업 목록
+docs/info/
+  팜맵 조회 docx, 기상청(kma/), NCPMS(ncpms/) 원문 문서

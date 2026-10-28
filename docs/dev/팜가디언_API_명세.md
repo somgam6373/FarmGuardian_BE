@@ -6,6 +6,17 @@
 - 구현 후에는 FastAPI가 만든 `openapi.json`이 기준이 되고, 이 문서와 어긋나면 이 문서를 고친다.
 - **【결정】** 표시는 이 문서를 쓰면서 새로 정한 값이다 (설계 문서에 없던 것). 프론트와 합의 때 확인한다.
 
+## 0. BE 담당자
+
+기준: `팜가디언_역할분담_일정.md`. 노션 명세 표의 「BE 담당자」 열과 같다.
+
+| 담당 | API |
+|---|---|
+| 혜빈 (9) | `GET /addresses/search`, `GET /parcels`, `POST /fields`, `GET /fields`, `DELETE /fields/{id}`, `POST /fields/{id}/split-preview`, `POST /fields/{id}/zones`, `GET /zones/{id}`, `PATCH /zones/{id}` |
+| 준혁 (15) | `POST /auth/signup`, `POST /auth/login`, `GET /me`, `POST /me/onboarding`, `DELETE /me`, `GET /crops`, `GET /zones/{id}/weather`, `GET /crops/{id}/symptom-parts`, `GET /pests/candidates`, `GET /pests`, `GET /pesticides`, `POST /zones/{id}/judgments`, `POST /zones/{id}/sprays`, `GET /zones/{id}/sprays`, `DELETE /zones/{id}/sprays/{sid}` |
+
+`POST /auth/signup`은 준혁의 `identity`가 혜빈의 `field_service`를 호출해 첫 밭을 만든다.
+
 ## 1. 공통
 
 | 항목 | 규칙 |
