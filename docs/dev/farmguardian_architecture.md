@@ -197,17 +197,19 @@ pick_alternatives(selected, others) -> list[JudgeResult]       # 필터만. 이�
 
 ## 7. API
 
+요청·응답·오류의 상세 계약은 **`farmguardian_api_spec.md`**가 기준이다. 아래 표와 동작 규칙은 설계 근거이고, 어긋나면 api_spec을 따른다.
+
 모든 엔드포인트는 `X-User-Id` 헤더가 필요하다 (`/auth/*`, `GET /addresses/search`, `GET /parcels`만 예외). 헤더가 없거나 없는 사용자이면 401. `/fields/{id}/*`, `/zones/{id}/*`는 소유자 검사를 하고 남의 것은 **404**를 돌려준다.
 
 | 메서드 경로 | 용도 | 요청 → 응답 핵심 | 컨텍스트 |
 |---|---|---|---|
 | `POST /auth/signup` | 가입 + 첫 밭 생성 | `{username, password, field_name, parcel_farmmap_ids[]}` → 201 `{id, username, field: Field}` | identity |
 | `POST /auth/login` | 로그인 | `{username, password}` → `{id, username}` (틀리면 401) | identity |
-| `GET /me` | 내 정보 (온보딩 여부) | → `{id, onboarded}` | identity |
+| `GET /me` | 내 정보 (온보딩 여부) | → `{id, username, onboarded}` | identity |
 | `POST /me/onboarding` | 온보딩 완료 기록 | → `{id, onboarded: true}` | identity |
 | `DELETE /me` | 회원 탈퇴 | → 204 | identity |
 | `GET /crops` | 작물 목록 | → `[{id, name}]` | catalog |
-| `GET /addresses/search` | 주소 검색 (인증 없음. 가입 전에 쓴다) | `?keyword&page` → `[{road_addr, jibun_addr, pnu}]` | farm |
+| `GET /addresses/search` | 주소 검색 (인증 없음. 가입 전에 쓴다) | `?keyword&page` → `{total, items: [{road_addr, jibun_addr, pnu}]}` | farm |
 | `GET /parcels` | 주소와 겹치는 팜맵 필지 조회 (인증 없음. 로그인 전이면 `used_by_field_id`는 null) | `?pnu` → `[Parcel]` (선택 화면용 폴리곤, 이웃 지번 필지 포함) | farm |
 | `POST /fields` | 밭 생성 | `{name, parcel_farmmap_ids[]}` → `Field` | farm |
 | `GET /fields` | 내 밭 (밭별 구역 요약) | → `[Field]` | farm |
@@ -223,7 +225,7 @@ pick_alternatives(selected, others) -> list[JudgeResult]       # 필터만. 이�
 | `GET /pesticides` | 등록 약제 목록 | `?crop_id&pest_id?` → `[{id, name, item_name, moa}]` | catalog |
 | `POST /zones/{id}/judgments` | 판정 | `{pesticide_id, pest_id?}` → `JudgeResponse` (저장함) | judgment |
 | `POST /zones/{id}/sprays` | 기록 (「살포 기록 저장」, 과거 이력) | `{pesticide_id, sprayed_on?, source, request_id, allow_duplicate?}` → `Spray` | spraying |
-| `GET /zones/{id}/sprays` | 이력 | `?limit&offset` → `[Spray]` | spraying |
+| `GET /zones/{id}/sprays` | 이력 | `?limit&offset` → `{total, items: [Spray]}` | spraying |
 | `DELETE /zones/{id}/sprays/{sid}` | 기록 취소 | - | spraying |
 
 공통 응답 모양:
@@ -333,7 +335,7 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 - **PNU 조회는 "그 지번과 중첩되는 팜맵 필지 전체"를 돌려준다.** 명세서 예시에서 지번 하나로 7개가 왔고 이웃 지번 필지가 섞여 있었다. 한 지번이 판독이 다른 필지 여러 개로 쪼개져 있기도 하고, 필지 하나가 여러 지번과 겹치기도 한다. 그래서 `Parcel.matches_query`(필지의 `pnuLnmCd`가 조회한 PNU와 같은지), `lnm`, `land_use`를 내려줘 프론트가 구분해 보여준다. **밭의 단위는 지번이 아니라 팜맵 필지다.**
 - 응답 XML의 `fmapBdcrd`는 GML `MultiPolygon`(`srsName="EPSG:5179"`)이다. `gml:coordinates`의 `x,y x,y …`를 파싱해 WKT로 만들고 `ST_GeomFromText(wkt, 5179)`로 저장한다. 파서는 순수 함수 `parse_farmmap_response(xml) -> list[FarmmapParcel]`로 만들고 **명세서 예시 XML로 테스트**한다 (키 없이 가능). 외곽(`outerBoundaryIs`)뿐 아니라 구멍(`innerBoundaryIs`)도 처리한다. 명세서 예시에는 구멍이 없어서 실제 응답에서 확인한다.
 - 필드 대응: `fmapInnb` → `farmmap_id`, `pnuLnmCd` → `pnu`, `lnm` → `lnm`, `intprNm` → `land_use`(논·밭·과수·시설), `vdptYr` → `vdpt_yr`.
-- 오류: `resultCode`가 `00`이 아니면 502 `UPSTREAM_ERROR`. 오류코드 22(요청 제한 초과), 30·31(키 미등록·만료), 32(등록되지 않은 IP)는 `details.upstream_code`에 담는다.
+- 오류: `resultCode`가 `00`이 아니면 502 `UPSTREAM_ERROR`. `resultCode`는 숫자 문자열이다 (가이드 3.2 오류 코드): 1 어플리케이션 에러, 10 잘못된 요청 파라미터, 12 서비스 없음·폐기, 20 접근 거부, 22 요청 제한 초과, 30 키 미등록, 31 키 기한 만료, 32 등록되지 않은 IP, 99 기타. 모두 502 `UPSTREAM_ERROR`이고 코드는 `details.upstream_code`에 담는다. 10은 우리 요청이 틀린 것이므로 로그에 남겨 버그로 다룬다.
 - **서비스가 HTTP(SSL 없음)이고 키가 URL에 실린다.** 서버 간 호출로만 쓰고 요청 URL(키 포함)을 로그에 남기지 않는다 (`httpx` 로그 레벨 주의). 오류코드 32가 있으므로 **서버의 고정 출력 IP 등록이 필요한지** 키 신청 때 확인한다.
 - **팜맵은 지적도가 아니며 법적 효력이 없다** (명세서 §2). 면적과 경계는 참고값이므로 화면에 그렇게 표시해야 한다 (§10).
 - 응답은 평균 600ms, 초당 50건 제한이다. 필지 조회는 병렬로 하되 동시에 8개 이하로 제한한다.
@@ -355,11 +357,12 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 ### PSIS 적재 (`catalog/infrastructure/ingest/psis.py`)
 
 매뉴얼(ver 1.0) 기준:
-- 호출: `GET https://psis.rda.go.kr/openApi/service.do?apiKey=…&serviceCode=SVC01&serviceType=AA001&startPoint={페이지}&displayCount={≤99}&cropName=…&cropCheck=Y`. 인증 파라미터는 `apiKey`다 (매뉴얼 본문의 `serviceKey` 표기와 다름. 예시 URL을 따른다).
+- 호출 (매뉴얼 ver 1.0 목록 조회 요청 명세 확인): `GET https://psis.rda.go.kr/openApi/service.do?apiKey=…&serviceCode=SVC01&serviceType=AA001&startPoint={페이지}&displayCount={≤99}&cropName=…&cropCheck=Y`. 필수는 `apiKey`·`serviceCode`·`serviceType`·`displayCount`·`startPoint` 5개다. `serviceType`은 `AA001`(XML)만 쓴다 (`AA002`는 AJAX). 인증 파라미터는 `apiKey`다 (매뉴얼 개요의 `serviceKey` 표기와 다름. 요청 명세·예시 URL을 따른다). **`startPoint`는 시작 위치가 아니라 페이지 번호**(1부터)이고, `displayCount`는 두 자리(최대 99)다. 필터는 `cropName`·`cropName2~4`(각각 `cropCheck`로 정확 일치), `diseaseWeedName`(`similarFlag=Y`면 유사 병해충도 포함), `pestiKorName`, `pestiBrandName`, `compName`, `useName`이다.
 - 응답은 **XML**. 표준 라이브러리 `xml.etree.ElementTree`로 파싱한다.
-- 제한: 초당 10건 이하. 호출 사이에 약 0.15초 간격을 둔다. 에러는 `errorCode`(`ERR_101` 인증 실패, `ERR_201` 파라미터 오류, `ERR_901` 서버 오류 등)로 온다.
+- 제한: 초당 10건 이하. 호출 사이에 약 0.15초 간격을 둔다. 에러는 `errorCode`·`errorMsg`로 온다: `ERR_101` 인증키 미등록, `ERR_102` 인증키 일시 중지, `ERR_103` 서비스 코드 오류, `ERR_104` 권한 없음, `ERR_105` 인증되지 않은 도메인(현재 미적용), `ERR_201` 파라미터 누락·오류, `ERR_901` 서버 오류. 모두 적재 실패로 보고 롤백한다.
 - **지원 작물만 적재**한다: 감자·배추·토마토. `cropName`(최대 4개)과 `cropCheck=Y`로 작물별로 페이지를 돈다.
-- 상세 API(`SVC02`)는 쓰지 않는다. 목록 응답 예시에 `useSuittime`, `useNum`, `dilutUnit`, `pestiUse`가 이미 있다. **실제 응답에 있는지 S1 샘플 조사에서 확인**한다.
+- 상세 API(`SVC02`, 요청은 `pestiCode`+`diseaseUseSeq`)는 쓰지 않는다. **매뉴얼의 목록 응답 예시에 `useSuittime`, `useNum`, `dilutUnit`, `pestiUse`가 이미 있다** (SVC02 응답에 더 있는 것은 독성 `toxicName`·`fishToxicGubun`, 주성분 함량 `regCpntQnty`로, 판정에 쓰지 않는다). 목록 응답의 전체 필드: `pestiCode`, `diseaseUseSeq`, `cropName`, `diseaseWeedName`, `useName`, `pestiKorName`, `pestiBrandName`, `compName`, `engName`, `cmpaItmNm`(제조/수입), `indictSymbl`, `applyFirstRegDate`, `cropCd`, `cropLrclCd`, `cropLrclNm`, `pestiUse`, `dilutUnit`, `useSuittime`, `useNum`, `wafindex`. 응답 머리는 `totalCount`, 오류 시 `errorCode`·`errorMsg`. **예시 값이 실제 응답에서도 채워지는 비율은 S1 샘플 조사에서 확인**한다.
+- **PSIS `cropCd`(4자리 숫자, 예 `1000`)는 NCPMS 작물 코드(8자리, 예 `VC021001`)와 다른 체계다.** 두 시스템의 작물은 작물 이름(감자·배추·토마토)으로 연결하고, `crop.ext_code`는 PSIS `cropCd`만 담는다. NCPMS 코드는 `crop`에 따로 저장하지 않고 적재 설정에 상수로 둔다 (지원 작물이 3개뿐이다).
 - 매핑: `pestiCode` → `pesticide.psis_code`, `diseaseUseSeq` → `registration.psis_use_seq`, `cropCd` → `crop.ext_code`, `diseaseWeedName` → `pest.name`, `indictSymbl` → `moa.label_kr`, `pestiKorName` → `item_name`, `pestiBrandName` → `name`, `engName` → `ingredient_en`, `useName` → `use_name`.
 - **멱등:** `pesticide(psis_code)`, `registration(pesticide_id, psis_use_seq)` 기준 upsert, 한 트랜잭션, 실패 시 롤백(기존 데이터 유지). 성공 시 `loaded_at`을 갱신한다. 판정 입력 `psis_asof`는 가장 최근 적재일이다.
 - **등록 취소 반영 (삭제 규칙):** upsert만 하면 PSIS에서 등록이 취소된 행이 DB에 남아 계속 "등록됨"으로 판정된다. 그래서 작물별로 페이지를 끝까지 받은 뒤, 그 작물의 `registration` 중 **이번 응답에 없는 (`pesticide_id`, `psis_use_seq`) 행을 같은 트랜잭션에서 삭제**한다.
@@ -389,7 +392,7 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 - **목록 적재는 `SVC01`·`SVC03`을 `cropName`(감자·배추·토마토)으로 돌린다.** 병·해충 한글명(`sickNameKor`, `insectKorName`)이 PSIS 병해충명과 매칭하는 키이고, `sickKey`·`insectKey`가 `ncpms_code`다. **한 번에 최대 50건, `startPoint`는 최대 500**이라 작물당 550건을 넘으면 더 가져올 수 없다 (감자·배추·토마토는 넘지 않을 것으로 보고 적재 때 `totalCount`로 확인한다).
 - `SVC13`은 **증상 부위로 거르는 용도로만** 쓴다 (아래). 응답의 `pestKey`가 `SVC01`·`SVC03`의 `sickKey`·`insectKey`와 같은 값인지 확인한다 (같다고 가정하고 `category`로 병/해충을 가른다).
 - **증상 부위 → 병해충 후보는 `SVC13`의 `partName`이 해결한다.** 병·해충(`categoryCode=pest`)의 부위 값은 `유묘, 잎, 뿌리, 줄기, 가지, 열매, 꽃, 기타` 8개다. 적재 때 작물×부위로 `SVC13`을 돌려 나온 `pestKey`로 `pest_symptom(pest_id, crop_id, part)`를 채운다. `GET /crops/{id}/symptom-parts`는 이 8개 중 그 작물에 행이 있는 것만 돌려준다.
-- **작물 코드 (`cropCode`, 코드목록.xlsx):** 감자 `FC050501`, 배추 `VC021001`, 토마토 `VC010803`. PSIS `cropCd`와 같은 코드인지는 PSIS 샘플로 확인한다.
+- **작물 코드 (`cropCode`, 코드목록.xlsx):** 감자 `FC050501`, 배추 `VC021001`, 토마토 `VC010803`. PSIS `cropCd`와는 다른 체계이므로 작물은 이름으로 연결한다 (PSIS 절 참조).
 - **`pest_info` 매핑 (제 판단, 가이드 해석):**
 
   | `pest_info` | 병 (`SVC05`) | 해충 (`SVC07`) |
