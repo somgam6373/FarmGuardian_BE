@@ -305,7 +305,7 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 
 | 연동 | 파일 | 함수 | 비고 |
 |---|---|---|---|
-| 도로명주소 | `farm/infrastructure/integrations/juso.py` | `search(keyword, page)` | 승인키는 서버 전용 |
+| 도로명주소 | `farm/infrastructure/integrations/juso.py` | `search(keyword, page)` | 승인키(`confmKey`)는 서버 전용. 아래 상세 |
 | PNU 조립 | `farm/infrastructure/integrations/pnu.py` | `assemble_pnu(admCd, lnbrMnnm, lnbrSlno, mtYn)` | **순수 함수**, 스펙 §2 공식 |
 | 팜맵 | `farm/infrastructure/integrations/farmmap.py` | `parcels_by_pnu(pnu)`, `parcel_by_id(id)`, `parse_farmmap_response(xml)`(순수) | 공공데이터포털 `serviceKey`. 아래 상세 |
 | 기상청 | `farm/infrastructure/integrations/kma.py` | `latlon_to_grid(lat, lon)`(순수), `village_forecast(nx, ny, now)`, `parse_forecast(json, now)`(순수) | 공공데이터포털 `serviceKey`. 아래 상세 |
@@ -315,6 +315,15 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 
 - 공통: `httpx` 동기 클라이언트, 타임아웃 5초, 재시도 없음. 실패는 **502 `UPSTREAM_ERROR`** + `details.source`.
 - 테스트: `httpx.MockTransport`로 가짜 응답을 쓴다. **PSIS·팜맵 명세서의 예시 응답을 fixture로 저장**하고, S1 조사에서 받은 실제 응답을 더해 재사용한다.
+
+### 도로명주소 검색 (`farm/infrastructure/integrations/juso.py`)
+
+주소기반산업지원서비스 검색 API 가이드(business.juso.go.kr → 주소정보 API 연계 → 검색 API) 기준:
+- 호출: `GET https://business.juso.go.kr/addrlink/addrLinkApi.do?confmKey=…&keyword=…&currentPage=1&countPerPage=10&resultType=json`. 서버에서만 호출한다 (JSONP 엔드포인트는 쓰지 않는다).
+- 응답: `results.common`(`totalCount`, `currentPage`, `countPerPage`, `errorCode`, `errorMessage`)과 `results.juso[]`. 쓰는 필드는 `roadAddr`, `jibunAddr`, `admCd`(행정구역코드), `mtYn`(0:대지, 1:산), `lnbrMnnm`(지번 본번), `lnbrSlno`(지번 부번)이고, 앞의 두 개는 `GET /addresses/search`의 `road_addr`·`jibun_addr`, 나머지는 `assemble_pnu`의 입력이다. 가이드의 응답표에는 `InbrMnnm`(대문자 I)로 적혀 있지만 샘플 코드는 `lnbrMnnm`이다. 실제 응답으로 확인한다.
+- `errorCode == "0"`이 정상이다. 오류는 502가 아니라 **입력 문제는 422로 바꿔** 돌려준다: `E0005`(검색어 없음), `E0006`(시도명만), `E0008`(한 글자), `E0009`(숫자만), `E0010`(너무 김: 한글 40자·영숫자 80자 초과), `E0011`(숫자 10자리 초과), `E0012`(특수문자+숫자만), `E0013`(SQL 예약어·특수문자), `E0015`(결과 9천 건 초과). `E0001`(승인키 오류), `E0014`(개발키 기간 만료), `-999`(시스템 오류)는 502 `UPSTREAM_ERROR`다.
+- **검색어를 걸러서 보내야 한다.** 가이드가 `% = > < [ ]`와 SQL 예약어(`OR SELECT INSERT DELETE UPDATE CREATE DROP EXEC UNION FETCH DECLARE TRUNCATE`)가 들어간 검색어를 SQL 인젝션으로 보고 **호출한 서버 IP를 차단할 수 있다**고 안내한다. `search()` 앞에서 특수문자와 예약어가 든 검색어를 거절(422)하고, 이 검사는 `search()` 하나에서만 한다.
+- 개발용 승인키는 기간이 있다 (만료 시 `E0014`). 시연 직전에 만료 여부를 확인한다.
 
 ### 팜맵 조회 (`farm/infrastructure/integrations/farmmap.py`)
 
@@ -331,9 +340,13 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 
 ### 기상청 단기예보 (`farm/infrastructure/integrations/kma.py`)
 
-- 호출: 공공데이터포털 기상청 단기예보 조회서비스 `VilageFcstInfoService_2.0/getVilageFcst` (`serviceKey`, `dataType=JSON`, `base_date`, `base_time`, `nx`, `ny`, `numOfRows`). 키는 팜맵과 같은 공공데이터포털에서 활용신청한다.
-- 발표 시각은 02·05·08·11·14·17·20·23시(KST)이고 발표 약 10분 뒤부터 조회된다. `now(KST) − 10분` 이전의 가장 최근 발표 시각을 `base`로 쓰고 `issued_at`으로 내려준다.
+- 호출 (활용가이드 261019 기준): `GET https://apihub.kma.go.kr/api/typ02/openApi/VilageFcstInfoService_2.0/getVilageFcst?numOfRows=…&pageNo=1&dataType=JSON&base_date=YYYYMMDD&base_time=HHMM&nx=…&ny=…` + 인증키. **인증키 파라미터 이름이 가이드 안에서 갈린다**: 요청 명세표는 `serviceKey`(공공데이터포털 발급), 예시 URL은 `authKey`다. 키를 받을 때 어느 쪽으로 발급되는지 확인하고 `kma.py` 한 곳에서만 쓴다. 활용신청은 공공데이터포털 「기상청_단기예보 조회서비스」 페이지에서 한다.
+- 응답 (`dataType=JSON`도 가능, 기본값은 XML): `header.resultCode`·`resultMsg`, `body.items.item[]` = `{baseDate, baseTime, category, fcstDate, fcstTime, fcstValue, nx, ny}`, `totalCount`. 정상 코드는 명세표에 `00`, 예시 XML에는 `0`이라 둘 다 정상으로 본다. 한 시각의 값이 `category`별 행으로 따로 와서 `fcstDate+fcstTime`으로 묶는다. 최대 30 tps, 평균 응답 600ms.
+- 발표 시각은 02·05·08·11·14·17·20·23시(KST)이고 API는 발표 10분 뒤(02:10, 05:10, …)부터 제공한다. `now(KST) − 10분` 이전의 가장 최근 발표 시각을 `base`로 쓰고 `issued_at`으로 내려준다. 발표 직후 구간은 1시간 간격이라 앞으로 24시간 표시에 충분하다 (연장 구간은 3시간 간격이고 쓰지 않는다).
 - 쓰는 항목: `PTY`(강수형태), `PCP`(1시간 강수량), `POP`(강수확률). 앞으로 24시간을 시각별로 묶는다.
+  - `PTY` 코드(단기): 없음(0), 비(1), 비/눈(2), 눈(3), 소나기(4). 프론트가 코드를 문구로 바꾼다.
+  - `PCP`는 문자열이다: 강수 없음(`-`, null, 0 → 「강수없음」), 「1mm 미만」, 1.0~29.9mm는 「실수값+mm」(예 「6.2mm」), 「30.0~50.0mm」, 「50.0mm 이상」. `Weather.pcp`에 **원문 문자열을 그대로** 내려준다 (이미 그렇게 정의돼 있다).
+  - `POP`은 %이고 해상 격자는 값이 마스킹(결측)될 수 있다. ±900 이상은 결측이므로 null로 내린다.
 - 위치: 구역 중심점 `ST_Transform(ST_Centroid(zone.geom), 4326)` → 기상청 격자 변환(Lambert 정각원추 공식, 기상청 공개 변환 코드를 옮김) → `nx, ny`. `latlon_to_grid`는 순수 함수이고 기상청 문서의 예시 좌표로 표 기반 테스트한다.
 - 실패: 502 `UPSTREAM_ERROR`, `details.source = "kma"`. 판정과 무관하다.
 - 저장·캐시 없음. 호출 한도가 문제 되면 (`nx`, `ny`, `base`) 키로 메모리 캐시를 붙인다 (`# ponytail:` 표시).
@@ -472,5 +485,6 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 - 같이 고친 문서: `farmguardian_flow_spec.md`(온보딩 1단계·프로필), `farmguardian_team_plan.md`(스택·담당·키 신청·스프린트·협업 규칙), `farmguardian_architecture_outline.txt`, `farmguardian_prd_feedback.md`(#1·#9·#10), 백로그 엑셀 BE(BE-02·15·17·19)·FE(FE-06).
 
 2026-10-28 (DDD 구조):
+- 도로명주소 검색 API 가이드와 기상청 단기예보 활용가이드(261019)를 받아 §8을 확정했다: 도로명주소 요청·응답·오류 코드·검색어 필터링, 기상청 호출 URL·응답 모양·`PTY`·`PCP` 표기. 인증키 파라미터 이름(`serviceKey` 대 `authKey`)은 키 발급 때 확인한다.
 - NCPMS 매뉴얼을 받아 §8 NCPMS 적재를 확정했다: 쓰는 서비스 3개(`SVC13`·`SVC05`·`SVC07`), 증상 부위 8개 값, 작물 코드, `pest_info` 필드 매핑. API 응답 모양(`PestCard`)은 바뀌지 않았다.
 - 코드 구조를 기능별 모듈에서 DDD(바운디드 컨텍스트 5개 × 4층)로 바꿨다. 이 문서 §2(코드 구조)·§3·§4·§7(컨텍스트 열)·§8(파일 경로)·§9(테스트 대상 경로)와 `farmguardian_judge_rules.md`(파일 경로), `farmguardian_team_plan.md`(담당·서비스 이름), `farmguardian_architecture_outline.txt`(Module)를 고쳤다. 기존 `fields`·`zones`는 `farm`으로, `pests`·`ingest`와 약제 조회는 `catalog`로, `judge`는 `judgment`로, `records`는 `spraying`으로, `auth`는 `identity`로 옮겼다.
