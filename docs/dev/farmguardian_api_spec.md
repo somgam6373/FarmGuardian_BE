@@ -67,7 +67,7 @@ JudgeResult   {pesticide_id: int, moa: Moa|null, verdict: Verdict, checks: [Chec
                notices: [string], data_asof: date}
                   checks는 항상 4개, 순서 registration → timing → count → moa. data_asof 표기는 "데이터 조회일"
 Alternative   {id: int, name: string, item_name: string, moa: Moa|null}      Pesticide와 같은 모양
-JudgeResponse {judgment_id: int, result: JudgeResult, alternatives: [Alternative], show_extension_office: bool}
+JudgeResponse {judgment_id: int, apply_date: date, result: JudgeResult, alternatives: [Alternative], show_extension_office: bool}
 Rotation      {window_start: date|null, total: int, items: [{moa: Moa|null, count: int}]}
                   window_start가 null이면 정식일이 없어 전체 기록 기준. 비율은 프론트가 count/total
 Weather       {issued_at: datetime, items: [{at: datetime, pty: int, pcp: string, pop: int|null}]}
@@ -214,8 +214,9 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 
 ### `POST /zones/{id}/judgments`
 
-- 요청 본문: `{pesticide_id: int, pest_id?: int}` — `pest_id`가 없으면 병해충 미지목
-- 응답 201: `JudgeResponse` (판정을 저장한다)
+- 요청 본문: `{pesticide_id: int, pest_id?: int, apply_date?: date}` — `pest_id`가 없으면 병해충 미지목
+  - `apply_date` **【결정】**: 「이 날 살포한다면」의 날짜. 없으면 오늘(KST). 판정의 `today`로 쓰여 **수확 가능일(`harvest_from`)과 문구의 날짜**만 달라진다. 살포 이력은 날짜와 무관하게 구역의 전체 기록을 쓴다. 시연 날짜와 상관없이 같은 화면을 재현하려는 용도다 (판정만 하고 기록은 저장하지 않으므로 이력에 영향이 없다).
+- 응답 201: `JudgeResponse` (판정을 저장한다). `apply_date`는 판정에 쓴 날짜(요청 값 또는 오늘)다.
   - `alternatives`는 병해충을 지목한 판정에만 계산한다 (같은 작물×병해충의 다른 약제 중 `OK`이고 작용기작이 다른 것). 지목하지 않았고 불가이면 `result.notices`에 안내 한 줄이 붙고 `alternatives`는 빈 배열.
   - `show_extension_office`: 「농업기술센터 문의」 안내를 보여줄지. 병해충을 지목했고 `verdict`가 `BLOCKED` 또는 `CAUTION`이며 대안이 0건일 때만 true (judge_rules §7)
 - 오류: 404 (구역·약제·병해충이 없음), 422

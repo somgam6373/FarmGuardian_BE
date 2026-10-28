@@ -59,7 +59,7 @@ class SprayRecord:
     moa: Moa | None
 
 class JudgeInput:
-    today: date                      # 주입. 시계 없이 테스트한다. KST 기준
+    today: date                      # 주입. 시계 없이 테스트한다. KST 기준. API의 apply_date가 있으면 그 날짜
     planted_at: date | None          # None = 정식일 미입력
     history_confirmed: bool          # 「누락 없음」 확인 여부
     pest_id: int | None              # None = 병해충 미지목

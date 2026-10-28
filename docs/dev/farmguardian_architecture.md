@@ -227,7 +227,7 @@ pick_alternatives(selected, others) -> list[JudgeResult]       # 필터만. 이�
 | `GET /pests/candidates` | 증상 부위로 병해충 후보 | `?crop_id&part` → `[PestCard]` | catalog |
 | `GET /pests` | 도감 목록·이름 검색 | `?crop_id&q?` → `[PestCard]` | catalog |
 | `GET /pesticides` | 등록 약제 목록 | `?crop_id&pest_id?` → `[{id, name, item_name, moa, at_planting_only}]` | catalog |
-| `POST /zones/{id}/judgments` | 판정 | `{pesticide_id, pest_id?}` → `JudgeResponse` (저장함) | judgment |
+| `POST /zones/{id}/judgments` | 판정 | `{pesticide_id, pest_id?, apply_date?}` → `JudgeResponse` (저장함) | judgment |
 | `POST /zones/{id}/sprays` | 기록 (「살포 기록 저장」, 과거 이력) | `{pesticide_id, sprayed_on?, source, request_id, allow_duplicate?}` → `Spray` | spraying |
 | `GET /zones/{id}/sprays` | 이력 | `?limit&offset` → `{total, items: [Spray]}` | spraying |
 | `DELETE /zones/{id}/sprays/{sid}` | 기록 취소 | - | spraying |
@@ -249,7 +249,7 @@ ZoneSpec      {name, crop_id, planted_at?}
 SplitPiece    {geometry, area_m2}             순서 = 방향의 시작 쪽부터, ratios 순서와 같다
 Spray         {id, pesticide: {id, name, item_name, moa}, sprayed_on, source}
 Alternative   {id, name, item_name, moa}          Pesticide와 같은 모양
-JudgeResponse {judgment_id, result: JudgeResult, alternatives: [Alternative],
+JudgeResponse {judgment_id, apply_date, result: JudgeResult, alternatives: [Alternative],
                show_extension_office: bool}
 rotation      {window_start | null, total, items: [{moa | null, count}]}
               예: {2026-05-01, 7, [{가1, 4}, {나2, 2}, {null, 1}]}. 비율은 프론트가 count/total.
