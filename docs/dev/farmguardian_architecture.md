@@ -362,7 +362,29 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 
 ### NCPMS 적재 (`catalog/infrastructure/ingest/ncpms.py`)
 - 1회 적재로 시작. 지원 작물의 병해충 도감에서 PSIS 병해충명과 매칭되는 것에 `ncpms_code`, `pest_info`(사진, 설명, 발생시기, `source = "NCPMS 병해충 도감"`, `loaded_at`), `pest_symptom`(증상 부위)을 채운다.
-- 설명·발생시기·증상 부위가 실제 응답에 어떤 필드로 있는지 **S1 샘플 조사에서 확인**한다. 없으면 NULL이고 화면에 「없음」.
+- **쓰는 서비스는 3개다** (NCPMS 「OpenAPI 사용 매뉴얼」 zip의 샘플 코드로 확인, 2026-10-28. 매뉴얼 `docs/info/ncpms/ncpms_openapi_manual.hwp`, 코드목록 `ncpms_code_list.xlsx`). 호출: `GET http://ncpms.rda.go.kr/npmsAPI/service?apiKey=…&serviceCode=…`, 응답은 XML(UTF-8). 공통 응답 머리: `buildTime`, `totalCount`, `startPoint`, `displayCount`, 오류 시 `errorCode`·`errorMsg`.
+
+  | 서비스 | `serviceCode` | 주요 파라미터 | 응답에서 쓰는 필드 |
+  |---|---|---|---|
+  | 작물 소분류별 이미지 검색 (사진검색 3) | `SVC13` | `cropCode`, `categoryCode`(`pest` = 병·해충·천적곤충, `insect` = 곤충), `partName`, `pestName`, `startPoint` | `list/item`: `pestKey`, `pestName`, `category`, `thumbImg` |
+  | 병 상세정보 | `SVC05` | `sickKey` (= `pestKey`) | `cropName`, `sickNameKor`, `infectionRoute`, `developmentCondition`, `symptoms`, `preventionMethod`, `etc`, `imageList/item(imageTitle, image)`, `virusList/item(virusName)` |
+  | 해충 상세정보 | `SVC07` | `insectKey` (= `pestKey`) | `cropName`, `insectSpeciesKor`, `ecologyInfo`, `damageInfo`, `preventMethod`, `imageList/item(imageTitle, image)` |
+
+- **병 검색·해충 검색 서비스는 쓰지 않는다.** `SVC13`이 작물별 병해충 목록과 `pestKey`를 주고, `category`로 병이면 `SVC05`, 해충이면 `SVC07`을 부른다.
+- **증상 부위 → 병해충 후보는 `SVC13`의 `partName`이 그대로 해결한다.** 병·해충(`categoryCode=pest`)의 부위 값은 `유묘, 잎, 뿌리, 줄기, 가지, 열매, 꽃, 기타` 8개다. 적재 때 작물×부위로 `SVC13`을 돌려 나온 `pestKey`로 `pest_symptom(pest_id, crop_id, part)`를 채운다. `GET /crops/{id}/symptom-parts`는 이 8개 중 그 작물에 행이 있는 것만 돌려준다.
+- **작물 코드 (`cropCode`, 코드목록.xlsx):** 감자 `FC050501`, 배추 `VC021001`, 토마토 `VC010803`. PSIS `cropCd`와 같은 코드인지는 PSIS 샘플로 확인한다.
+- **`pest_info` 매핑 (제 판단, 가이드 해석):**
+
+  | `pest_info` | 병 (`SVC05`) | 해충 (`SVC07`) |
+  |---|---|---|
+  | `photo_url` | `imageList`의 첫 `image` | `imageList`의 첫 `image` (없으면 `SVC13`의 `thumbImg`) |
+  | `description` | `symptoms` (증상) | `damageInfo` (피해) |
+  | `occurrence` | `developmentCondition` (발생 조건) | `ecologyInfo` (생태) |
+
+  NCPMS에는 「발생시기」라는 이름의 필드가 없다. 병은 「발병 조건」, 해충은 「생태」 서술이 가장 가깝다. 값이 비면 NULL이고 화면에 「없음」이다. 판정에는 쓰지 않는다.
+- 병 상세의 `virusList`는 **병원체(바이러스) 이름**이다. 매개충이 아니므로 `pest_vector`는 그대로 수작업 CSV로 채운다.
+- 매칭: NCPMS `pestName`과 PSIS 병해충명이 같으면 연결하고, 이름 표기가 다르면 매칭하지 않는다 (§10-8).
+- 샘플 코드의 호출은 HTTP(SSL 없음)이고 키가 URL에 실린다. 팜맵과 같이 요청 URL을 로그에 남기지 않는다.
 
 ### 매개충 시드 (`catalog/infrastructure/ingest/vectors.py`)
 - `catalog/infrastructure/ingest/seed/pest_vector.csv` (`crop, virus_name, vector_name, source`). 지원 작물 3종의 바이러스와 매개충을 원자료(NCPMS 도감 본문, 농사로 등)에서 손으로 옮기고 **출처를 줄마다 적는다.** 출처 없는 줄은 넣지 않는다.
@@ -411,7 +433,7 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 
 **남은 것**
 1. **성분 단위 합산 여부.** 틀리면 "가능"이 잘못 나오는 위험한 방향이다. **출시 전 확인.**
-2. **PSIS·NCPMS 샘플 조사 (S1 월요일).** 스키마 동결 전에 끝낸다. PSIS 항목은 judge_rules §10-3·§10-7. NCPMS는 사진·설명·발생시기·증상 부위가 어떤 필드로 오는지.
+2. **PSIS·NCPMS 샘플 조사 (S1 월요일).** 스키마 동결 전에 끝낸다. PSIS 항목은 judge_rules §10-3·§10-7. NCPMS 필드 대응은 매뉴얼 샘플 코드로 확인했다 (§8). 실제 응답에서 값이 비는 비율과 PSIS 병해충명과의 일치율은 키를 받아 확인한다.
 3. **다작용점 약제의 ④ 제외 여부.** 농학 전문가 확인.
 4. **면책 문구.** 제품·법무 확인.
 5. **별표 8 매핑표** (한글 작용기작 기호 → FRAC·IRAC) 담당과 전달 시점.
@@ -450,4 +472,5 @@ PestCard      {id, name, kind, photo_url, description, occurrence, source, vecto
 - 같이 고친 문서: `farmguardian_flow_spec.md`(온보딩 1단계·프로필), `farmguardian_team_plan.md`(스택·담당·키 신청·스프린트·협업 규칙), `farmguardian_architecture_outline.txt`, `farmguardian_prd_feedback.md`(#1·#9·#10), 백로그 엑셀 BE(BE-02·15·17·19)·FE(FE-06).
 
 2026-10-28 (DDD 구조):
+- NCPMS 매뉴얼을 받아 §8 NCPMS 적재를 확정했다: 쓰는 서비스 3개(`SVC13`·`SVC05`·`SVC07`), 증상 부위 8개 값, 작물 코드, `pest_info` 필드 매핑. API 응답 모양(`PestCard`)은 바뀌지 않았다.
 - 코드 구조를 기능별 모듈에서 DDD(바운디드 컨텍스트 5개 × 4층)로 바꿨다. 이 문서 §2(코드 구조)·§3·§4·§7(컨텍스트 열)·§8(파일 경로)·§9(테스트 대상 경로)와 `farmguardian_judge_rules.md`(파일 경로), `farmguardian_team_plan.md`(담당·서비스 이름), `farmguardian_architecture_outline.txt`(Module)를 고쳤다. 기존 `fields`·`zones`는 `farm`으로, `pests`·`ingest`와 약제 조회는 `catalog`로, `judge`는 `judgment`로, `records`는 `spraying`으로, `auth`는 `identity`로 옮겼다.
