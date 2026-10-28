@@ -10,3 +10,7 @@ __pycache__/
 /docs/*.xlsx
 # 엑셀 임시 파일
 ~$*
+
+# 쓰지 않는 외부 API 문서 (NCPMS, PSIS)
+/docs/info/ncpms/
+/docs/info/농약안전정보시스템_*
