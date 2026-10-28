@@ -14,3 +14,9 @@ __pycache__/
 # 쓰지 않는 외부 API 문서 (NCPMS, PSIS)
 /docs/info/ncpms/
 /docs/info/농약안전정보시스템_*
+
+# 개인 전달용 안내 문서
+/docs/dev/팜가디언_프로젝트_사용_안내.txt
+
+# 외부 API 원문 문서
+/docs/info/
