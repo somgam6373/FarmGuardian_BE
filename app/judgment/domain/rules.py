@@ -7,11 +7,16 @@ from app.judgment.domain.schemas import (
     Moa,
     Registration,
     RotationRule,
+    SprayRecord,
     Verdict,
 )
 
 NONE_TEXT = "없음"  # 근거 원문이 비었을 때 보여 줄 문구
 NO_LIMIT_MESSAGE = "수확 전 사용 일수 제한이 없는 약제입니다. 라벨의 사용 방법을 확인해 주세요"
+UNCONFIRMED_MESSAGE = (
+    "살포 기록에 빠진 것이 없는지 확인되지 않았습니다. "
+    "기록을 입력하고 「누락 없음」을 선택해 주세요"
+)
 
 
 def considered_rows(inp: JudgeInput) -> list[Registration]:
@@ -208,3 +213,88 @@ def moa_label(moa: Moa) -> str:
     if moa.system and moa.code:
         return f"{moa.label_kr} ({moa.system} {moa.code})"
     return moa.label_kr
+
+
+def _newest_first(history: list[SprayRecord]) -> list[SprayRecord]:
+    return sorted(history, key=lambda s: (s.sprayed_on, s.id), reverse=True)
+
+
+def check_moa(inp: JudgeInput) -> CheckResult:
+    """④ 작용기작: 직전까지 같은 계열을 연속으로 쓰고 있는가. ①②와 무관하게 계산한다."""
+    data_asof = rows_data_asof(inp)
+
+    def result(status: Verdict, message: str, facts: dict, source_text: str) -> CheckResult:
+        return CheckResult(
+            key="moa",
+            status=status,
+            message=message,
+            facts=facts,
+            evidence=Evidence(source_text=source_text, data_asof=data_asof),
+        )
+
+    if inp.moa is None:
+        facts = {
+            "label": None,
+            "rule": None,
+            "max_consecutive": None,
+            "consecutive": None,
+            "unknown": None,
+            "window": [],
+        }
+        return result(
+            Verdict.NEEDS_CHECK,
+            "이 약제의 작용기작 정보가 없어 비교할 수 없습니다",
+            facts,
+            NONE_TEXT,
+        )
+
+    rule = rotation_rule(inp.moa)
+    label = moa_label(inp.moa)
+    ordered = _newest_first(inp.history)
+    consecutive = 0
+    for record in ordered:
+        # 다른 계열이거나 작용기작 미상인 기록을 만나면 연속이 끊긴다
+        if record.moa is None or record.moa.label_kr != inp.moa.label_kr:
+            break
+        consecutive += 1
+    window = ordered[:3]
+    unknown = sum(1 for record in window if record.moa is None)
+    facts = {
+        "label": label,
+        "rule": rule.kind,
+        "max_consecutive": rule.max_consecutive,
+        "consecutive": consecutive,
+        "unknown": unknown,
+        "window": [
+            {
+                "id": record.id,
+                "sprayed_on": record.sprayed_on.isoformat(),
+                "item_name": record.item_name,
+                "label": moa_label(record.moa) if record.moa else None,
+            }
+            for record in window
+        ],
+    }
+    note = f" (작용기작 미상 {unknown}건 포함)" if unknown else ""
+
+    if not inp.history_confirmed:
+        return result(Verdict.NEEDS_CHECK, UNCONFIRMED_MESSAGE, facts, rule.source)
+    if rule.kind == "NO_LIMIT":
+        message = f"{label} — 같은 계열을 반복해도 제한이 없는 계열입니다" + note
+        return result(Verdict.OK, message, facts, rule.source)
+    if not inp.history:
+        return result(Verdict.OK, "살포 이력이 없습니다", facts, rule.source)
+    if consecutive >= rule.max_consecutive:
+        message = (
+            f"{label} — 직전까지 같은 계열을 연속 {consecutive}회 사용했습니다. "
+            f"연속 {rule.max_consecutive}회까지가 기준이라 같은 작용기작이 반복됩니다" + note
+        )
+        return result(Verdict.CAUTION, message, facts, rule.source)
+    if consecutive == 0:
+        message = f"{label} — 직전 살포는 다른 계열입니다" + note
+        return result(Verdict.OK, message, facts, rule.source)
+    message = (
+        f"{label} — 직전까지 같은 계열을 연속 {consecutive}회 사용했습니다 "
+        f"(연속 {rule.max_consecutive}회까지 기준)" + note
+    )
+    return result(Verdict.OK, message, facts, rule.source)
