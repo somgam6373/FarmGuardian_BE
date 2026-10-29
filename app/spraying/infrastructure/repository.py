@@ -81,6 +81,18 @@ def page(db: Session, zone_id: int, limit: int, offset: int) -> tuple[int, list[
     return total, [_spray(row) for row in rows]
 
 
+def all_for_zone(db: Session, zone_id: int) -> list[Spray]:
+    """구역의 기록 전체 (페이징 없음), 최근순."""
+    rows = db.execute(
+        text(
+            "SELECT id, pesticide_id, sprayed_on, source FROM spray_log "
+            "WHERE zone_id = :zone ORDER BY sprayed_on DESC, id DESC"
+        ),
+        {"zone": zone_id},
+    ).all()
+    return [_spray(row) for row in rows]
+
+
 def delete(db: Session, zone_id: int, spray_id: int) -> bool:
     result = db.execute(
         text("DELETE FROM spray_log WHERE id = :id AND zone_id = :zone"),
