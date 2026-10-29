@@ -455,3 +455,18 @@ def rotation_summary(history: Sequence[SprayRecord], planted_at: date | None) ->
         total=len(window),
         items=[RotationItem(moa=moas[label], count=count) for label, count in ordered],
     )
+
+
+def pick_alternatives(selected: JudgeResult, others: Sequence[JudgeResult]) -> list[JudgeResult]:
+    """고른 약제 대신 보여 줄 후보: 가능(OK)이고 작용기작이 있으며 다른 계열인 것.
+
+    거르기만 한다. 순서와 객체는 그대로 두고, 정렬과 이름 채우기는 서비스가 한다.
+    """
+    chosen = selected.moa.label_kr if selected.moa else None
+    return [
+        other
+        for other in others
+        if other.verdict is Verdict.OK
+        and other.moa is not None
+        and (chosen is None or other.moa.label_kr != chosen)
+    ]
