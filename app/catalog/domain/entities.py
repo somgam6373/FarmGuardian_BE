@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import date
 
 
 @dataclass(frozen=True)
@@ -26,6 +27,21 @@ class Pesticide:
 class PesticideEntry:
     pesticide: Pesticide
     at_planting_only: bool  # 이 작물(·병해충)의 등록 행이 모두 「심을 때」 사용
+
+
+@dataclass(frozen=True)
+class UseRow:
+    # 약제의 등록 행 하나 (사용 방법별). 판정 입력의 원재료다
+    pest_id: int
+    pest_name: str
+    phi_days: int | None
+    max_uses: int | None
+    use_time: str | None  # 원문
+    use_count: str | None  # 원문
+    dilution: str | None  # 원문
+    method: str | None  # 사용 방법 원문
+    parse_status: str  # 'ok' | 'stage' | 'no_std' | 'failed'
+    base_date: date  # 데이터 기준일
 
 
 @dataclass(frozen=True)
