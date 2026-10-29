@@ -29,7 +29,8 @@ def register_user(db: Session, username: str, password: str) -> int | None:
 
 def login(db: Session, username: str, password: str) -> tuple[int, str] | None:
     """(id, 아이디). 아이디 없음·비밀번호 틀림·잠긴 해시 모두 None이다."""
-    found = repository.find_by_username(db, username)
+    # NUL은 PostgreSQL text에 넣을 수 없어 그런 아이디는 있을 수 없다 (DB 오류 대신 없는 아이디로)
+    found = None if "\x00" in username else repository.find_by_username(db, username)
     if found is None:
         verify_password(password, _dummy_hash())
         return None

@@ -196,3 +196,38 @@ def test_withdrawal_requires_authentication(client):
     r = client.delete("/me")
 
     assert (r.status_code, r.json()["error"]["code"]) == (401, "UNAUTHORIZED")
+
+
+def post_raw(client, body):
+    return client.post(
+        "/auth/login", content=body.encode(), headers={"Content-Type": "application/json"}
+    )
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        r'{"username": "a\u0000b", "password": "pw1234"}',
+        r'{"username": "farmer_1", "password": "pw\u00001234"}',
+    ],
+    ids=["nul-name", "nul-password"],
+)
+def test_a_nul_character_is_a_plain_401(client, user, body):
+    r = post_raw(client, body)
+    wrong = login(client, "farmer_1", "wrong")
+
+    assert (r.status_code, r.json()) == (401, wrong.json())
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        r'{"username": "\ud800", "password": "pw1234"}',
+        r'{"username": "farmer_1", "password": "\ud800"}',
+    ],
+    ids=["surrogate-name", "surrogate-password"],
+)
+def test_an_unpaired_surrogate_is_a_validation_error_not_a_server_error(client, user, body):
+    r = post_raw(client, body)
+
+    assert (r.status_code, r.json()["error"]["code"]) == (422, "VALIDATION_ERROR")
