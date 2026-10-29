@@ -5,6 +5,7 @@ from app.catalog.presentation.router import router as catalog_router
 from app.core.config import settings
 from app.core.errors import install_error_handlers
 from app.farm.presentation.router import router as farm_router
+from app.spraying.presentation.router import router as spraying_router
 
 app = FastAPI(title="FarmGuardian")
 app.add_middleware(
@@ -16,6 +17,7 @@ app.add_middleware(
 install_error_handlers(app)
 app.include_router(farm_router)
 app.include_router(catalog_router)
+app.include_router(spraying_router)
 
 
 @app.get("/health")

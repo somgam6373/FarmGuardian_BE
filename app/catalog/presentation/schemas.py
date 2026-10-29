@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 
+from app.catalog.domain.entities import Pesticide
+
 
 class CropOut(BaseModel):
     id: int
@@ -12,12 +14,20 @@ class MoaOut(BaseModel):
     code: str | None
 
 
-class PesticideOut(BaseModel):
+class PesticideBase(BaseModel):
     id: int
     name: str  # 상표명
     item_name: str  # 품목명
     moa: MoaOut | None
+
+
+class PesticideOut(PesticideBase):
     at_planting_only: bool
+
+
+def pesticide_base(p: Pesticide) -> PesticideBase:
+    moa = MoaOut(label_kr=p.moa.label_kr, system=p.moa.system, code=p.moa.code) if p.moa else None
+    return PesticideBase(id=p.id, name=p.name, item_name=p.item_name, moa=moa)
 
 
 class VectorOut(BaseModel):
