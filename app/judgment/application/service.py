@@ -2,10 +2,13 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 
+from sqlalchemy.orm import Session
+
 from app.catalog.application import catalog_service
 from app.catalog.domain.entities import Moa as CatalogMoa
 from app.catalog.domain.entities import Pesticide, UseRow
 from app.core.errors import AppError
+from app.farm.application import zone_reader
 from app.judgment.domain.rules import judge, pick_alternatives
 from app.judgment.domain.schemas import (
     JudgeInput,
@@ -15,9 +18,13 @@ from app.judgment.domain.schemas import (
     SprayRecord,
     Verdict,
 )
+from app.judgment.infrastructure import repository
+from app.spraying.application import spray_service
 from app.spraying.application.spray_service import SprayView
 
 NO_ALTERNATIVE_NOTICE = "병해충을 지정하면 대안을 볼 수 있습니다"
+# 수확 가능일(오늘 + 수확 전 일수)이 날짜 범위를 넘지 않도록 하는 상한
+MAX_APPLY_DATE = date(2100, 12, 31)
 
 # 정적 데이터의 변환 구분을 판정의 사용 유형으로 옮긴다
 _USAGE_TYPE = {"ok": "NORMAL", "stage": "AT_PLANTING", "no_std": "NO_LIMIT", "failed": "CHECK"}
@@ -114,3 +121,43 @@ def assess(
         alternatives,
         show_extension_office(pest_id is not None, result.verdict, len(alternatives)),
     )
+
+
+@dataclass(frozen=True)
+class Judgment:
+    id: int
+    apply_date: date
+    assessment: Assessment
+
+
+def run_judgment(
+    db: Session,
+    zone_id: int,
+    *,
+    pesticide_id: int,
+    pest_id: int | None,
+    apply_date: date | None,
+    today: date,
+) -> Judgment:
+    """구역의 정보와 이력을 읽어 판정하고 저장한다. 오류면 아무것도 저장하지 않는다."""
+    if apply_date is not None and apply_date > MAX_APPLY_DATE:
+        message = f"apply_date는 {MAX_APPLY_DATE.isoformat()} 이전이어야 합니다"
+        error = {"loc": ["body", "apply_date"], "msg": message, "type": "value_error"}
+        raise AppError("VALIDATION_ERROR", 422, message, {"errors": [error]})
+    day = apply_date or today
+    zone = zone_reader.get_zone_context(db, zone_id)
+    assessment = assess(
+        crop_id=zone.crop_id,
+        planted_at=zone.planted_at,
+        history_confirmed=zone.history_confirmed,
+        history=spray_service.history(db, zone_id),
+        pesticide_id=pesticide_id,
+        pest_id=pest_id,
+        today=day,
+    )
+    result = assessment.result
+    judgment_id = repository.insert(
+        db, zone_id, pest_id, pesticide_id, day, result.verdict.value, result.model_dump_json()
+    )
+    db.commit()
+    return Judgment(judgment_id, day, assessment)
