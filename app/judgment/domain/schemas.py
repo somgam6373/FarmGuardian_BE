@@ -88,3 +88,14 @@ class JudgeResult(_Model):
     checks: list[CheckResult] = Field(min_length=4, max_length=4)
     notices: list[str]
     data_asof: date
+
+
+class RotationItem(_Model):
+    moa: Moa | None  # None = 작용기작 미상
+    count: int
+
+
+class RotationSummary(_Model):
+    window_start: date | None  # None = 정식일이 없어 전체 이력 기준
+    total: int
+    items: list[RotationItem]

@@ -9,7 +9,9 @@ from app.judgment.domain.schemas import (
     JudgeResult,
     Moa,
     Registration,
+    RotationItem,
     RotationRule,
+    RotationSummary,
     SprayRecord,
     Verdict,
 )
@@ -431,3 +433,40 @@ def judge(inp: JudgeInput) -> JudgeResult:
         notices=notices,
         data_asof=rows_data_asof(inp),
     )
+
+
+def rotation_summary(history: Sequence[SprayRecord], planted_at: date | None) -> RotationSummary:
+    """정식일 이후 살포 기록을 작용기작별로 센 편중도. 약제 수가 아니라 살포 건수로 센다."""
+    window = [
+        record
+        for record in _newest_first(list(history))
+        if planted_at is None or record.sprayed_on >= planted_at
+    ]
+    counts: dict[str | None, int] = {}
+    moas: dict[str | None, Moa | None] = {}
+    for record in window:
+        label = record.moa.label_kr if record.moa else None
+        counts[label] = counts.get(label, 0) + 1
+        moas.setdefault(label, record.moa)  # 최근 기록부터 보므로 처음 본 moa가 가장 최근 것이다
+    # 미상(None)은 건수와 상관없이 맨 뒤, 나머지는 건수 내림차순 → 이름 오름차순
+    ordered = sorted(counts.items(), key=lambda kv: (kv[0] is None, -kv[1], kv[0] or ""))
+    return RotationSummary(
+        window_start=planted_at,
+        total=len(window),
+        items=[RotationItem(moa=moas[label], count=count) for label, count in ordered],
+    )
+
+
+def pick_alternatives(selected: JudgeResult, others: Sequence[JudgeResult]) -> list[JudgeResult]:
+    """고른 약제 대신 보여 줄 후보: 가능(OK)이고 작용기작이 있으며 다른 계열인 것.
+
+    거르기만 한다. 순서와 객체는 그대로 두고, 정렬과 이름 채우기는 서비스가 한다.
+    """
+    chosen = selected.moa.label_kr if selected.moa else None
+    return [
+        other
+        for other in others
+        if other.verdict is Verdict.OK
+        and other.moa is not None
+        and (chosen is None or other.moa.label_kr != chosen)
+    ]
