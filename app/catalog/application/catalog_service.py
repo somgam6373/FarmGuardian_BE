@@ -1,6 +1,19 @@
 import functools
 
-from app.catalog.domain.entities import Crop, Moa, Pesticide, PesticideEntry
+from app.catalog.domain.entities import (
+    Crop,
+    Moa,
+    PestCard,
+    Pesticide,
+    PesticideEntry,
+    PestVector,
+)
+from app.catalog.domain.pest_rules import (
+    OCCURRENCE_SOURCES,
+    occurrence_text,
+    pick_season,
+    representative_photo,
+)
 from app.catalog.infrastructure.static_data import load
 from app.core.errors import AppError
 
@@ -68,3 +81,51 @@ def list_pesticides(crop_id: int, pest_id: int | None = None) -> list[PesticideE
         )
     )
     return entries
+
+
+_KIND = {"disease": "병", "insect": "해충"}
+
+
+@functools.cache
+def _pests() -> dict[int, dict]:
+    return {p["pest_id"]: p for p in load("pest")}
+
+
+@functools.cache
+def _by_pest(name: str, key: str = "pest_id") -> dict[int, tuple[dict, ...]]:
+    grouped: dict[int, list[dict]] = {}
+    for row in load(name):
+        grouped.setdefault(row[key], []).append(row)
+    return {pest_id: tuple(rows) for pest_id, rows in grouped.items()}
+
+
+def get_pest_card(pest_id: int) -> PestCard | None:
+    pest = _pests().get(pest_id)
+    if pest is None:
+        return None
+    photo = representative_photo(_by_pest("pest_photo").get(pest_id, ()))
+    season = pick_season(_by_pest("pest_season").get(pest_id, ()))
+    vectors = sorted(
+        (
+            PestVector(
+                v["vector_pest_id"],
+                _pests()[v["vector_pest_id"]]["name"],
+                v["guide_text"],
+                v["evidence"],
+            )
+            for v in _by_pest("virus_vector", "virus_pest_id").get(pest_id, ())
+            if v["vector_pest_id"] is not None
+        ),
+        key=lambda vector: vector.name,
+    )
+    return PestCard(
+        id=pest_id,
+        name=pest["name"],
+        kind=_KIND.get(pest["kind"]),
+        photo_url=photo["url"] if photo else None,
+        photo_source=pest["photo_crop"] if photo else None,
+        description=pest["symptom"] or None,
+        occurrence=occurrence_text(season) if season else None,
+        occurrence_source=OCCURRENCE_SOURCES[season["source"]] if season else None,
+        vectors=tuple(vectors),
+    )
