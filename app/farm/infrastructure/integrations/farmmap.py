@@ -36,12 +36,13 @@ def _upstream_error(upstream_code: str | None = None) -> AppError:
 
 
 def _ring(text: str | None) -> Ring:
-    if not text:
-        raise ValueError("empty coordinates")
     points = []
-    for pair in text.split():
+    for pair in (text or "").split():
         x, y = pair.split(",")
         points.append((float(x), float(y)))
+    # 닫힌 링은 점이 4개 이상이고 첫 점과 끝 점이 같다
+    if len(points) < 4 or points[0] != points[-1]:
+        raise ValueError("invalid ring")
     return points
 
 

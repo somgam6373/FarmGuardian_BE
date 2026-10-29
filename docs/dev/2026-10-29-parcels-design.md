@@ -32,7 +32,7 @@ Request: `GET /parcels?pnu=` — no `X-User-Id` required. `pnu` must match `^\d{
 `VALIDATION_ERROR` before calling Farmmap.
 
 Upstream call: `GET http://apis.data.go.kr/B552895/getFarmmapService/getPnuBasedFarmmapInfo`
-with `serviceKey`, `type=xml`, `pnuCode`. `httpx` sync client, timeout 5 s, no retry.
+with `serviceKey`, `type=xml`, `pnuCode`. `httpx2` sync client, timeout 5 s, no retry.
 
 Upstream result handling (arch §8, confirmed by live calls 2026-10-28/29):
 
@@ -45,7 +45,7 @@ Upstream result handling (arch §8, confirmed by live calls 2026-10-28/29):
 | timeout, connection error, non-XML body, other HTTP error without a parsable body | 502, no `upstream_code` |
 
 - `<totalCount>` is ignored (live response had 2 items with `totalCount` 0). Parcels = `<item>` elements.
-- The request URL contains the key: it must not be logged (silence the `httpx` logger below WARNING).
+- The request URL contains the key: it must not be logged (silence the `httpx2` logger below WARNING).
 
 Parsing each `<item>`:
 
@@ -65,7 +65,7 @@ unparsable coordinates) fails the whole request with 502 and no `upstream_code` 
 fail loudly rather than silently drop a parcel).
 
 Key: `FARMMAP_API_KEY` holds the 64-char hex key, identical in encoded and decoded form, so it is
-passed through `httpx` `params=` (verified by live calls on 2026-10-29).
+passed through `httpx2` `params=` (verified by live calls on 2026-10-29).
 
 Response mapping (`Parcel`, API spec §2):
 
@@ -88,8 +88,8 @@ Response mapping (`Parcel`, API spec §2):
   included in `app/main.py`.
 - `app/core/config.py`: add required `farmmap_api_key` (`FARMMAP_API_KEY`); `.env.example` gets
   the name without a value; `tests/conftest.py` sets a dummy value.
-- `requirements.txt`: add `httpx` (runtime dependency). `httpx2` in `requirements-dev.txt` is left
-  untouched (not ours; asked Junhyeok separately).
+- `requirements.txt`: add `httpx2` (runtime dependency). The project uses `httpx2`, the successor
+  package that Starlette's `TestClient` imports; plain `httpx` is not installed.
 
 Upstream failures raise `AppError("UPSTREAM_ERROR", 502, …, {"source": "farmmap", "upstream_code"?})`
 from `app/core/errors.py`.
@@ -101,7 +101,7 @@ from `app/core/errors.py`.
   → 2 parcels with expected fields. The test pins this file; a later Farmmap update does not
   change it; a hand-written XML with a hole; `vdptYr` empty.
 - Area: 10 m × 10 m square = 100; square with a 2 m × 2 m hole = 96.
-- Client (`httpx.MockTransport`): code `0`, `00`, `3` → `[]`, other code → 502 + code, gateway
+- Client (`httpx2.MockTransport`): code `0`, `00`, `3` → `[]`, other code → 502 + code, gateway
   403 → 502 + `returnReasonCode`, timeout → 502.
 - API (`TestClient`, client monkeypatched): bad PNU → 422 in the common error format; valid PNU →
   spec-shaped JSON with `matches_query` true/false and `used_by_field_id` null; upstream error → 502.

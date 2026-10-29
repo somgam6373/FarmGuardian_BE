@@ -98,6 +98,13 @@ def test_unparsable_coordinates_raise():
     assert _upstream_details(xml) == {"source": "farmmap"}
 
 
+@pytest.mark.parametrize("coordinates", ["\n   ", "0,0 10,0 0,0", "0,0 10,0 10,10 0,10"])
+def test_invalid_ring_raises(coordinates):
+    # 공백뿐인 좌표, 점이 4개 미만인 링, 닫히지 않은 링
+    xml = _response("0", _item(_polygon(coordinates)))
+    assert _upstream_details(xml) == {"source": "farmmap"}
+
+
 def test_inner_boundary_is_hole():
     [parcel] = parse_farmmap_response(_response("0", _item(_polygon(SQUARE, HOLE))))
 
