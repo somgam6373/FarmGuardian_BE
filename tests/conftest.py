@@ -4,3 +4,4 @@ import os
 os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://test:test@localhost:5432/test")
 os.environ.setdefault("CORS_ORIGINS", "http://localhost:3000")
 os.environ.setdefault("FARMMAP_API_KEY", "test-farmmap-key")
+os.environ.setdefault("VWORLD_API_KEY", "test-vworld-key")
