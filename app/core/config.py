@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     database_url: str
     cors_origins: str  # 쉼표로 구분
     farmmap_api_key: str
+    vworld_api_key: str
 
 
 settings = Settings()

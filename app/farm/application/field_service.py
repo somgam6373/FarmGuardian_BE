@@ -1,5 +1,5 @@
 from app.farm.domain.geometry import MultiPolygon, multipolygon_area
-from app.farm.infrastructure.integrations import farmmap
+from app.farm.infrastructure.integrations import farmmap, vworld
 
 
 def _geojson(polygons: MultiPolygon) -> dict:
@@ -28,3 +28,9 @@ def find_parcels(pnu: str) -> list[dict]:
         }
         for p in farmmap.parcels_by_pnu(pnu)
     ]
+
+
+def search_addresses(keyword: str, page: int) -> dict:
+    total, lots = vworld.search_parcels(keyword, page)
+    items = [{"jibun_addr": lot.jibun_addr, "pnu": lot.pnu} for lot in lots]
+    return {"total": total, "items": items}

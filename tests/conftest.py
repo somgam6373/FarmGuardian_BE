@@ -17,6 +17,7 @@ os.environ["DATABASE_URL"] = (
 )
 os.environ.setdefault("CORS_ORIGINS", "http://localhost:3000")
 os.environ.setdefault("FARMMAP_API_KEY", "test-farmmap-key")
+os.environ.setdefault("VWORLD_API_KEY", "test-vworld-key")
 
 _SQUARE = "ST_GeomFromText('MULTIPOLYGON(((0 0,10 0,10 10,0 10,0 0)))', 5179)"
 
