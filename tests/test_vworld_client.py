@@ -87,6 +87,27 @@ def test_html_400_maps_to_upstream_error():
     assert _upstream_details(handler) == {"source": "vworld"}
 
 
+@pytest.mark.parametrize("error", [None, "oops"])
+def test_error_status_without_error_object(error):
+    body = {"response": {"status": "ERROR", "error": error}}
+
+    assert _upstream_details(_respond(200, json.dumps(body))) == {"source": "vworld"}
+
+
+@pytest.mark.parametrize(
+    "path, value", [("id", None), ("id", 41820), ("parcel", None), ("parcel", 161)]
+)
+def test_item_with_non_string_field_raises(path, value):
+    body = json.loads(_fixture("vworld_search_ok.json"))
+    item = body["response"]["result"]["items"][0]
+    if path == "id":
+        item["id"] = value
+    else:
+        item["address"]["parcel"] = value
+
+    assert _upstream_details(_respond(200, json.dumps(body))) == {"source": "vworld"}
+
+
 def test_item_without_id_raises():
     body = json.loads(_fixture("vworld_search_ok.json"))
     del body["response"]["result"]["items"][0]["id"]

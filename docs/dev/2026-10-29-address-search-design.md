@@ -2,7 +2,7 @@
 
 - Date: 2026-10-29
 - Owner: Hyebin (farm context), issue #3
-- Status: draft
+- Status: approved in chat (2026-10-29)
 - Basis: `팜가디언_API_명세.md` §1, §4; `팜가디언_아키텍처.md` §8, §9. Team agreed (Junhyeok, frontend) to replace the juso search with VWorld search on 2026-10-29.
 
 ## Intent

@@ -28,6 +28,13 @@ def _upstream_error(upstream_code: str | None = None) -> AppError:
     return AppError("UPSTREAM_ERROR", 502, "주소 검색에 실패했습니다", details)
 
 
+def _lot(item: dict) -> VworldLot:
+    pnu, jibun_addr = item["id"], item["address"]["parcel"]
+    if not isinstance(pnu, str) or not isinstance(jibun_addr, str):
+        raise ValueError("invalid item")
+    return VworldLot(pnu=pnu, jibun_addr=jibun_addr)
+
+
 def _parse(text: str) -> tuple[int, list[VworldLot]]:
     # 오류도 HTTP 200으로 오므로 본문의 status로 가른다. 방화벽 거절은 HTML이다
     try:
@@ -36,13 +43,11 @@ def _parse(text: str) -> tuple[int, list[VworldLot]]:
         if status == "NOT_FOUND":
             return 0, []
         if status == "ERROR":
-            raise _upstream_error(response.get("error", {}).get("code"))
+            error = response.get("error")
+            raise _upstream_error(error.get("code") if isinstance(error, dict) else None)
         if status != "OK":
             raise _upstream_error()
-        lots = [
-            VworldLot(pnu=item["id"], jibun_addr=item["address"]["parcel"])
-            for item in response["result"]["items"]
-        ]
+        lots = [_lot(item) for item in response["result"]["items"]]
         return int(response["record"]["total"]), lots
     except (ValueError, KeyError, TypeError):
         raise _upstream_error() from None
