@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.errors import install_error_handlers
+from app.farm.presentation.router import router as farm_router
 
 app = FastAPI(title="FarmGuardian")
 app.add_middleware(
@@ -12,6 +13,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 install_error_handlers(app)
+app.include_router(farm_router)
 
 
 @app.get("/health")
