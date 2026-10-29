@@ -1,9 +1,18 @@
+import logging
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 
+import httpx2
+
+from app.core.config import settings
 from app.core.errors import AppError
 from app.farm.domain.geometry import MultiPolygon, Polygon, Ring
 
+# 요청 URL에 인증키가 들어가므로 httpx2의 요청 로그(INFO)를 끈다
+logging.getLogger("httpx2").setLevel(logging.WARNING)
+
+PNU_URL = "http://apis.data.go.kr/B552895/getFarmmapService/getPnuBasedFarmmapInfo"
+TIMEOUT_SECONDS = 5
 GML = "{http://www.opengis.net/gml}"
 OK_CODES = {"0", "00"}  # 명세서 예시는 00, 실제 응답은 0
 NO_DATA_CODE = "3"  # 결과 없음. 오류가 아니다
@@ -87,3 +96,17 @@ def parse_farmmap_response(xml: str) -> list[FarmmapParcel]:
         return [_parcel(item) for item in root.iterfind("body/items/item")]
     except ValueError:
         raise _upstream_error() from None
+
+
+def parcels_by_pnu(pnu: str, *, client: httpx2.Client | None = None) -> list[FarmmapParcel]:
+    params = {"serviceKey": settings.farmmap_api_key, "type": "xml", "pnuCode": pnu}
+    try:
+        if client is None:
+            with httpx2.Client(timeout=TIMEOUT_SECONDS) as default_client:
+                response = default_client.get(PNU_URL, params=params)
+        else:
+            response = client.get(PNU_URL, params=params)
+    except httpx2.HTTPError:
+        raise _upstream_error() from None
+    # 키 오류는 HTTP 403이지만 본문에 오류 코드가 있으므로 상태 코드와 관계없이 본문을 읽는다
+    return parse_farmmap_response(response.text)
