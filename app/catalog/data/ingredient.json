@@ -1,0 +1,1082 @@
+[
+  {
+    "ingredient_id": 1,
+    "name": "아미설브롬",
+    "moa_id": 1
+  },
+  {
+    "ingredient_id": 2,
+    "name": "브로플라닐라이드",
+    "moa_id": 2
+  },
+  {
+    "ingredient_id": 3,
+    "name": "사이안트라닐리프롤",
+    "moa_id": 3
+  },
+  {
+    "ingredient_id": 4,
+    "name": "에토펜프록스",
+    "moa_id": 4
+  },
+  {
+    "ingredient_id": 5,
+    "name": "스피네토람",
+    "moa_id": 5
+  },
+  {
+    "ingredient_id": 6,
+    "name": "아이소사이클로세람",
+    "moa_id": 2
+  },
+  {
+    "ingredient_id": 7,
+    "name": "인독사카브",
+    "moa_id": 6
+  },
+  {
+    "ingredient_id": 8,
+    "name": "클로란트라닐리프롤",
+    "moa_id": 3
+  },
+  {
+    "ingredient_id": 9,
+    "name": "피리달릴",
+    "moa_id": 7
+  },
+  {
+    "ingredient_id": 10,
+    "name": "벤퓨라카브",
+    "moa_id": 8
+  },
+  {
+    "ingredient_id": 11,
+    "name": "이미다클로프리드",
+    "moa_id": 9
+  },
+  {
+    "ingredient_id": 12,
+    "name": "다이아지논",
+    "moa_id": 10
+  },
+  {
+    "ingredient_id": 13,
+    "name": "터부포스",
+    "moa_id": 10
+  },
+  {
+    "ingredient_id": 14,
+    "name": "포레이트",
+    "moa_id": 10
+  },
+  {
+    "ingredient_id": 15,
+    "name": "폭심",
+    "moa_id": 10
+  },
+  {
+    "ingredient_id": 16,
+    "name": "디노테퓨란",
+    "moa_id": 9
+  },
+  {
+    "ingredient_id": 17,
+    "name": "비펜트린",
+    "moa_id": 4
+  },
+  {
+    "ingredient_id": 18,
+    "name": "카두사포스",
+    "moa_id": 10
+  },
+  {
+    "ingredient_id": 19,
+    "name": "사이플루트린",
+    "moa_id": 4
+  },
+  {
+    "ingredient_id": 20,
+    "name": "테부피림포스",
+    "moa_id": 10
+  },
+  {
+    "ingredient_id": 21,
+    "name": "아세페이트",
+    "moa_id": 10
+  },
+  {
+    "ingredient_id": 22,
+    "name": "에토프로포스",
+    "moa_id": 10
+  },
+  {
+    "ingredient_id": 23,
+    "name": "카보설판",
+    "moa_id": 8
+  },
+  {
+    "ingredient_id": 24,
+    "name": "클로티아니딘",
+    "moa_id": 9
+  },
+  {
+    "ingredient_id": 25,
+    "name": "페니트로티온",
+    "moa_id": 10
+  },
+  {
+    "ingredient_id": 26,
+    "name": "테플루트린",
+    "moa_id": 4
+  },
+  {
+    "ingredient_id": 27,
+    "name": "메프로닐",
+    "moa_id": 11
+  },
+  {
+    "ingredient_id": 28,
+    "name": "발리다마이신에이",
+    "moa_id": 12
+  },
+  {
+    "ingredient_id": 29,
+    "name": "베노밀",
+    "moa_id": 13
+  },
+  {
+    "ingredient_id": 30,
+    "name": "티람",
+    "moa_id": 14
+  },
+  {
+    "ingredient_id": 31,
+    "name": "톨클로포스메틸",
+    "moa_id": 15
+  },
+  {
+    "ingredient_id": 32,
+    "name": "플루디옥소닐",
+    "moa_id": 16
+  },
+  {
+    "ingredient_id": 33,
+    "name": "디니코나졸",
+    "moa_id": 17
+  },
+  {
+    "ingredient_id": 34,
+    "name": "만코제브",
+    "moa_id": 14
+  },
+  {
+    "ingredient_id": 35,
+    "name": "아족시스트로빈",
+    "moa_id": 18
+  },
+  {
+    "ingredient_id": 36,
+    "name": "옥시테트라사이클린다이하이드레이트",
+    "moa_id": 19
+  },
+  {
+    "ingredient_id": 37,
+    "name": "피라클로스트로빈",
+    "moa_id": 18
+  },
+  {
+    "ingredient_id": 38,
+    "name": "클로로탈로닐",
+    "moa_id": 14
+  },
+  {
+    "ingredient_id": 39,
+    "name": "플룩사피록사드",
+    "moa_id": 11
+  },
+  {
+    "ingredient_id": 40,
+    "name": "피디플루메토펜",
+    "moa_id": 11
+  },
+  {
+    "ingredient_id": 41,
+    "name": "피리벤카브",
+    "moa_id": 18
+  },
+  {
+    "ingredient_id": 42,
+    "name": "델타메트린",
+    "moa_id": 4
+  },
+  {
+    "ingredient_id": 43,
+    "name": "아세타미프리드",
+    "moa_id": 9
+  },
+  {
+    "ingredient_id": 44,
+    "name": "에마멕틴벤조에이트",
+    "moa_id": 20
+  },
+  {
+    "ingredient_id": 45,
+    "name": "메트코나졸",
+    "moa_id": 17
+  },
+  {
+    "ingredient_id": 46,
+    "name": "메펜트리플루코나졸",
+    "moa_id": 17
+  },
+  {
+    "ingredient_id": 47,
+    "name": "테부코나졸",
+    "moa_id": 17
+  },
+  {
+    "ingredient_id": 48,
+    "name": "디메토모르프",
+    "moa_id": 21
+  },
+  {
+    "ingredient_id": 49,
+    "name": "메탐소듐",
+    "moa_id": 22
+  },
+  {
+    "ingredient_id": 50,
+    "name": "베날락실엠",
+    "moa_id": 23
+  },
+  {
+    "ingredient_id": 51,
+    "name": "플루설파마이드",
+    "moa_id": 12
+  },
+  {
+    "ingredient_id": 52,
+    "name": "플루아지남",
+    "moa_id": 24
+  },
+  {
+    "ingredient_id": 53,
+    "name": "아피도피로펜",
+    "moa_id": 25
+  },
+  {
+    "ingredient_id": 54,
+    "name": "카바릴",
+    "moa_id": 8
+  },
+  {
+    "ingredient_id": 55,
+    "name": "가스가마이신",
+    "moa_id": 26
+  },
+  {
+    "ingredient_id": 56,
+    "name": "스트렙토마이신",
+    "moa_id": 27
+  },
+  {
+    "ingredient_id": 57,
+    "name": "옥솔린산",
+    "moa_id": 28
+  },
+  {
+    "ingredient_id": 58,
+    "name": "코퍼옥시클로라이드",
+    "moa_id": 14
+  },
+  {
+    "ingredient_id": 59,
+    "name": "다조멧",
+    "moa_id": 12
+  },
+  {
+    "ingredient_id": 60,
+    "name": "디메틸디설파이드",
+    "moa_id": 7
+  },
+  {
+    "ingredient_id": 61,
+    "name": "딤프로피리다즈",
+    "moa_id": null
+  },
+  {
+    "ingredient_id": 62,
+    "name": "설폭사플로르",
+    "moa_id": 29
+  },
+  {
+    "ingredient_id": 63,
+    "name": "스피로테트라맷",
+    "moa_id": 30
+  },
+  {
+    "ingredient_id": 64,
+    "name": "아바멕틴",
+    "moa_id": 20
+  },
+  {
+    "ingredient_id": 65,
+    "name": "플로니카미드",
+    "moa_id": 31
+  },
+  {
+    "ingredient_id": 66,
+    "name": "테부페노자이드",
+    "moa_id": 32
+  },
+  {
+    "ingredient_id": 67,
+    "name": "플루페녹수론",
+    "moa_id": 33
+  },
+  {
+    "ingredient_id": 68,
+    "name": "티아메톡삼",
+    "moa_id": 9
+  },
+  {
+    "ingredient_id": 69,
+    "name": "티아클로프리드",
+    "moa_id": 9
+  },
+  {
+    "ingredient_id": 70,
+    "name": "피리플루퀴나존",
+    "moa_id": 34
+  },
+  {
+    "ingredient_id": 71,
+    "name": "피메트로진",
+    "moa_id": 34
+  },
+  {
+    "ingredient_id": 72,
+    "name": "테트라닐리프롤",
+    "moa_id": 3
+  },
+  {
+    "ingredient_id": 73,
+    "name": "디티아논",
+    "moa_id": 14
+  },
+  {
+    "ingredient_id": 74,
+    "name": "메탈락실엠",
+    "moa_id": 23
+  },
+  {
+    "ingredient_id": 75,
+    "name": "피카뷰트라족스",
+    "moa_id": 12
+  },
+  {
+    "ingredient_id": 76,
+    "name": "만디프로파미드",
+    "moa_id": 21
+  },
+  {
+    "ingredient_id": 77,
+    "name": "메탈락실",
+    "moa_id": 23
+  },
+  {
+    "ingredient_id": 78,
+    "name": "옥사딕실",
+    "moa_id": 23
+  },
+  {
+    "ingredient_id": 79,
+    "name": "메티람",
+    "moa_id": 14
+  },
+  {
+    "ingredient_id": 80,
+    "name": "에타복삼",
+    "moa_id": 35
+  },
+  {
+    "ingredient_id": 81,
+    "name": "벤티아발리카브아이소프로필",
+    "moa_id": 21
+  },
+  {
+    "ingredient_id": 82,
+    "name": "옥사티아피프롤린",
+    "moa_id": 36
+  },
+  {
+    "ingredient_id": 83,
+    "name": "사이목사닐",
+    "moa_id": 12
+  },
+  {
+    "ingredient_id": 84,
+    "name": "파목사돈",
+    "moa_id": 18
+  },
+  {
+    "ingredient_id": 85,
+    "name": "사이아조파미드",
+    "moa_id": 1
+  },
+  {
+    "ingredient_id": 86,
+    "name": "발리페날레이트",
+    "moa_id": 21
+  },
+  {
+    "ingredient_id": 87,
+    "name": "플루오피콜라이드",
+    "moa_id": 37
+  },
+  {
+    "ingredient_id": 88,
+    "name": "플루옥사피프롤린",
+    "moa_id": 36
+  },
+  {
+    "ingredient_id": 89,
+    "name": "아메톡트라딘",
+    "moa_id": 38
+  },
+  {
+    "ingredient_id": 90,
+    "name": "이프로발리카브",
+    "moa_id": 21
+  },
+  {
+    "ingredient_id": 91,
+    "name": "족사마이드",
+    "moa_id": 35
+  },
+  {
+    "ingredient_id": 92,
+    "name": "캡탄",
+    "moa_id": 14
+  },
+  {
+    "ingredient_id": 93,
+    "name": "코퍼하이드록사이드",
+    "moa_id": 14
+  },
+  {
+    "ingredient_id": 94,
+    "name": "프로파모카브하이드로클로라이드",
+    "moa_id": 39
+  },
+  {
+    "ingredient_id": 95,
+    "name": "스피노사드",
+    "moa_id": 5
+  },
+  {
+    "ingredient_id": 96,
+    "name": "클로르페나피르",
+    "moa_id": 40
+  },
+  {
+    "ingredient_id": 97,
+    "name": "플룩사메타마이드",
+    "moa_id": 2
+  },
+  {
+    "ingredient_id": 98,
+    "name": "람다사이할로트린",
+    "moa_id": 4
+  },
+  {
+    "ingredient_id": 99,
+    "name": "사이퍼메트린",
+    "moa_id": 4
+  },
+  {
+    "ingredient_id": 100,
+    "name": "피프로닐",
+    "moa_id": 41
+  },
+  {
+    "ingredient_id": 101,
+    "name": "카보퓨란",
+    "moa_id": 8
+  },
+  {
+    "ingredient_id": 102,
+    "name": "사이클라닐리프롤",
+    "moa_id": 3
+  },
+  {
+    "ingredient_id": 103,
+    "name": "알파사이퍼메트린",
+    "moa_id": 4
+  },
+  {
+    "ingredient_id": 104,
+    "name": "클로르플루아주론",
+    "moa_id": 33
+  },
+  {
+    "ingredient_id": 105,
+    "name": "메타플루미존",
+    "moa_id": 42
+  },
+  {
+    "ingredient_id": 106,
+    "name": "디페노코나졸",
+    "moa_id": 17
+  },
+  {
+    "ingredient_id": 107,
+    "name": "만데스트로빈",
+    "moa_id": 18
+  },
+  {
+    "ingredient_id": 108,
+    "name": "인피르플룩삼",
+    "moa_id": 11
+  },
+  {
+    "ingredient_id": 109,
+    "name": "트리플록시스트로빈",
+    "moa_id": 18
+  },
+  {
+    "ingredient_id": 110,
+    "name": "펜티오피라드",
+    "moa_id": 11
+  },
+  {
+    "ingredient_id": 111,
+    "name": "폴리옥신디",
+    "moa_id": 43
+  },
+  {
+    "ingredient_id": 112,
+    "name": "피라지플루미드",
+    "moa_id": 11
+  },
+  {
+    "ingredient_id": 113,
+    "name": "헥사코나졸",
+    "moa_id": 17
+  },
+  {
+    "ingredient_id": 114,
+    "name": "옥시테트라사이클린칼슘알킬트리메틸암모늄",
+    "moa_id": 19
+  },
+  {
+    "ingredient_id": 115,
+    "name": "보스칼리드",
+    "moa_id": 11
+  },
+  {
+    "ingredient_id": 116,
+    "name": "이프로디온",
+    "moa_id": 44
+  },
+  {
+    "ingredient_id": 117,
+    "name": "펜피라자민",
+    "moa_id": 45
+  },
+  {
+    "ingredient_id": 118,
+    "name": "프로클로라즈망가니즈",
+    "moa_id": 17
+  },
+  {
+    "ingredient_id": 119,
+    "name": "플루톨라닐",
+    "moa_id": 11
+  },
+  {
+    "ingredient_id": 120,
+    "name": "티플루자마이드",
+    "moa_id": 11
+  },
+  {
+    "ingredient_id": 121,
+    "name": "카벤다짐",
+    "moa_id": 13
+  },
+  {
+    "ingredient_id": 122,
+    "name": "크레속심메틸",
+    "moa_id": 18
+  },
+  {
+    "ingredient_id": 123,
+    "name": "포세틸알루미늄",
+    "moa_id": 46
+  },
+  {
+    "ingredient_id": 124,
+    "name": "프로피네브",
+    "moa_id": 14
+  },
+  {
+    "ingredient_id": 125,
+    "name": "플루인다피르",
+    "moa_id": 11
+  },
+  {
+    "ingredient_id": 126,
+    "name": "피콕시스트로빈",
+    "moa_id": 18
+  },
+  {
+    "ingredient_id": 127,
+    "name": "노발루론",
+    "moa_id": 33
+  },
+  {
+    "ingredient_id": 128,
+    "name": "루페뉴론",
+    "moa_id": 33
+  },
+  {
+    "ingredient_id": 129,
+    "name": "메톡시페노자이드",
+    "moa_id": 32
+  },
+  {
+    "ingredient_id": 130,
+    "name": "펜토에이트",
+    "moa_id": 10
+  },
+  {
+    "ingredient_id": 131,
+    "name": "제타사이퍼메트린",
+    "moa_id": 4
+  },
+  {
+    "ingredient_id": 132,
+    "name": "카탑하이드로클로라이드",
+    "moa_id": 47
+  },
+  {
+    "ingredient_id": 133,
+    "name": "테플루벤주론",
+    "moa_id": 33
+  },
+  {
+    "ingredient_id": 134,
+    "name": "메트알데하이드",
+    "moa_id": 7
+  },
+  {
+    "ingredient_id": 135,
+    "name": "노닐페놀설폰산구리",
+    "moa_id": 14
+  },
+  {
+    "ingredient_id": 136,
+    "name": "아시벤졸라에스메틸",
+    "moa_id": 48
+  },
+  {
+    "ingredient_id": 137,
+    "name": "스트렙토마이신황산염",
+    "moa_id": 27
+  },
+  {
+    "ingredient_id": 138,
+    "name": "옥시테트라사이클린하이드로클로라이드",
+    "moa_id": 19
+  },
+  {
+    "ingredient_id": 139,
+    "name": "패니바실루스폴리믹사에이시1",
+    "moa_id": 49
+  },
+  {
+    "ingredient_id": 140,
+    "name": "프로베나졸",
+    "moa_id": 50
+  },
+  {
+    "ingredient_id": 141,
+    "name": "프로페노포스",
+    "moa_id": 10
+  },
+  {
+    "ingredient_id": 142,
+    "name": "에스펜발러레이트",
+    "moa_id": 4
+  },
+  {
+    "ingredient_id": 143,
+    "name": "레피멕틴",
+    "moa_id": 20
+  },
+  {
+    "ingredient_id": 144,
+    "name": "에트리디아졸",
+    "moa_id": 15
+  },
+  {
+    "ingredient_id": 145,
+    "name": "폴리옥신비",
+    "moa_id": 43
+  },
+  {
+    "ingredient_id": 146,
+    "name": "디클로르보스",
+    "moa_id": 10
+  },
+  {
+    "ingredient_id": 147,
+    "name": "디플루벤주론",
+    "moa_id": 33
+  },
+  {
+    "ingredient_id": 148,
+    "name": "비스트리플루론",
+    "moa_id": 33
+  },
+  {
+    "ingredient_id": 149,
+    "name": "비티아이자와이",
+    "moa_id": 51
+  },
+  {
+    "ingredient_id": 150,
+    "name": "비티아이자와이엔티423",
+    "moa_id": 51
+  },
+  {
+    "ingredient_id": 151,
+    "name": "비티아이자와이지비413",
+    "moa_id": 51
+  },
+  {
+    "ingredient_id": 152,
+    "name": "비티쿠르스타키",
+    "moa_id": 51
+  },
+  {
+    "ingredient_id": 153,
+    "name": "비티쿠르스타키아이엠비엘비9",
+    "moa_id": null
+  },
+  {
+    "ingredient_id": 154,
+    "name": "플로메토퀸",
+    "moa_id": 52
+  },
+  {
+    "ingredient_id": 155,
+    "name": "티오사이클람하이드로젠옥살레이트",
+    "moa_id": 47
+  },
+  {
+    "ingredient_id": 156,
+    "name": "펜발러레이트",
+    "moa_id": 4
+  },
+  {
+    "ingredient_id": 157,
+    "name": "플루벤디아마이드",
+    "moa_id": 3
+  },
+  {
+    "ingredient_id": 158,
+    "name": "감마사이할로트린",
+    "moa_id": 4
+  },
+  {
+    "ingredient_id": 159,
+    "name": "결정석회황",
+    "moa_id": 14
+  },
+  {
+    "ingredient_id": 160,
+    "name": "베타사이플루트린",
+    "moa_id": 4
+  },
+  {
+    "ingredient_id": 161,
+    "name": "포스티아제이트",
+    "moa_id": 10
+  },
+  {
+    "ingredient_id": 162,
+    "name": "메탐포타슘",
+    "moa_id": 22
+  },
+  {
+    "ingredient_id": 163,
+    "name": "피리메타닐",
+    "moa_id": 53
+  },
+  {
+    "ingredient_id": 164,
+    "name": "사이클로뷰트리플루람",
+    "moa_id": 54
+  },
+  {
+    "ingredient_id": 165,
+    "name": "플루오피람",
+    "moa_id": 11
+  },
+  {
+    "ingredient_id": 166,
+    "name": "하이멕사졸",
+    "moa_id": 55
+  },
+  {
+    "ingredient_id": 167,
+    "name": "티오디카브",
+    "moa_id": 8
+  },
+  {
+    "ingredient_id": 168,
+    "name": "크로마페노자이드",
+    "moa_id": 32
+  },
+  {
+    "ingredient_id": 169,
+    "name": "마이클로뷰타닐",
+    "moa_id": 17
+  },
+  {
+    "ingredient_id": 170,
+    "name": "메트라페논",
+    "moa_id": 56
+  },
+  {
+    "ingredient_id": 171,
+    "name": "아이소피라잠",
+    "moa_id": 11
+  },
+  {
+    "ingredient_id": 172,
+    "name": "플루티아닐",
+    "moa_id": 12
+  },
+  {
+    "ingredient_id": 173,
+    "name": "트리플루미졸",
+    "moa_id": 17
+  },
+  {
+    "ingredient_id": 174,
+    "name": "플루퀸코나졸",
+    "moa_id": 17
+  },
+  {
+    "ingredient_id": 175,
+    "name": "트리베이식코퍼설페이트",
+    "moa_id": 14
+  },
+  {
+    "ingredient_id": 176,
+    "name": "아크리나트린",
+    "moa_id": 4
+  },
+  {
+    "ingredient_id": 177,
+    "name": "밀베멕틴",
+    "moa_id": 20
+  },
+  {
+    "ingredient_id": 178,
+    "name": "뷰프로페진",
+    "moa_id": 57
+  },
+  {
+    "ingredient_id": 179,
+    "name": "스피로메시펜",
+    "moa_id": 30
+  },
+  {
+    "ingredient_id": 180,
+    "name": "아미트라즈",
+    "moa_id": 58
+  },
+  {
+    "ingredient_id": 181,
+    "name": "스피로피디온",
+    "moa_id": 30
+  },
+  {
+    "ingredient_id": 182,
+    "name": "피리프록시펜",
+    "moa_id": 59
+  },
+  {
+    "ingredient_id": 183,
+    "name": "피리다벤",
+    "moa_id": 60
+  },
+  {
+    "ingredient_id": 184,
+    "name": "플루피라디퓨론",
+    "moa_id": 61
+  },
+  {
+    "ingredient_id": 185,
+    "name": "모나크로스포륨타우마슘케이비시3017",
+    "moa_id": 7
+  },
+  {
+    "ingredient_id": 186,
+    "name": "이미시아포스",
+    "moa_id": 10
+  },
+  {
+    "ingredient_id": 187,
+    "name": "플루아자인돌리진",
+    "moa_id": 7
+  },
+  {
+    "ingredient_id": 188,
+    "name": "플루엔설폰",
+    "moa_id": 7
+  },
+  {
+    "ingredient_id": 189,
+    "name": "바실루스서브틸리스큐에스티713",
+    "moa_id": 62
+  },
+  {
+    "ingredient_id": 190,
+    "name": "심플리실리움라멜리콜라비시피",
+    "moa_id": 49
+  },
+  {
+    "ingredient_id": 191,
+    "name": "티오파네이트메틸",
+    "moa_id": 13
+  },
+  {
+    "ingredient_id": 192,
+    "name": "펜프로파트린",
+    "moa_id": 4
+  },
+  {
+    "ingredient_id": 193,
+    "name": "메파니피림",
+    "moa_id": 53
+  },
+  {
+    "ingredient_id": 194,
+    "name": "바실루스서브틸리스아이에이비비에스03",
+    "moa_id": null
+  },
+  {
+    "ingredient_id": 195,
+    "name": "이미녹타딘트리스알베실레이트",
+    "moa_id": 14
+  },
+  {
+    "ingredient_id": 196,
+    "name": "이프플루페노퀸",
+    "moa_id": 63
+  },
+  {
+    "ingredient_id": 197,
+    "name": "테트라코나졸",
+    "moa_id": 17
+  },
+  {
+    "ingredient_id": 198,
+    "name": "펜뷰코나졸",
+    "moa_id": 17
+  },
+  {
+    "ingredient_id": 199,
+    "name": "펜헥사미드",
+    "moa_id": 45
+  },
+  {
+    "ingredient_id": 200,
+    "name": "플로릴피콕사미드",
+    "moa_id": 1
+  },
+  {
+    "ingredient_id": 201,
+    "name": "아이소페타미드",
+    "moa_id": 11
+  },
+  {
+    "ingredient_id": 202,
+    "name": "피리다클로메틸",
+    "moa_id": null
+  },
+  {
+    "ingredient_id": 203,
+    "name": "디에토펜카브",
+    "moa_id": 64
+  },
+  {
+    "ingredient_id": 204,
+    "name": "바실루스서브틸리스지비365",
+    "moa_id": 62
+  },
+  {
+    "ingredient_id": 205,
+    "name": "바실루스아밀로리퀴파시엔스디747",
+    "moa_id": 62
+  },
+  {
+    "ingredient_id": 206,
+    "name": "블라드",
+    "moa_id": 65
+  },
+  {
+    "ingredient_id": 207,
+    "name": "트리코더마하지아눔와이시459",
+    "moa_id": 62
+  },
+  {
+    "ingredient_id": 208,
+    "name": "프로사이미돈",
+    "moa_id": 44
+  },
+  {
+    "ingredient_id": 209,
+    "name": "비페나제이트",
+    "moa_id": 66
+  },
+  {
+    "ingredient_id": 210,
+    "name": "사이플루메토펜",
+    "moa_id": 67
+  },
+  {
+    "ingredient_id": 211,
+    "name": "에톡사졸",
+    "moa_id": 68
+  },
+  {
+    "ingredient_id": 212,
+    "name": "피플루뷰마이드",
+    "moa_id": 69
+  },
+  {
+    "ingredient_id": 213,
+    "name": "바실루스서브틸리스제이씨케이1398",
+    "moa_id": null
+  },
+  {
+    "ingredient_id": 214,
+    "name": "바실루스아밀로리퀴파시엔스케이비시1121",
+    "moa_id": 70
+  },
+  {
+    "ingredient_id": 215,
+    "name": "피리오페논",
+    "moa_id": 56
+  },
+  {
+    "ingredient_id": 216,
+    "name": "플루실라졸",
+    "moa_id": 17
+  }
+]

@@ -1,0 +1,74 @@
+[
+  {
+    "virus_pest_id": 66,
+    "vector_pest_id": 87,
+    "evidence": "PDF: \"총채벌레는 토마토반점위조바이러스를 전염시키는 해충\" (발생정보 여러 호)",
+    "guide_text": "이 벌레를 잡는 약으로 안내"
+  },
+  {
+    "virus_pest_id": 66,
+    "vector_pest_id": 90,
+    "evidence": "PDF: \"총채벌레는 토마토반점위조바이러스를 전염시키는 해충\" (발생정보 여러 호)",
+    "guide_text": "이 벌레도 등록 약 없음 → 상담 안내"
+  },
+  {
+    "virus_pest_id": 66,
+    "vector_pest_id": 115,
+    "evidence": "PDF: \"총채벌레는 토마토반점위조바이러스를 전염시키는 해충\" (발생정보 여러 호)",
+    "guide_text": "이 벌레를 잡는 약으로 안내"
+  },
+  {
+    "virus_pest_id": 82,
+    "vector_pest_id": 88,
+    "evidence": "PDF: \"가지과 작물에서 담배가루이가 병을 매개\" (2026 제9호 등)",
+    "guide_text": "이 벌레를 잡는 약으로 안내"
+  },
+  {
+    "virus_pest_id": 65,
+    "vector_pest_id": 93,
+    "evidence": "NCPMS: \"PepMoV를 자연상태에서 전염시키는 것은 진딧물\", \"PVX는 즙액전염 또는 접촉에 의해서도 전염\"",
+    "guide_text": "이 벌레도 등록 약 없음 → 상담 안내"
+  },
+  {
+    "virus_pest_id": 65,
+    "vector_pest_id": 92,
+    "evidence": "NCPMS: \"PepMoV를 자연상태에서 전염시키는 것은 진딧물\", \"PVX는 즙액전염 또는 접촉에 의해서도 전염\"",
+    "guide_text": "이 벌레도 등록 약 없음 → 상담 안내"
+  },
+  {
+    "virus_pest_id": 65,
+    "vector_pest_id": 86,
+    "evidence": "NCPMS: \"PepMoV를 자연상태에서 전염시키는 것은 진딧물\", \"PVX는 즙액전염 또는 접촉에 의해서도 전염\"",
+    "guide_text": "이 벌레도 등록 약 없음 → 상담 안내"
+  },
+  {
+    "virus_pest_id": 64,
+    "vector_pest_id": null,
+    "evidence": "NCPMS 설명 없음. 일반 식물병리 지식 기준이라 공식 자료 확인 필요",
+    "guide_text": "등록 약 없음. 병든 포기 제거·토양 소독 등 재배 관리 안내"
+  },
+  {
+    "virus_pest_id": 32,
+    "vector_pest_id": 50,
+    "evidence": "NCPMS: \"벼룩잎벌레, 검정배줄벼룩잎벌레에 의해 매개되어 전염\"",
+    "guide_text": "이 벌레를 잡는 약으로 안내"
+  },
+  {
+    "virus_pest_id": 26,
+    "vector_pest_id": 51,
+    "evidence": "NCPMS: \"CMV는 80종 이상의 진딧물에 의해서 비영속전염\", \"복숭아혹진딧물은 TuMV를 전염\"",
+    "guide_text": "이 벌레를 잡는 약으로 안내"
+  },
+  {
+    "virus_pest_id": 26,
+    "vector_pest_id": 45,
+    "evidence": "NCPMS: \"CMV는 80종 이상의 진딧물에 의해서 비영속전염\", \"복숭아혹진딧물은 TuMV를 전염\"",
+    "guide_text": "이 벌레를 잡는 약으로 안내"
+  },
+  {
+    "virus_pest_id": 26,
+    "vector_pest_id": 55,
+    "evidence": "NCPMS: \"CMV는 80종 이상의 진딧물에 의해서 비영속전염\", \"복숭아혹진딧물은 TuMV를 전염\"",
+    "guide_text": "이 벌레를 잡는 약으로 안내"
+  }
+]

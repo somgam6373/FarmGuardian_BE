@@ -1,0 +1,562 @@
+[
+  {
+    "moa_id": 1,
+    "kr_code": "다4",
+    "intl_code": "FRAC 21",
+    "usage_type": "fungicide",
+    "target_site": "복합체Ⅲ 퀴논 내측 (사이아조파미드, 아미설브롬)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 2,
+    "kr_code": "30",
+    "intl_code": "IRAC 30",
+    "usage_type": "insecticide",
+    "target_site": "메타-디아마이드계",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 3,
+    "kr_code": "28",
+    "intl_code": "IRAC 28",
+    "usage_type": "insecticide",
+    "target_site": "디아마이드계",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 4,
+    "kr_code": "3a",
+    "intl_code": "IRAC 3A",
+    "usage_type": "insecticide",
+    "target_site": "합성피레스로이드계",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 5,
+    "kr_code": "5",
+    "intl_code": "IRAC 5",
+    "usage_type": "insecticide",
+    "target_site": "스피노신계",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 6,
+    "kr_code": "22a",
+    "intl_code": "IRAC 22A",
+    "usage_type": "insecticide",
+    "target_site": "옥사디아진계",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 7,
+    "kr_code": "미분류(살충제)",
+    "intl_code": null,
+    "usage_type": "insecticide",
+    "target_site": null,
+    "is_multi_site": true
+  },
+  {
+    "moa_id": 8,
+    "kr_code": "1a",
+    "intl_code": "IRAC 1A",
+    "usage_type": "insecticide",
+    "target_site": "카바메이트계",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 9,
+    "kr_code": "4a",
+    "intl_code": "IRAC 4A",
+    "usage_type": "insecticide",
+    "target_site": "네오니코티노이드계",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 10,
+    "kr_code": "1b",
+    "intl_code": "IRAC 1B",
+    "usage_type": "insecticide",
+    "target_site": "유기인계",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 11,
+    "kr_code": "다2",
+    "intl_code": "FRAC 7",
+    "usage_type": "fungicide",
+    "target_site": "복합체Ⅱ 숙신산 탈수소효소 저해",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 12,
+    "kr_code": "미분류(살균제)",
+    "intl_code": null,
+    "usage_type": "fungicide",
+    "target_site": null,
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 13,
+    "kr_code": "나1",
+    "intl_code": "FRAC 1",
+    "usage_type": "fungicide",
+    "target_site": "미세소관 생합성 저해 (벤지미다졸계)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 14,
+    "kr_code": "카",
+    "intl_code": "FRAC M 01~M 13",
+    "usage_type": "fungicide",
+    "target_site": "다점 접촉작용 (무기유황, 무기구리 등)",
+    "is_multi_site": true
+  },
+  {
+    "moa_id": 15,
+    "kr_code": "바3",
+    "intl_code": "FRAC 14",
+    "usage_type": "fungicide",
+    "target_site": "세포 과산화 (에트리디아졸)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 16,
+    "kr_code": "마2",
+    "intl_code": "FRAC 12",
+    "usage_type": "fungicide",
+    "target_site": "삼투압 신호전달 MAP 저해 (플루디옥소닐)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 17,
+    "kr_code": "사1",
+    "intl_code": "FRAC 3",
+    "usage_type": "fungicide",
+    "target_site": "탈메틸 효소 기능 저해 (DMI)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 18,
+    "kr_code": "다3",
+    "intl_code": "FRAC 11 / 11A",
+    "usage_type": "fungicide",
+    "target_site": "복합체Ⅲ 퀴논 외측 (스트로빌루린 등)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 19,
+    "kr_code": "라5",
+    "intl_code": "FRAC 41",
+    "usage_type": "fungicide",
+    "target_site": "단백질 합성 저해 (신장기, 테트라사이클린계)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 20,
+    "kr_code": "6",
+    "intl_code": "IRAC 6",
+    "usage_type": "insecticide",
+    "target_site": "아버멕틴계, 밀베마이신계",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 21,
+    "kr_code": "아5",
+    "intl_code": "FRAC 40",
+    "usage_type": "fungicide",
+    "target_site": "셀룰로오스 합성 저해 (디메토모르프 등)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 22,
+    "kr_code": "8f",
+    "intl_code": "IRAC 8F",
+    "usage_type": "insecticide",
+    "target_site": "이소티오시안산메틸 발생기",
+    "is_multi_site": true
+  },
+  {
+    "moa_id": 23,
+    "kr_code": "가1",
+    "intl_code": "FRAC 4",
+    "usage_type": "fungicide",
+    "target_site": "RNA 중합효소 Ⅰ 저해",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 24,
+    "kr_code": "다5",
+    "intl_code": "FRAC 29",
+    "usage_type": "fungicide",
+    "target_site": "산화적 인산화 반응 저해",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 25,
+    "kr_code": "9d",
+    "intl_code": "IRAC 9D",
+    "usage_type": "insecticide",
+    "target_site": "피리피로펜",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 26,
+    "kr_code": "라3",
+    "intl_code": "FRAC 24",
+    "usage_type": "fungicide",
+    "target_site": "단백질 합성 저해 (개시기, 헥소피라노실계)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 27,
+    "kr_code": "라4",
+    "intl_code": "FRAC 25",
+    "usage_type": "fungicide",
+    "target_site": "단백질 합성 저해 (개시기, 글루코피라노실계)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 28,
+    "kr_code": "가4",
+    "intl_code": "FRAC 31",
+    "usage_type": "fungicide",
+    "target_site": "DNA 토포이소머레이즈(typeⅡ) 저해",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 29,
+    "kr_code": "4c",
+    "intl_code": "IRAC 4C",
+    "usage_type": "insecticide",
+    "target_site": "설폭시민계",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 30,
+    "kr_code": "23",
+    "intl_code": "IRAC 23",
+    "usage_type": "insecticide",
+    "target_site": "테트론산 및 테트람산 유도체",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 31,
+    "kr_code": "29",
+    "intl_code": "IRAC 29",
+    "usage_type": "insecticide",
+    "target_site": "플로니카미드",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 32,
+    "kr_code": "18",
+    "intl_code": "IRAC 18",
+    "usage_type": "insecticide",
+    "target_site": "디아실하이드라진계",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 33,
+    "kr_code": "15",
+    "intl_code": "IRAC 15",
+    "usage_type": "insecticide",
+    "target_site": "벤조일요소계",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 34,
+    "kr_code": "9b",
+    "intl_code": "IRAC 9B",
+    "usage_type": "insecticide",
+    "target_site": "피리딘 아조메틴 유도체",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 35,
+    "kr_code": "나3",
+    "intl_code": "FRAC 22",
+    "usage_type": "fungicide",
+    "target_site": "미세소관 생합성 저해 (톨루아마이드계)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 36,
+    "kr_code": "바9",
+    "intl_code": "FRAC 49",
+    "usage_type": "fungicide",
+    "target_site": "지질 항상성, 이동, 저장 저해",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 37,
+    "kr_code": "나5",
+    "intl_code": "FRAC 43",
+    "usage_type": "fungicide",
+    "target_site": "스펙트린 유사 단백질 정위 저해 (벤자마이드계)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 38,
+    "kr_code": "다8",
+    "intl_code": "FRAC 45",
+    "usage_type": "fungicide",
+    "target_site": "복합체Ⅲ 시토크롬bc1 (아메톡트라딘)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 39,
+    "kr_code": "바4",
+    "intl_code": "FRAC 28",
+    "usage_type": "fungicide",
+    "target_site": "세포막 투과성 저해 (카바메이트계)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 40,
+    "kr_code": "13",
+    "intl_code": "IRAC 13",
+    "usage_type": "insecticide",
+    "target_site": "피롤계, 디니트로페놀계, 설플루라미드",
+    "is_multi_site": true
+  },
+  {
+    "moa_id": 41,
+    "kr_code": "2b",
+    "intl_code": "IRAC 2B",
+    "usage_type": "insecticide",
+    "target_site": "페닐피라졸계",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 42,
+    "kr_code": "22b",
+    "intl_code": "IRAC 22B",
+    "usage_type": "insecticide",
+    "target_site": "세미카르바존계",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 43,
+    "kr_code": "아4",
+    "intl_code": "FRAC 19",
+    "usage_type": "fungicide",
+    "target_site": "키틴 합성 저해 (폴리옥신)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 44,
+    "kr_code": "마3",
+    "intl_code": "FRAC 2",
+    "usage_type": "fungicide",
+    "target_site": "삼투압 신호전달 MAP 저해 (이프로디온, 프로사이미돈)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 45,
+    "kr_code": "사3",
+    "intl_code": "FRAC 17",
+    "usage_type": "fungicide",
+    "target_site": "케토환원효소 기능 저해 (펜헥사미드, 펜피라자민)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 46,
+    "kr_code": "차7",
+    "intl_code": "FRAC P 07",
+    "usage_type": "fungicide",
+    "target_site": "포스포네이트계 (포세틸알루미늄 등)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 47,
+    "kr_code": "14",
+    "intl_code": "IRAC 14",
+    "usage_type": "insecticide",
+    "target_site": "네레이스톡신 유사체",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 48,
+    "kr_code": "차1",
+    "intl_code": "FRAC P 01",
+    "usage_type": "fungicide",
+    "target_site": "살리실산 유사작용 (아시벤졸라에스메틸)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 49,
+    "kr_code": "바6",
+    "intl_code": "FRAC BM 02",
+    "usage_type": "fungicide",
+    "target_site": "병원균의 세포막 기능을 교란하는 미생물",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 50,
+    "kr_code": "차2",
+    "intl_code": "FRAC P 02",
+    "usage_type": "fungicide",
+    "target_site": "벤즈이소티아졸계 (프로베나졸)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 51,
+    "kr_code": "11a",
+    "intl_code": "IRAC 11A",
+    "usage_type": "insecticide",
+    "target_site": "B.t 독성 단백질",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 52,
+    "kr_code": "34",
+    "intl_code": null,
+    "usage_type": "insecticide",
+    "target_site": null,
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 53,
+    "kr_code": "라1",
+    "intl_code": "FRAC 9",
+    "usage_type": "fungicide",
+    "target_site": "메티오닌 생합성 저해 (사이프로디닐, 피리메타닐)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 54,
+    "kr_code": "다2, N-3",
+    "intl_code": null,
+    "usage_type": "fungicide",
+    "target_site": null,
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 55,
+    "kr_code": "가3",
+    "intl_code": "FRAC 32",
+    "usage_type": "fungicide",
+    "target_site": "핵산 활성 저해",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 56,
+    "kr_code": "나6",
+    "intl_code": "FRAC 47 / 50",
+    "usage_type": "fungicide",
+    "target_site": "액틴/미오신/피브린 저해 (시아노아크릴계)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 57,
+    "kr_code": "16",
+    "intl_code": "IRAC 16",
+    "usage_type": "insecticide",
+    "target_site": "뷰프로페진",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 58,
+    "kr_code": "19",
+    "intl_code": "IRAC 19",
+    "usage_type": "insecticide",
+    "target_site": "아미트라즈",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 59,
+    "kr_code": "7c",
+    "intl_code": "IRAC 7C",
+    "usage_type": "insecticide",
+    "target_site": "피리프록시펜",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 60,
+    "kr_code": "21a",
+    "intl_code": "IRAC 21A",
+    "usage_type": "insecticide",
+    "target_site": "METI 살비제 및 살충제",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 61,
+    "kr_code": "4d",
+    "intl_code": "IRAC 4D",
+    "usage_type": "insecticide",
+    "target_site": "부테놀라이드계",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 62,
+    "kr_code": "생2",
+    "intl_code": "FRAC BM 02",
+    "usage_type": "fungicide",
+    "target_site": "미생물 및 미생물 추출물·대사산물",
+    "is_multi_site": true
+  },
+  {
+    "moa_id": 63,
+    "kr_code": "가5",
+    "intl_code": null,
+    "usage_type": "fungicide",
+    "target_site": null,
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 64,
+    "kr_code": "나2",
+    "intl_code": "FRAC 10",
+    "usage_type": "fungicide",
+    "target_site": "미세소관 생합성 저해 (페닐카바메이트계)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 65,
+    "kr_code": "미분류",
+    "intl_code": "FRAC 성분별",
+    "usage_type": "fungicide",
+    "target_site": "작용기작 불명 (메트라페논, 사이목사닐 등)",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 66,
+    "kr_code": "20d",
+    "intl_code": "IRAC 20D",
+    "usage_type": "insecticide",
+    "target_site": "비페나제이트",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 67,
+    "kr_code": "25a",
+    "intl_code": "IRAC 25A",
+    "usage_type": "insecticide",
+    "target_site": "베타 케토니트릴 유도체",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 68,
+    "kr_code": "10b",
+    "intl_code": "IRAC 10B",
+    "usage_type": "insecticide",
+    "target_site": "에톡사졸",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 69,
+    "kr_code": "25b",
+    "intl_code": "IRAC 25B",
+    "usage_type": "insecticide",
+    "target_site": "카복시닐라이드",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 70,
+    "kr_code": "생1",
+    "intl_code": "FRAC BM 01",
+    "usage_type": "fungicide",
+    "target_site": "식물 추출물 (생물학적 제제)",
+    "is_multi_site": true
+  }
+]

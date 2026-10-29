@@ -1,0 +1,32 @@
+[
+  {
+    "crop_id": 1,
+    "name": "감자",
+    "psis_crop_names": [
+      "감자",
+      "감자(수미)"
+    ],
+    "row_spacing_cm": null,
+    "col_spacing_cm": null
+  },
+  {
+    "crop_id": 2,
+    "name": "배추",
+    "psis_crop_names": [
+      "배추"
+    ],
+    "row_spacing_cm": null,
+    "col_spacing_cm": null
+  },
+  {
+    "crop_id": 3,
+    "name": "토마토",
+    "psis_crop_names": [
+      "토마토",
+      "토마토(방울토마토 포함)",
+      "토마토(슈퍼도태랑)"
+    ],
+    "row_spacing_cm": null,
+    "col_spacing_cm": null
+  }
+]
