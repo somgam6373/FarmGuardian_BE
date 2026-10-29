@@ -35,6 +35,13 @@ in `app/farm/infrastructure/integrations/farmmap.py`.
 - Mapping `None` to 422 `not_found` — the caller does that (API spec §3: `errors[].loc =
   ["body", "parcel_farmmap_ids", index]`, `type: "not_found"`).
 
+## Note for `POST /fields` (#4)
+
+Live check 2026-10-29: an empty id makes Farmmap answer `resultCode 11` → `parcel_by_id` raises 502;
+an id with surrounding spaces returns `None` (→ 422 `not_found`). The request schema of
+`POST /fields` / signup must reject empty or non-numeric `parcel_farmmap_ids` with 422 before
+calling Farmmap, so bad input never shows up as an upstream error.
+
 ## Code
 
 - Extract the shared request part of `parcels_by_pnu` into one private helper
