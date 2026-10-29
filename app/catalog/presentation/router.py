@@ -4,10 +4,10 @@ from app.catalog.application import catalog_service
 from app.catalog.domain.entities import PestCard, PesticideEntry
 from app.catalog.presentation.schemas import (
     CropOut,
-    MoaOut,
     PestCardOut,
     PesticideOut,
     VectorOut,
+    pesticide_base,
 )
 from app.core.auth import current_user
 
@@ -16,15 +16,8 @@ router = APIRouter(dependencies=[Depends(current_user)])
 
 
 def _pesticide_out(entry: PesticideEntry) -> PesticideOut:
-    p = entry.pesticide
-    moa = MoaOut(label_kr=p.moa.label_kr, system=p.moa.system, code=p.moa.code) if p.moa else None
-    return PesticideOut(
-        id=p.id,
-        name=p.name,
-        item_name=p.item_name,
-        moa=moa,
-        at_planting_only=entry.at_planting_only,
-    )
+    base = pesticide_base(entry.pesticide)
+    return PesticideOut(**base.model_dump(), at_planting_only=entry.at_planting_only)
 
 
 @router.get("/crops", response_model=list[CropOut])

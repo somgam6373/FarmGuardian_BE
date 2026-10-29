@@ -60,6 +60,15 @@ def list_crops() -> list[Crop]:
     return [Crop(crop_id, name) for crop_id, name in sorted(_crops().items())]
 
 
+@functools.cache
+def _pesticides_by_id() -> dict[int, Pesticide]:
+    return {pesticide.id: pesticide for pesticide, _ in _drugs()}
+
+
+def get_pesticide(pesticide_id: int) -> Pesticide | None:
+    return _pesticides_by_id().get(pesticide_id)
+
+
 def list_pesticides(crop_id: int, pest_id: int | None = None) -> list[PesticideEntry]:
     if crop_id not in _crops():
         raise AppError("NOT_FOUND", 404, "작물을 찾을 수 없습니다")
