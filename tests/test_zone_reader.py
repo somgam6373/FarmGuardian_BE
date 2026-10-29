@@ -40,3 +40,22 @@ def test_unknown_zone_is_404(db):
         zone_reader.get_zone_context(db, 999999)
 
     assert (info.value.status, info.value.code) == (404, "NOT_FOUND")
+
+
+def test_lists_the_users_zones_by_id_with_their_confirmation(db, make_user, make_field, make_zone):
+    uid = make_user("farmer")
+    field = make_field(uid)
+    first, second = make_zone(field, uid), make_zone(field, uid)
+    db.execute(text("UPDATE zone SET history_confirmed = true WHERE id = :id"), {"id": second})
+
+    assert zone_reader.list_user_zones(db, uid) == [
+        zone_reader.ZoneState(first, False),
+        zone_reader.ZoneState(second, True),
+    ]
+
+
+def test_listing_excludes_other_users_zones(db, make_user, make_field, make_zone):
+    mine, other = make_user("mine"), make_user("other")
+    make_zone(make_field(other), other)
+
+    assert zone_reader.list_user_zones(db, mine) == []
