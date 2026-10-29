@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.spraying.domain.entities import Spray
 
+_BIGINT_MAX = 2**63 - 1
+
 
 def _spray(row) -> Spray:
     return Spray(row.id, row.pesticide_id, row.sprayed_on, row.source)
@@ -64,6 +66,7 @@ def insert(
 
 
 def page(db: Session, zone_id: int, limit: int, offset: int) -> tuple[int, list[Spray]]:
+    offset = min(offset, _BIGINT_MAX)  # 끝을 넘는 offset은 빈 페이지다 (bigint 밖이면 DB 오류)
     total = db.scalar(
         text("SELECT count(*) FROM spray_log WHERE zone_id = :zone"), {"zone": zone_id}
     )

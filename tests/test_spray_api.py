@@ -239,3 +239,11 @@ def test_non_integer_spray_id_is_422(client, farm):
     r = client.delete(f"/zones/{zone}/sprays/abc", headers=auth(uid))
 
     assert (r.status_code, r.json()["error"]["code"]) == (422, "VALIDATION_ERROR")
+
+
+def test_huge_offset_gives_an_empty_page(client, farm):
+    uid, zone = farm
+    save(client, uid, zone)
+    r = listing(client, uid, zone, offset=10**30)
+
+    assert (r.status_code, r.json()) == (200, {"total": 1, "items": []})
