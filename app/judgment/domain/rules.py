@@ -1,9 +1,12 @@
+from collections.abc import Sequence
 from datetime import date, timedelta
 
 from app.judgment.domain.schemas import (
+    PRIORITY,
     CheckResult,
     Evidence,
     JudgeInput,
+    JudgeResult,
     Moa,
     Registration,
     RotationRule,
@@ -18,6 +21,7 @@ UNCONFIRMED_MESSAGE = (
     "기록을 입력하고 「누락 없음」을 선택해 주세요"
 )
 NO_PLANTING_MESSAGE = "정식일이 없어 이번 작기 사용 횟수를 셀 수 없습니다. 정식일을 입력해 주세요"
+NO_PEST_NOTICE = "병해충을 지정하지 않아 가장 엄격한 기준을 적용했습니다"
 
 
 def considered_rows(inp: JudgeInput) -> list[Registration]:
@@ -400,4 +404,30 @@ def check_count(inp: JudgeInput, registration: CheckResult) -> CheckResult:
         remaining=remaining,
         remaining_after=remaining - 1,
         strict_use_method=strict.use_method,
+    )
+
+
+def overall_verdict(checks: Sequence[CheckResult]) -> Verdict:
+    """체크 상태 중 가장 심각한 것 (불가 > 확인 필요 > 주의 > 가능)."""
+    return max((c.status for c in checks), key=PRIORITY.__getitem__)
+
+
+def judge(inp: JudgeInput) -> JudgeResult:
+    """네 체크를 돌려 종합 판정을 만든다. 알림 중 서비스가 붙이는 것은 여기서 만들지 않는다."""
+    registration = check_registration(inp)
+    checks = [
+        registration,
+        check_timing(inp, registration),
+        check_count(inp, registration),
+        check_moa(inp),
+    ]
+    # 가장 엄격한 값을 고를 등록 행이 있을 때만 알린다
+    notices = [NO_PEST_NOTICE] if inp.pest_id is None and inp.registrations else []
+    return JudgeResult(
+        pesticide_id=inp.pesticide_id,
+        moa=inp.moa,
+        verdict=overall_verdict(checks),
+        checks=checks,
+        notices=notices,
+        data_asof=rows_data_asof(inp),
     )
