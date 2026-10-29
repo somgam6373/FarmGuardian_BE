@@ -1,0 +1,792 @@
+[
+  {
+    "season_id": 1,
+    "pest_id": 8,
+    "source": "pdf",
+    "months": [
+      6,
+      7
+    ],
+    "region": "대관령",
+    "culti": "고랭지, 씨감자",
+    "grade": "예보",
+    "evidence": null
+  },
+  {
+    "season_id": 2,
+    "pest_id": 101,
+    "source": "ncpms",
+    "months": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "유충은 4월경에 부화하며, 어릴 때에는 집단적으로 잎을 식해하나, 자라면서 분산한다. / 5월 상순~6월 상순에 가지나 잎 사이에 실을 엮고 그 안에서 번데기가 된다. / 6~7월에 성충이 되며, 수컷은 낮에 활동하나 암컷은 나무줄기에 숨어있다."
+  },
+  {
+    "season_id": 3,
+    "pest_id": 20,
+    "source": "ncpms",
+    "months": [
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "파밤나방의 성충은 4월부터 11월까지 발생하는데, 다른 나방류에 비해 늦은 시기까지 발생 한다. / 8월 하순부터 10월 하순에 성충 발생이 많아 피해도 많이 발생하며 11월까지도 피해가 나타난다."
+  },
+  {
+    "season_id": 4,
+    "pest_id": 14,
+    "source": "ncpms",
+    "months": [
+      5,
+      6,
+      8
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "유시충은 5월 하순∼6월 상순과 8월 하순에 발생최성기를 보인다."
+  },
+  {
+    "season_id": 5,
+    "pest_id": 18,
+    "source": "ncpms",
+    "months": [
+      5,
+      6
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "성충은 5월 상순~6월 하순에 교미를 하고 감자꽃이 필 때 산란한다."
+  },
+  {
+    "season_id": 6,
+    "pest_id": 19,
+    "source": "ncpms",
+    "months": [
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "주 발생시기는 감자에서 5월 하순, 가지에서 7～8월이다. / 제1회 성충은 6월 하순부터 나타나기 시작 하며 7월이 최성기이다. / 제 2회 성충은 7월 하순~8월 상순에 우화하고, 제 3회 성충은 9월 상중순에 우화한다. / 피해가 많은 시기는 감자에서 6월, 가지에서는 8∼9월이다. / 큰 피해를 주지 않는 밀도라면 초기 방제가 별 의미가 없으나, 1회 성충이 발생하는 시기인 6월 중순경에 유충, 성충이 다량 발생하면 적용 약제를 살포해야 한다."
+  },
+  {
+    "season_id": 7,
+    "pest_id": 102,
+    "source": "ncpms",
+    "months": [
+      6,
+      8,
+      10
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "1년에 2∼3회 발생하며 성충 발생 최성기는 6월 중순, 8월 중순, 10월 상순경이다."
+  },
+  {
+    "season_id": 8,
+    "pest_id": 104,
+    "source": "ncpms",
+    "months": [
+      7,
+      8,
+      9
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "7~8월부터 한여름에는 밀도가 줄지만 9월부터 다시 번식이 왕성해진다."
+  },
+  {
+    "season_id": 9,
+    "pest_id": 25,
+    "source": "pdf",
+    "months": [
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "region": "강릉, 경북, 대관령, 삼척, 전남, 충남, 태백, 평창",
+    "culti": "가을배추, 고랭지, 여름배추",
+    "grade": "주의보",
+    "evidence": null
+  },
+  {
+    "season_id": 10,
+    "pest_id": 29,
+    "source": "pdf",
+    "months": [
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "region": "강릉, 태백, 평창",
+    "culti": "여름배추",
+    "grade": "주의보",
+    "evidence": null
+  },
+  {
+    "season_id": 11,
+    "pest_id": 48,
+    "source": "pdf",
+    "months": [
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "region": null,
+    "culti": "고랭지, 여름배추",
+    "grade": "예보",
+    "evidence": null
+  },
+  {
+    "season_id": 12,
+    "pest_id": 22,
+    "source": "pdf",
+    "months": [
+      7,
+      8,
+      9,
+      10
+    ],
+    "region": "정선, 태백",
+    "culti": "고랭지, 여름배추",
+    "grade": "주의보",
+    "evidence": null
+  },
+  {
+    "season_id": 13,
+    "pest_id": 27,
+    "source": "pdf",
+    "months": [
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "region": "경기, 매봉, 전남, 전북, 충남, 태백, 평창",
+    "culti": "고랭지",
+    "grade": "주의보",
+    "evidence": null
+  },
+  {
+    "season_id": 14,
+    "pest_id": 31,
+    "source": "pdf",
+    "months": [
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "region": "경기, 경북, 매봉, 전남, 전북, 충남, 태백, 평창",
+    "culti": "가을배추, 고랭지",
+    "grade": "주의보",
+    "evidence": null
+  },
+  {
+    "season_id": 15,
+    "pest_id": 24,
+    "source": "pdf",
+    "months": [
+      8,
+      9,
+      10
+    ],
+    "region": null,
+    "culti": "고랭지, 여름배추",
+    "grade": "예보",
+    "evidence": null
+  },
+  {
+    "season_id": 16,
+    "pest_id": 50,
+    "source": "pdf",
+    "months": [
+      8,
+      9
+    ],
+    "region": null,
+    "culti": "고랭지, 여름배추",
+    "grade": "예보",
+    "evidence": null
+  },
+  {
+    "season_id": 17,
+    "pest_id": 32,
+    "source": "pdf",
+    "months": [
+      8,
+      9,
+      10
+    ],
+    "region": "경북, 전남, 충남",
+    "culti": "가을배추, 고랭지, 여름배추",
+    "grade": "주의보",
+    "evidence": null
+  },
+  {
+    "season_id": 18,
+    "pest_id": 43,
+    "source": "ncpms",
+    "months": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      10,
+      11,
+      12
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "온실에서 발생기는 1월 하순～5월 하순, 10월 하순～12월 하순이고, 발생최성기는 1회가 4월 중?하순, 2회는 11월 중?하순이다."
+  },
+  {
+    "season_id": 19,
+    "pest_id": 54,
+    "source": "ncpms",
+    "months": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "성충은 3월부터 11월까지 활동하며, 5월 중순경에는 여러 마리가 무리지어 교미하는 모습을 볼 수 있다. / 부화한 약충은 7∼8월에 가장 많이 성충이 된다."
+  },
+  {
+    "season_id": 20,
+    "pest_id": 107,
+    "source": "ncpms",
+    "months": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "유충은 4월경에 부화하며, 어릴 때에는 집단적으로 잎을 식해하나, 자라면서 분산한다. / 5월 상순~6월 상순에 가지나 잎 사이에 실을 엮고 그 안에서 번데기가 된다. / 6~7월에 성충이 되며, 수컷은 낮에 활동하나 암컷은 나무줄기에 숨어있다."
+  },
+  {
+    "season_id": 21,
+    "pest_id": 26,
+    "source": "ncpms",
+    "months": [
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "토양전염이나 종자전염은 되지 않으며, 4월부터 발생하여 수확기인 10월까지 계속 발생한다."
+  },
+  {
+    "season_id": 22,
+    "pest_id": 45,
+    "source": "ncpms",
+    "months": [
+      4,
+      5,
+      6,
+      8,
+      9,
+      10,
+      11
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "4월 하순~5월 상순에 부화한 간모는 단위생식을 하며, 무시충을 낳고 새끼들은 신초 또는 새 잎에 살다가 유시충이 생기면 여름기주인 십자화과 채소로 이동한다. / 이동한 진딧물은 5월 하순～6월 상순에 밀도가 증가하며 여름에는 고온과 무, 배추 재배가 없어 밀도가 일시적으로 감소한다. / 9월 중?하순에 다시 증가하여 발생이 많아지며, 김장용 배추가 결구되는 10월과 11월에 발생 최성기를 보인다. / 발생최성기는 6월 중순, 8월 하순, 10월 상순이다. / 배추에서 가장 피해가 심한 시기는 10월경으로 김장용 포기배추에서 발생이 많은데, 발생 초기에는 겉에서 보이지 않지만 발생량이 증가하면 포기 전체가 진딧물로 덮여 고사한다."
+  },
+  {
+    "season_id": 23,
+    "pest_id": 47,
+    "source": "ncpms",
+    "months": [
+      4,
+      6,
+      8,
+      10
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "제1회 발생은 4월이며, 십자화과 채소와 담배의 순에다 / 제2회 발생은 6월, 제3회 발생은 8월이며, 주말농장에서는 10월에 가장 많이 발생하였다."
+  },
+  {
+    "season_id": 24,
+    "pest_id": 50,
+    "source": "ncpms",
+    "months": [
+      4,
+      5,
+      6
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "4월에 성충이 작물의 뿌리나 얕은 흙속에 1개씩 산란하여 30여 일간 한마리가 150~200개를 낳는다. / 성충은 5~6월에 증가하며, 여름철에 다소 줄어든다."
+  },
+  {
+    "season_id": 25,
+    "pest_id": 109,
+    "source": "ncpms",
+    "months": [
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "성충의 출현 시기는 4월 하순~11월 초순이며 특히 유아등에 잘 유인되는데 주로 야간 8시부터 11시 사이에 출현한다."
+  },
+  {
+    "season_id": 26,
+    "pest_id": 40,
+    "source": "ncpms",
+    "months": [
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "성충발생 최성기는 5월 상순, 6월 중하순, 7월 하순, 8월 하순, 9월 하순으로 발생 최성기는 4세대 발생기인 8월 하순이지만 해에 따라 돌발적으로 대발생 한다. / 연간 많이 발생하는 시기는 6월 하순∼7월 상순, 8월 상순∼중순, 9월 상순∼중순에 발생 최성기를 보인다."
+  },
+  {
+    "season_id": 27,
+    "pest_id": 110,
+    "source": "ncpms",
+    "months": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "5월 하순경부터 발생하여 6월 중?하순에 최성기를 보인 후 온도가 높은 7월 상?중순부터 8월 중?하순까지 급격히 감소한다. / 이후 9월 상순부터 밀도가 증가하며 대체로 11월 상순까지 발생한다."
+  },
+  {
+    "season_id": 28,
+    "pest_id": 46,
+    "source": "ncpms",
+    "months": [
+      5,
+      6,
+      7,
+      9
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "번데기 기간은 극히 짧고 5월 상순경부터 제1회 성충이 나타난다. / 제2회 성충은 6월 중순∼7월 중순에 출현하고, 제3회 성충은 9월 중순∼하순에 발생한다."
+  },
+  {
+    "season_id": 29,
+    "pest_id": 56,
+    "source": "ncpms",
+    "months": [
+      5,
+      6,
+      10
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "년간 발생세대수는 2∼3세대로 번데기 상태로 땅속에서 지낸 후 5∼6월에 우화하여 10월까지 피해를 준다."
+  },
+  {
+    "season_id": 30,
+    "pest_id": 57,
+    "source": "ncpms",
+    "months": [
+      5,
+      6
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "성충은 5∼6월에 활동하며 6월에 줄기와 잎자루에 상처를 내어 그 속에 알을 낳는다."
+  },
+  {
+    "season_id": 31,
+    "pest_id": 58,
+    "source": "ncpms",
+    "months": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "고온성 해충으로 성충이 5월부터 나타나기 시작하여 10월까지 발생한다. / 8월 하순부터 10월 하순에 성충발생이 많으며 이때를 전후하여 피해도 많이 발생하며 11월까지도 피해가 나타난다."
+  },
+  {
+    "season_id": 32,
+    "pest_id": 108,
+    "source": "ncpms",
+    "months": [
+      6,
+      8,
+      10
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "1년에 2∼3회 발생하며 성충 발생 최성기는 6월 중순, 8월 중순, 10월 상순경이다."
+  },
+  {
+    "season_id": 33,
+    "pest_id": 48,
+    "source": "ncpms",
+    "months": [
+      6,
+      8,
+      9
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "발생시기는 6월 상·중순에 최성기를 보이며, 고랭지 채소재배 지역에서는 평야지보다 / 늦은 8월 하순～9월 상순에 발생최성기를 보인다."
+  },
+  {
+    "season_id": 34,
+    "pest_id": 49,
+    "source": "ncpms",
+    "months": [
+      6
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "주말농장에서는 6월에 가장 발생이 많아 봄에 피해가 심하다."
+  },
+  {
+    "season_id": 35,
+    "pest_id": 59,
+    "source": "ncpms",
+    "months": [
+      6,
+      7,
+      8,
+      9
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "주 발생시기는 1차 6∼7월, 2차 8∼9월에 나타난다."
+  },
+  {
+    "season_id": 36,
+    "pest_id": 21,
+    "source": "ncpms",
+    "months": [
+      8,
+      9,
+      10
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "시설재배보다는 노지재배 시 8월~10월에 많이 발생한다."
+  },
+  {
+    "season_id": 37,
+    "pest_id": 52,
+    "source": "ncpms",
+    "months": [
+      8,
+      9
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "8∼9월경에 야산이나 잡초가 많은 근처의 포장에 많이 발생한다."
+  },
+  {
+    "season_id": 38,
+    "pest_id": 66,
+    "source": "pdf",
+    "months": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      11,
+      12
+    ],
+    "region": null,
+    "culti": "시설",
+    "grade": "예보",
+    "evidence": null
+  },
+  {
+    "season_id": 39,
+    "pest_id": 99,
+    "source": "pdf",
+    "months": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "region": null,
+    "culti": "시설",
+    "grade": "주의보",
+    "evidence": null
+  },
+  {
+    "season_id": 40,
+    "pest_id": 82,
+    "source": "pdf",
+    "months": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      11,
+      12
+    ],
+    "region": null,
+    "culti": "시설",
+    "grade": "예보",
+    "evidence": null
+  },
+  {
+    "season_id": 41,
+    "pest_id": 62,
+    "source": "pdf",
+    "months": [
+      4
+    ],
+    "region": null,
+    "culti": null,
+    "grade": "예보",
+    "evidence": null
+  },
+  {
+    "season_id": 42,
+    "pest_id": 75,
+    "source": "pdf",
+    "months": [
+      4,
+      5
+    ],
+    "region": null,
+    "culti": "시설",
+    "grade": "예보",
+    "evidence": null
+  },
+  {
+    "season_id": 43,
+    "pest_id": 114,
+    "source": "ncpms",
+    "months": [
+      4,
+      5,
+      9,
+      10
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "온실 내에서 성충은 4월 중순에 증가하고, 5월 하순에 가장 많이 발생한다. / 여름에는 적어졌다가 가을에 다시 증가하여 9~10월에 발생이 많고 20~25℃의 시설하우스에서는 월 2회 발생이 가능 하다."
+  },
+  {
+    "season_id": 44,
+    "pest_id": 86,
+    "source": "ncpms",
+    "months": [
+      5,
+      6,
+      8
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "유시충은 5월 하순∼6월 상순과 8월 하순에 발생최성기를 보인다."
+  },
+  {
+    "season_id": 45,
+    "pest_id": 89,
+    "source": "ncpms",
+    "months": [
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "성충발생 최성기는 5월 상순, 6월 중하순, 7월 하순, 8월 하순, 9월 하순으로 발생 최성기는 4세대 발생기인 8월 하순이지만 해에 따라 돌발적으로 대발생 한다. / 연간 많이 발생하는 시기는 6월 하순∼7월 상순, 8월 상순∼중순, 9월 상순∼중순에 발생 최성기를 보인다."
+  },
+  {
+    "season_id": 46,
+    "pest_id": 90,
+    "source": "ncpms",
+    "months": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "5월 하순경부터 발생하여 6월 중?하순에 최성기를 보인 후 온도가 높은 7월 상?중순부터 8월 중?하순까지 급격히 감소한다. / 이후 9월 상순부터 밀도가 증가하며 대체로 11월 상순까지 발생한다."
+  },
+  {
+    "season_id": 47,
+    "pest_id": 96,
+    "source": "ncpms",
+    "months": [
+      5,
+      6,
+      10
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "년간 발생세대수는 2∼3세대로 번데기 상태로 땅속에서 지낸 후 5∼6월에 우화하여 10월까지 피해를 준다."
+  },
+  {
+    "season_id": 48,
+    "pest_id": 97,
+    "source": "ncpms",
+    "months": [
+      5,
+      6,
+      9,
+      10
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "발육적온은 15～20℃로서 차먼지응애의 발생 시기는 노지에서 5～6월, 9∼10월 사이이다."
+  },
+  {
+    "season_id": 49,
+    "pest_id": 67,
+    "source": "ncpms",
+    "months": [
+      6,
+      9
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "노지에서는 6월 초순부터 발생되며, 장마기에 주로 전반되어 8, 9월에 발생이 심하다."
+  },
+  {
+    "season_id": 50,
+    "pest_id": 94,
+    "source": "ncpms",
+    "months": [
+      7,
+      8
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "아메카잎굴파리는 온실에서는 연중 발생하나, 노지에서는 7～8월에 주로 발생한다."
+  },
+  {
+    "season_id": 51,
+    "pest_id": 95,
+    "source": "ncpms",
+    "months": [
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "region": null,
+    "culti": null,
+    "grade": null,
+    "evidence": "온실가루이는 온실에서 년 10회이상 연중발생으로 피해가 심하지만 노지에서 발생이 많지 않으며, 주로 7～11월까지 발생한다."
+  }
+]

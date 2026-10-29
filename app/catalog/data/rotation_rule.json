@@ -1,0 +1,62 @@
+[
+  {
+    "rule_id": 1,
+    "source": "IRAC MoA Classification v11.5 (Feb 2026)",
+    "moa_scope": "살충제 전체 (예외 그룹 제외)",
+    "window_unit": "day",
+    "window_size": 30,
+    "max_consecutive": 2,
+    "season_max_raw": null,
+    "description": "같은 세대(약 30일) 안에서 2회까지"
+  },
+  {
+    "rule_id": 2,
+    "source": "농식품부 PLS 안내",
+    "moa_scope": "농약 전체 (작용기작 표시 기준)",
+    "window_unit": "count",
+    "window_size": 2,
+    "max_consecutive": 1,
+    "season_max_raw": null,
+    "description": null
+  },
+  {
+    "rule_id": 3,
+    "source": "FRAC Phenylamides (last updated March 2020)",
+    "moa_scope": "FRAC 4 / 가1 (메탈락실 등)",
+    "window_unit": "count",
+    "window_size": 3,
+    "max_consecutive": 2,
+    "season_max_raw": "2~4",
+    "description": null
+  },
+  {
+    "rule_id": 4,
+    "source": "FRAC CAA WG 2026 회의록 3.2절",
+    "moa_scope": "FRAC 40 / 아5 (디메토모르프 등) · 감자·토마토 역병",
+    "window_unit": "count",
+    "window_size": 3,
+    "max_consecutive": 2,
+    "season_max_raw": "계획 살포의 50% 이내",
+    "description": null
+  },
+  {
+    "rule_id": 5,
+    "source": "FRAC Multi-site Guidelines",
+    "moa_scope": "FRAC M / 카 (만코제브 등)",
+    "window_unit": "count",
+    "window_size": null,
+    "max_consecutive": null,
+    "season_max_raw": null,
+    "description": "횟수·순서 제한 없음"
+  },
+  {
+    "rule_id": 6,
+    "source": "IRAC 예외 그룹",
+    "moa_scope": "IRAC 8, 13, UN 계열 (국내 8a~8f, 13, 미분류)",
+    "window_unit": "count",
+    "window_size": null,
+    "max_consecutive": null,
+    "season_max_raw": null,
+    "description": "같은 계열 안에서 교대 제한 없음"
+  }
+]
