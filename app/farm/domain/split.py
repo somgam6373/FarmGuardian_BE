@@ -1,7 +1,8 @@
 from app.farm.domain.geometry import MultiPolygon, Ring, multipolygon_area
 
-TOLERANCE = 0.001  # 전체 면적 대비 허용 오차 (아키텍처 §7)
-MAX_ITERATIONS = 200
+# 허용 오차(전체 면적의 0.1%, 아키텍처 §7) 안에 들자마자 멈추지 않고 폭을 충분히 좁힌다.
+# 100번 반으로 줄이면 float 정밀도 아래라 결과가 결정적이고 정확하다
+ITERATIONS = 100
 
 
 def _clip_left(ring: Ring, x: float) -> Ring:
@@ -40,24 +41,19 @@ def cut_positions(polygons: MultiPolygon, ratios: list[int]) -> list[float]:
     shifted = [[[(x - ox, y - oy) for x, y in ring] for ring in polygon] for polygon in polygons]
     xs = [x for polygon in shifted for x, _ in polygon[0]]
     max_x = max(xs)
-    tolerance = TOLERANCE * total
 
     cuts = []
     lo = min(xs)
     for k in range(1, len(ratios)):
         target = total * sum(ratios[:k]) / sum(ratios)
         hi = max_x
-        for _ in range(MAX_ITERATIONS):
+        for _ in range(ITERATIONS):
             mid = (lo + hi) / 2
-            area = area_left_of(shifted, mid)
-            if abs(area - target) <= tolerance:
-                break
-            if area < target:
+            if area_left_of(shifted, mid) < target:
                 lo = mid
             else:
                 hi = mid
-        else:
-            raise RuntimeError("cut position did not converge")
-        cuts.append(mid)
-        lo = mid
+        cut = (lo + hi) / 2
+        cuts.append(cut)
+        lo = cut
     return [x + ox for x in cuts]

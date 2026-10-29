@@ -39,6 +39,15 @@ def test_known_cuts(polygons, ratios, expected):
     assert_cuts(polygons, ratios, cuts)
 
 
+@pytest.mark.parametrize(
+    "polygons, ratios, expected",
+    [(L_SHAPE, [5, 4], [20]), (WITH_HOLE, [1, 1], [55]), (L_SHAPE, [1, 1], [18])],
+)
+def test_cut_is_precise_not_just_within_tolerance(polygons, ratios, expected):
+    # 허용 오차(0.1%)에 들자마자 멈추면 균등 분할 구역끼리 면적이 눈에 띄게 달라진다
+    assert cut_positions(polygons, ratios) == pytest.approx(expected, abs=1e-6)
+
+
 def test_one_zone_has_no_cut():
     assert cut_positions([rect(0, 0, 100, 20)], [3]) == []
 
