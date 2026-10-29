@@ -68,3 +68,9 @@ class CheckResult(_Model):
     message: str
     facts: dict[str, Any]
     evidence: Evidence
+
+
+class RotationRule(_Model):
+    kind: Literal["NO_LIMIT", "CONSECUTIVE"]
+    max_consecutive: int | None  # NO_LIMIT이면 None
+    source: str  # 규칙 출처 (rotation_rule.json의 문구)

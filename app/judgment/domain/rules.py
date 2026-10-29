@@ -4,7 +4,9 @@ from app.judgment.domain.schemas import (
     CheckResult,
     Evidence,
     JudgeInput,
+    Moa,
     Registration,
+    RotationRule,
     Verdict,
 )
 
@@ -157,3 +159,52 @@ def check_timing(inp: JudgeInput, registration: CheckResult) -> CheckResult:
         harvest_from=harvest_from.isoformat(),
         strict_use_method=strict.use_method,
     )
+
+
+# ④ 반복 규칙 표 (판정 규칙 §4 ④, 출처 문구는 rotation_rule.json과 같다).
+# 계열 이름(label_kr)으로 찾는다: API 명세의 Moa에는 multi-site 표시가 없다.
+_NO_LIMIT_SOURCES = {
+    "카": "FRAC Multi-site Guidelines",
+    **{f"8{c}": "IRAC 예외 그룹" for c in "abcdef"},
+    "13": "IRAC 예외 그룹",
+    "미분류(살충제)": "IRAC 예외 그룹",
+}
+_CONSECUTIVE_2 = {
+    "가1": "FRAC Phenylamides (last updated March 2020)",
+    "아5": "FRAC CAA WG 2026 회의록 3.2절",
+}
+_IRAC_SOURCE = "IRAC MoA Classification v11.5 (Feb 2026)"
+_OTHER_SOURCE = "농식품부 PLS 안내"
+
+
+def _part_rule(label: str, system: str | None) -> RotationRule:
+    if label in _NO_LIMIT_SOURCES:
+        return RotationRule(
+            kind="NO_LIMIT", max_consecutive=None, source=_NO_LIMIT_SOURCES[label]
+        )
+    if label in _CONSECUTIVE_2:
+        return RotationRule(
+            kind="CONSECUTIVE", max_consecutive=2, source=_CONSECUTIVE_2[label]
+        )
+    if system == "IRAC":
+        return RotationRule(kind="CONSECUTIVE", max_consecutive=2, source=_IRAC_SOURCE)
+    return RotationRule(kind="CONSECUTIVE", max_consecutive=1, source=_OTHER_SOURCE)
+
+
+def rotation_rule(moa: Moa) -> RotationRule:
+    """계열의 반복 규칙. 복합 계열(+)은 성분별로 찾고 가장 엄격한 것을 쓴다."""
+    if "+" not in moa.label_kr:
+        return _part_rule(moa.label_kr, moa.system)
+    # 성분의 system을 알 수 없으므로 이름만으로 찾는다 (모르면 「그 밖의 계열」)
+    parts = [_part_rule(label, None) for label in moa.label_kr.split("+")]
+    limited = [p for p in parts if p.kind == "CONSECUTIVE"]
+    if not limited:
+        return parts[0]
+    return min(limited, key=lambda p: p.max_consecutive)
+
+
+def moa_label(moa: Moa) -> str:
+    """화면 표기: '가1 (FRAC 4)'. system과 code가 모두 있을 때만 괄호를 붙인다."""
+    if moa.system and moa.code:
+        return f"{moa.label_kr} ({moa.system} {moa.code})"
+    return moa.label_kr
