@@ -44,9 +44,9 @@
 | `PARCEL_ALREADY_USED` | 409 | 같은 사용자의 다른 밭이 쓰는 필지 | `{farmmap_ids: [string]}` |
 | `FIELD_ALREADY_SPLIT` | 409 | 이미 구역이 있는 밭에 구역 생성 | 없음 |
 | `DUPLICATE_SPRAY` | 409 | 같은 구역·약제·날짜 기록 존재 | `{existing: Spray}` |
-| `VALIDATION_ERROR` | 422 | 요청 값 오류 | `{errors: [{loc, msg, type}]}`. 입력값은 돌려주지 않는다. 주소 검색에서 외부 API가 거절한 경우만 `{source: "juso", upstream_code}` |
+| `VALIDATION_ERROR` | 422 | 요청 값 오류 | `{errors: [{loc, msg, type}]}`. 입력값은 돌려주지 않는다 |
 | `ONBOARDING_INCOMPLETE` | 422 | 구역이 없거나 「누락 없음」이 안 된 구역이 있음 | `{zone_count: int, unconfirmed_zone_ids: [int]}` **【결정】** |
-| `UPSTREAM_ERROR` | 502 | 외부 API 실패 | `{source: "juso"\|"farmmap"\|"kma", upstream_code?: string}` |
+| `UPSTREAM_ERROR` | 502 | 외부 API 실패 | `{source: "vworld"\|"farmmap"\|"kma", upstream_code?: string}` |
 
 ## 2. 공통 타입
 
@@ -136,10 +136,12 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 
 ### `GET /addresses/search` (인증 없음)
 
-- 쿼리: `keyword` (필수, 2~80자), `page` (기본 1). 페이지당 10건 고정.
-- 응답 200: `{total: int, items: [{road_addr: string, jibun_addr: string, pnu: string}]}` — `pnu`는 19자리 문자열
-- 오류: 422 `VALIDATION_ERROR` (검색어 규칙 위반: 한 글자, 숫자만, 특수문자·SQL 예약어, 너무 긴 검색어는 호출 전에 `errors`로 거절하고, 시도명만 입력·결과 9천 건 초과처럼 외부 API만 알 수 있는 경우는 `details = {source: "juso", upstream_code}`), 502 `UPSTREAM_ERROR` (`source: "juso"`)
-- 검색어의 특수문자와 SQL 예약어는 **호출 전에** 거절한다 (외부 API가 서버 IP를 차단할 수 있다).
+- 지번(필지) 검색이다. 건물이 없는 농지도 나온다. 브이월드 검색 API를 쓴다 (2026-10-29 변경: 도로명주소 API는 건물 있는 지번만 찾아 농지가 나오지 않았다).
+- 쿼리: `keyword` (필수. 앞뒤 공백을 뺀 2~80자, 한글·숫자·공백·하이픈(`-`)만, 한글이 1자 이상), `page` (1~1000, 기본 1). 페이지당 10건 고정.
+- 응답 200: `{total: int, items: [{jibun_addr: string, pnu: string}]}` — `jibun_addr`는 시도부터 쓴 지번 주소 (예 `경기도 가평군 청평면 청평리 161-3`), `pnu`는 19자리 문자열. 결과가 없으면 `{total: 0, items: []}`
+- 같은 이름의 리가 여러 지역에서 나오면 사용자가 목록에서 고른다. 검색창 예시는 `청평리 161-3`처럼 지번까지 쓴다.
+- 오류: 422 `VALIDATION_ERROR` (검색어·페이지 규칙 위반. 외부 API를 부르기 전에 거절한다), 502 `UPSTREAM_ERROR` (`source: "vworld"`)
+- 검색어 글자 제한은 브이월드 방화벽이 따옴표·`<>` 같은 글자가 든 요청을 막기 때문이다.
 
 ### `GET /parcels` (인증 없음)
 
@@ -302,7 +304,7 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 
 | 우리 API | 외부 호출 |
 |---|---|
-| `/addresses/search` | 도로명주소 검색 API → `admCd`·`mtYn`·`lnbrMnnm`·`lnbrSlno`로 PNU 조립 |
+| `/addresses/search` | 브이월드 검색 API (`req/search`, `category=parcel`). 결과 `id`가 PNU |
 | `/parcels`, 밭 생성, 가입 | 팜맵 `getPnuBasedFarmmapInfo`, `getIdBasedFarmmapInfo` |
 | `/zones/{id}/weather` | 기상청 단기예보 `getVilageFcst` |
 | 병해충·약제·판정 | 요청 중 외부 호출 없음 (엑셀 7개를 JSON으로 바꿔 미리 적재한 DB) |
