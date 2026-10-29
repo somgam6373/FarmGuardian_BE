@@ -1,5 +1,5 @@
 -- FarmGuardian DB 스키마 (PostgreSQL + PostGIS)
--- 실행: psql -d farmguardian -f schema.sql   (빈 DB에서 한 번. 다시 만들 때는 DB를 지우고 시작한다)
+-- 실행: psql -d farmguardian -f schema.sql   (빈 DB에서 한 번. 다시 만들 때는 DB를 지우고 시작한다. 한글 Windows는 먼저 PGCLIENTENCODING=UTF8)
 -- 근거: docs/dev/팜가디언_아키텍처.md §5, 팜가디언_API_명세.md, 팜가디언_판정_규칙.md
 
 BEGIN;
