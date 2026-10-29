@@ -17,6 +17,7 @@ UNCONFIRMED_MESSAGE = (
     "살포 기록에 빠진 것이 없는지 확인되지 않았습니다. "
     "기록을 입력하고 「누락 없음」을 선택해 주세요"
 )
+NO_PLANTING_MESSAGE = "정식일이 없어 이번 작기 사용 횟수를 셀 수 없습니다. 정식일을 입력해 주세요"
 
 
 def considered_rows(inp: JudgeInput) -> list[Registration]:
@@ -298,3 +299,105 @@ def check_moa(inp: JudgeInput) -> CheckResult:
         f"(연속 {rule.max_consecutive}회까지 기준)" + note
     )
     return result(Verdict.OK, message, facts, rule.source)
+
+
+def _max_uses(row: Registration) -> int | None:
+    # CHECK 행은 숫자가 있어도 읽지 못한 것으로 본다
+    return None if row.usage_type == "CHECK" else row.max_uses
+
+
+def check_count(inp: JudgeInput, registration: CheckResult) -> CheckResult:
+    """③ 횟수: 이번 작기에 같은 품목을 몇 번 썼고 몇 번 더 쓸 수 있는가."""
+    rows = considered_rows(inp)
+    data_asof = rows_data_asof(inp)
+    since = inp.planted_at.isoformat() if inp.planted_at else None
+
+    def result(status: Verdict, message: str, source_text: str | None, **facts) -> CheckResult:
+        return CheckResult(
+            key="count",
+            status=status,
+            message=message,
+            facts={
+                "used": None,
+                "max_uses": None,
+                "remaining": None,
+                "remaining_after": None,
+                "since": since,
+                "item_name": inp.item_name,
+                "strict_use_method": None,
+                "no_limit": False,
+                **facts,
+            },
+            evidence=Evidence(source_text=source_text or NONE_TEXT, data_asof=data_asof),
+        )
+
+    if registration.status is Verdict.BLOCKED or not rows:
+        return result(Verdict.NEEDS_CHECK, "등록 정보가 없어 확인할 수 없습니다", NONE_TEXT)
+
+    calc = calc_rows(rows)
+    if all(r.usage_type == "NO_LIMIT" for r in calc):
+        return result(
+            Verdict.OK,
+            "사용 횟수 제한이 없는 약제입니다. 라벨의 사용 방법을 확인해 주세요",
+            calc[0].use_num_raw,
+            no_limit=True,
+        )
+
+    unreadable = next((r for r in calc if _max_uses(r) is None), None)
+    if unreadable is not None:
+        raw = unreadable.use_num_raw or NONE_TEXT
+        return result(
+            Verdict.NEEDS_CHECK, f"최대 사용 횟수 기준을 읽지 못했습니다. 원문: {raw}", raw
+        )
+
+    max_uses = min(_max_uses(r) for r in calc)
+    strict = next(r for r in calc if _max_uses(r) == max_uses)
+    if inp.planted_at is None:
+        return result(Verdict.NEEDS_CHECK, NO_PLANTING_MESSAGE, strict.use_num_raw)
+    if not inp.history_confirmed:
+        return result(Verdict.NEEDS_CHECK, UNCONFIRMED_MESSAGE, strict.use_num_raw)
+
+    used = sum(
+        1
+        for s in inp.history
+        if s.item_name == inp.item_name and s.sprayed_on >= inp.planted_at
+    )
+    methods = {r.use_method for r in calc if r.use_method}
+    suffix = f" ({strict.use_method} 기준)" if len(methods) >= 2 and strict.use_method else ""
+
+    if used >= max_uses:
+        message = (
+            f"{format_date_kr(inp.planted_at, inp.today)}부터 {used}회 사용해 "
+            f"최대 {max_uses}회를 채웠습니다. 남은 횟수는 0회입니다" + suffix
+        )
+        return result(
+            Verdict.BLOCKED,
+            message,
+            strict.use_num_raw,
+            used=used,
+            max_uses=max_uses,
+            remaining=0,
+            strict_use_method=strict.use_method,
+        )
+
+    remaining = max_uses - used
+    if remaining == 1:
+        message = (
+            f"남은 횟수 1회, 이번 사용 후 0회입니다 (최대 {max_uses}회). "
+            "이번이 마지막 사용입니다" + suffix
+        )
+    else:
+        message = (
+            f"남은 횟수 {remaining}회, 이번 사용 후 {remaining - 1}회입니다 "
+            f"(최대 {max_uses}회)" + suffix
+        )
+    return result(
+        Verdict.OK,
+        message,
+        strict.use_num_raw,
+        used=used,
+        max_uses=max_uses,
+        remaining=remaining,
+        remaining_after=remaining - 1,
+        strict_use_method=strict.use_method,
+    )
