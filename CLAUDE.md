@@ -59,10 +59,10 @@ Design docs, specs, and plans live directly in `docs/dev/` (no subfolders). Chec
 
 ## Backend (this repo root)
 
-- Stack: Python 3.13, FastAPI, SQLAlchemy 2, psycopg 3, Alembic, pydantic-settings.
-- Layout: `app/{core,ingest,integrations,judge}`, entrypoint `app/main.py`, migrations in `migrations/`, tests in `tests/`.
+- Stack: Python 3.13, FastAPI, SQLAlchemy 2, psycopg 3, pydantic-settings.
+- Layout: `app/{core,ingest,integrations,judge}`, entrypoint `app/main.py`, schema in `schema.sql`, tests in `tests/`.
 - Config comes from env (see `.env.example`). Never commit `.env` or secrets.
-- Schema changes go through Alembic migrations only.
+- Schema changes go in `schema.sql` only (no Alembic).
 
 Commands:
 
@@ -70,7 +70,7 @@ Commands:
 uvicorn app.main:app --reload   # run dev server
 pytest                          # run tests
 ruff check .                    # lint (line-length 100, rules E/F/I)
-alembic upgrade head            # apply migrations
+psql -d farmguardian -f schema.sql   # create schema on an empty DB (Windows: set PGCLIENTENCODING=UTF8 first)
 ```
 
 ## Frontend
