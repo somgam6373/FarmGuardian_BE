@@ -1,6 +1,8 @@
+from collections.abc import Sequence
 from datetime import date, timedelta
 
 from app.judgment.domain.schemas import (
+    PRIORITY,
     CheckResult,
     Evidence,
     JudgeInput,
@@ -401,3 +403,8 @@ def check_count(inp: JudgeInput, registration: CheckResult) -> CheckResult:
         remaining_after=remaining - 1,
         strict_use_method=strict.use_method,
     )
+
+
+def overall_verdict(checks: Sequence[CheckResult]) -> Verdict:
+    """체크 상태 중 가장 심각한 것 (불가 > 확인 필요 > 주의 > 가능)."""
+    return max((c.status for c in checks), key=PRIORITY.__getitem__)
