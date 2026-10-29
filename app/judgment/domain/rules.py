@@ -4,12 +4,20 @@ from app.judgment.domain.schemas import (
     CheckResult,
     Evidence,
     JudgeInput,
+    Moa,
     Registration,
+    RotationRule,
+    SprayRecord,
     Verdict,
 )
 
 NONE_TEXT = "없음"  # 근거 원문이 비었을 때 보여 줄 문구
 NO_LIMIT_MESSAGE = "수확 전 사용 일수 제한이 없는 약제입니다. 라벨의 사용 방법을 확인해 주세요"
+UNCONFIRMED_MESSAGE = (
+    "살포 기록에 빠진 것이 없는지 확인되지 않았습니다. "
+    "기록을 입력하고 「누락 없음」을 선택해 주세요"
+)
+NO_PLANTING_MESSAGE = "정식일이 없어 이번 작기 사용 횟수를 셀 수 없습니다. 정식일을 입력해 주세요"
 
 
 def considered_rows(inp: JudgeInput) -> list[Registration]:
@@ -155,5 +163,241 @@ def check_timing(inp: JudgeInput, registration: CheckResult) -> CheckResult:
         strict.use_suittime_raw,
         phi_days=phi,
         harvest_from=harvest_from.isoformat(),
+        strict_use_method=strict.use_method,
+    )
+
+
+# ④ 반복 규칙 표 (판정 규칙 §4 ④, 출처 문구는 rotation_rule.json과 같다).
+# 계열 이름(label_kr)으로 찾는다: API 명세의 Moa에는 multi-site 표시가 없다.
+_NO_LIMIT_SOURCES = {
+    "카": "FRAC Multi-site Guidelines",
+    **{f"8{c}": "IRAC 예외 그룹" for c in "abcdef"},
+    "13": "IRAC 예외 그룹",
+    "미분류(살충제)": "IRAC 예외 그룹",
+}
+_CONSECUTIVE_2 = {
+    "가1": "FRAC Phenylamides (last updated March 2020)",
+    "아5": "FRAC CAA WG 2026 회의록 3.2절",
+}
+_IRAC_SOURCE = "IRAC MoA Classification v11.5 (Feb 2026)"
+_OTHER_SOURCE = "농식품부 PLS 안내"
+
+
+def _part_rule(label: str, system: str | None) -> RotationRule:
+    if label in _NO_LIMIT_SOURCES:
+        return RotationRule(
+            kind="NO_LIMIT", max_consecutive=None, source=_NO_LIMIT_SOURCES[label]
+        )
+    if label in _CONSECUTIVE_2:
+        return RotationRule(
+            kind="CONSECUTIVE", max_consecutive=2, source=_CONSECUTIVE_2[label]
+        )
+    if system == "IRAC":
+        return RotationRule(kind="CONSECUTIVE", max_consecutive=2, source=_IRAC_SOURCE)
+    return RotationRule(kind="CONSECUTIVE", max_consecutive=1, source=_OTHER_SOURCE)
+
+
+def rotation_rule(moa: Moa) -> RotationRule:
+    """계열의 반복 규칙. 복합 계열(+)은 성분별로 찾고 가장 엄격한 것을 쓴다."""
+    if "+" not in moa.label_kr:
+        return _part_rule(moa.label_kr, moa.system)
+    # 성분의 system을 알 수 없으므로 이름만으로 찾는다 (모르면 「그 밖의 계열」)
+    parts = [_part_rule(label, None) for label in moa.label_kr.split("+")]
+    limited = [p for p in parts if p.kind == "CONSECUTIVE"]
+    if not limited:
+        return parts[0]
+    return min(limited, key=lambda p: p.max_consecutive)
+
+
+def moa_label(moa: Moa) -> str:
+    """화면 표기: '가1 (FRAC 4)'. system과 code가 모두 있을 때만 괄호를 붙인다."""
+    if moa.system and moa.code:
+        return f"{moa.label_kr} ({moa.system} {moa.code})"
+    return moa.label_kr
+
+
+def _newest_first(history: list[SprayRecord]) -> list[SprayRecord]:
+    return sorted(history, key=lambda s: (s.sprayed_on, s.id), reverse=True)
+
+
+def check_moa(inp: JudgeInput) -> CheckResult:
+    """④ 작용기작: 직전까지 같은 계열을 연속으로 쓰고 있는가. ①②와 무관하게 계산한다."""
+    data_asof = rows_data_asof(inp)
+
+    def result(status: Verdict, message: str, facts: dict, source_text: str) -> CheckResult:
+        return CheckResult(
+            key="moa",
+            status=status,
+            message=message,
+            facts=facts,
+            evidence=Evidence(source_text=source_text, data_asof=data_asof),
+        )
+
+    if inp.moa is None:
+        facts = {
+            "label": None,
+            "rule": None,
+            "max_consecutive": None,
+            "consecutive": None,
+            "unknown": None,
+            "window": [],
+        }
+        return result(
+            Verdict.NEEDS_CHECK,
+            "이 약제의 작용기작 정보가 없어 비교할 수 없습니다",
+            facts,
+            NONE_TEXT,
+        )
+
+    rule = rotation_rule(inp.moa)
+    label = moa_label(inp.moa)
+    ordered = _newest_first(inp.history)
+    consecutive = 0
+    for record in ordered:
+        # 다른 계열이거나 작용기작 미상인 기록을 만나면 연속이 끊긴다
+        if record.moa is None or record.moa.label_kr != inp.moa.label_kr:
+            break
+        consecutive += 1
+    window = ordered[:3]
+    unknown = sum(1 for record in window if record.moa is None)
+    facts = {
+        "label": label,
+        "rule": rule.kind,
+        "max_consecutive": rule.max_consecutive,
+        "consecutive": consecutive,
+        "unknown": unknown,
+        "window": [
+            {
+                "id": record.id,
+                "sprayed_on": record.sprayed_on.isoformat(),
+                "item_name": record.item_name,
+                "label": moa_label(record.moa) if record.moa else None,
+            }
+            for record in window
+        ],
+    }
+    note = f" (작용기작 미상 {unknown}건 포함)" if unknown else ""
+
+    if not inp.history_confirmed:
+        return result(Verdict.NEEDS_CHECK, UNCONFIRMED_MESSAGE, facts, rule.source)
+    if rule.kind == "NO_LIMIT":
+        message = f"{label} — 같은 계열을 반복해도 제한이 없는 계열입니다" + note
+        return result(Verdict.OK, message, facts, rule.source)
+    if not inp.history:
+        return result(Verdict.OK, "살포 이력이 없습니다", facts, rule.source)
+    if consecutive >= rule.max_consecutive:
+        message = (
+            f"{label} — 직전까지 같은 계열을 연속 {consecutive}회 사용했습니다. "
+            f"연속 {rule.max_consecutive}회까지가 기준이라 같은 작용기작이 반복됩니다" + note
+        )
+        return result(Verdict.CAUTION, message, facts, rule.source)
+    if consecutive == 0:
+        message = f"{label} — 직전 살포는 다른 계열입니다" + note
+        return result(Verdict.OK, message, facts, rule.source)
+    message = (
+        f"{label} — 직전까지 같은 계열을 연속 {consecutive}회 사용했습니다 "
+        f"(연속 {rule.max_consecutive}회까지 기준)" + note
+    )
+    return result(Verdict.OK, message, facts, rule.source)
+
+
+def _max_uses(row: Registration) -> int | None:
+    # CHECK 행은 숫자가 있어도 읽지 못한 것으로 본다
+    return None if row.usage_type == "CHECK" else row.max_uses
+
+
+def check_count(inp: JudgeInput, registration: CheckResult) -> CheckResult:
+    """③ 횟수: 이번 작기에 같은 품목을 몇 번 썼고 몇 번 더 쓸 수 있는가."""
+    rows = considered_rows(inp)
+    data_asof = rows_data_asof(inp)
+    since = inp.planted_at.isoformat() if inp.planted_at else None
+
+    def result(status: Verdict, message: str, source_text: str | None, **facts) -> CheckResult:
+        return CheckResult(
+            key="count",
+            status=status,
+            message=message,
+            facts={
+                "used": None,
+                "max_uses": None,
+                "remaining": None,
+                "remaining_after": None,
+                "since": since,
+                "item_name": inp.item_name,
+                "strict_use_method": None,
+                "no_limit": False,
+                **facts,
+            },
+            evidence=Evidence(source_text=source_text or NONE_TEXT, data_asof=data_asof),
+        )
+
+    if registration.status is Verdict.BLOCKED or not rows:
+        return result(Verdict.NEEDS_CHECK, "등록 정보가 없어 확인할 수 없습니다", NONE_TEXT)
+
+    calc = calc_rows(rows)
+    if all(r.usage_type == "NO_LIMIT" for r in calc):
+        return result(
+            Verdict.OK,
+            "사용 횟수 제한이 없는 약제입니다. 라벨의 사용 방법을 확인해 주세요",
+            calc[0].use_num_raw,
+            no_limit=True,
+        )
+
+    unreadable = next((r for r in calc if _max_uses(r) is None), None)
+    if unreadable is not None:
+        raw = unreadable.use_num_raw or NONE_TEXT
+        return result(
+            Verdict.NEEDS_CHECK, f"최대 사용 횟수 기준을 읽지 못했습니다. 원문: {raw}", raw
+        )
+
+    max_uses = min(_max_uses(r) for r in calc)
+    strict = next(r for r in calc if _max_uses(r) == max_uses)
+    if inp.planted_at is None:
+        return result(Verdict.NEEDS_CHECK, NO_PLANTING_MESSAGE, strict.use_num_raw)
+    if not inp.history_confirmed:
+        return result(Verdict.NEEDS_CHECK, UNCONFIRMED_MESSAGE, strict.use_num_raw)
+
+    used = sum(
+        1
+        for s in inp.history
+        if s.item_name == inp.item_name and s.sprayed_on >= inp.planted_at
+    )
+    methods = {r.use_method for r in calc if r.use_method}
+    suffix = f" ({strict.use_method} 기준)" if len(methods) >= 2 and strict.use_method else ""
+
+    if used >= max_uses:
+        message = (
+            f"{format_date_kr(inp.planted_at, inp.today)}부터 {used}회 사용해 "
+            f"최대 {max_uses}회를 채웠습니다. 남은 횟수는 0회입니다" + suffix
+        )
+        return result(
+            Verdict.BLOCKED,
+            message,
+            strict.use_num_raw,
+            used=used,
+            max_uses=max_uses,
+            remaining=0,
+            strict_use_method=strict.use_method,
+        )
+
+    remaining = max_uses - used
+    if remaining == 1:
+        message = (
+            f"남은 횟수 1회, 이번 사용 후 0회입니다 (최대 {max_uses}회). "
+            "이번이 마지막 사용입니다" + suffix
+        )
+    else:
+        message = (
+            f"남은 횟수 {remaining}회, 이번 사용 후 {remaining - 1}회입니다 "
+            f"(최대 {max_uses}회)" + suffix
+        )
+    return result(
+        Verdict.OK,
+        message,
+        strict.use_num_raw,
+        used=used,
+        max_uses=max_uses,
+        remaining=remaining,
+        remaining_after=remaining - 1,
         strict_use_method=strict.use_method,
     )

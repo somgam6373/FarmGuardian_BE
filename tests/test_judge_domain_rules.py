@@ -3,8 +3,16 @@ from pathlib import Path
 
 import pytest
 
-from app.judgment.domain.rules import calc_rows, check_registration, check_timing, format_date_kr
-from tests.judge_support import make_input, reg
+from app.judgment.domain.rules import (
+    calc_rows,
+    check_count,
+    check_moa,
+    check_registration,
+    check_timing,
+    format_date_kr,
+)
+from app.judgment.domain.schemas import Moa
+from tests.judge_support import make_input, recent, reg, spray
 
 FORBIDDEN = ["추천", "예측", "예상", "가능성", "위험", "확률", "안전", "문제없"]
 DOMAIN = Path(__file__).resolve().parents[1] / "app" / "judgment" / "domain"
@@ -50,14 +58,31 @@ SCAN_INPUTS = [
         ]
     },
     {"today": date(2026, 12, 25), "registrations": [reg(phi_days=14)]},
+    {"history": recent("가1", "가1")},
+    {"history": recent("가1", "나2")},
+    {"history": recent(None, "가1")},
+    {"history": [spray(i, "가1", date(2026, 6, i)) for i in (1, 2, 3)]},
+    {"history": [spray(i, "가1", date(2026, 6, i)) for i in (1, 2)]},
+    {"moa": None},
+    {"history_confirmed": False},
+    {"planted_at": None},
+    {"registrations": [reg(max_uses=None)]},
+    {"registrations": [reg(usage_type="NO_LIMIT", phi_days=None, max_uses=None)]},
+    {"moa": Moa(label_kr="카", system="FRAC", code="M")},
 ]
 
 
-def test_no_forbidden_word_in_any_registration_or_timing_message():
+def test_no_forbidden_word_in_any_check_message():
     for kw in SCAN_INPUTS:
         inp = make_input(**kw)
         registration = check_registration(inp)
-        for result in (registration, check_timing(inp, registration)):
+        results = (
+            registration,
+            check_timing(inp, registration),
+            check_count(inp, registration),
+            check_moa(inp),
+        )
+        for result in results:
             assert not [w for w in FORBIDDEN if w in result.message], result.message
 
 

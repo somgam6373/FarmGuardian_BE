@@ -1,6 +1,6 @@
-from datetime import date
+from datetime import date, timedelta
 
-from app.judgment.domain.schemas import JudgeInput, Moa, Registration
+from app.judgment.domain.schemas import JudgeInput, Moa, Registration, SprayRecord
 
 TODAY = date(2026, 10, 4)
 
@@ -37,3 +37,26 @@ def make_input(**overrides) -> JudgeInput:
         psis_asof=date(2026, 10, 3),
     )
     return JudgeInput(**{**base, **overrides})
+
+
+def spray(
+    sid: int,
+    label: str | None,
+    on: date,
+    item_name: str = "품목A",
+    pesticide_id: int = 10,
+) -> SprayRecord:
+    """살포 이력 1건. label이 None이면 작용기작 미상."""
+    moa = None if label is None else Moa(label_kr=label)
+    return SprayRecord(
+        id=sid, pesticide_id=pesticide_id, item_name=item_name, sprayed_on=on, moa=moa
+    )
+
+
+def recent(*labels: str | None) -> list[SprayRecord]:
+    """labels는 최근순. 가장 최근이 2026-09-01이고 하루씩 앞선다. 오래된 것부터 돌려준다."""
+    records = [
+        spray(len(labels) - i, label, date(2026, 9, 1) - timedelta(days=i))
+        for i, label in enumerate(labels)
+    ]
+    return records[::-1]
