@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<response>
+    <header>
+        <resultCode>0</resultCode>
+        <resultMsg>NORMAL_SERVICE</resultMsg>
+    </header>
+    <body>
+        <items>
+            <item>
+                <fmapInnb>418203252100637</fmapInnb>
+                <fmapBdcrd>
+                    <gml:MultiPolygon srsName="EPSG:5179" xmlns:gml="http://www.opengis.net/gml">
+  
+                        <gml:polygonMember>
+    
+                            <gml:Polygon>
+      
+                                <gml:outerBoundaryIs>
+        
+                                    <gml:LinearRing>
+          
+                                        <gml:coordinates>
+            993833.485624643,1970344.5561137851 993831.6335376073,1970343.365486404 993828.8554070508,1970343.1009025443 993826.0772764953,1970342.7040267494 993821.0501831071,1970341.1165235713 993816.023089719,1970341.7779832315 993812.6634671437,1970345.7791131847 993807.3198910216,1970351.4370173067 993807.0453917431,1970352.946763344 993822.142852081,1970379.9849423096 
+            993822.536193951,1970380.4106136486 993839.6115551824,1970380.2534784246 993865.1033962136,1970380.274935225 993867.7492348384,1970380.274935225 993868.9398622187,1970378.687432047 993872.9086201573,1970372.0728354882 993871.5857008444,1970370.8822081033 993868.0138186999,1970369.9561645873 993862.3252656572,1970366.7811582368 993850.8280762592,1970358.9879441522 
+            993833.485624643,1970344.5561137851 
+          </gml:coordinates>
+        </gml:LinearRing>
+      </gml:outerBoundaryIs>
+    </gml:Polygon>
+  </gml:polygonMember>
+</gml:MultiPolygon>
+                </fmapBdcrd>
+                <vdptYr>2022-04-01</vdptYr>
+                <pnuLnmCd>4182032521101610003</pnuLnmCd>
+                <lglEmdCd>41820325</lglEmdCd>
+                <lglEmdNm>청평면</lglEmdNm>
+                <chgCfcd>07</chgCfcd>
+                <chgCfnm>개선</chgCfnm>
+                <lnm>161-3전</lnm>
+                <intprCd>02</intprCd>
+                <intprNm>밭</intprNm>
+                <invdCfcd>01</invdCfcd>
+                <invdCfnm>항공정사영상</invdCfnm>
+                <itpinpDe/>
+                <rnhstCd>03</rnhstCd>
+                <rnhstNm>변경</rnhstNm>
+                <mapdmcNo/>
+            </item>
+        </items>
+        <type>xml</type>
+        <totalCount>1</totalCount>
+    </body>
+</response>

@@ -12,6 +12,7 @@ from app.farm.domain.geometry import MultiPolygon, Polygon, Ring
 logging.getLogger("httpx2").setLevel(logging.WARNING)
 
 PNU_URL = "http://apis.data.go.kr/B552895/getFarmmapService/getPnuBasedFarmmapInfo"
+ID_URL = "http://apis.data.go.kr/B552895/getFarmmapService/getIdBasedFarmmapInfo"
 TIMEOUT_SECONDS = 5
 GML = "{http://www.opengis.net/gml}"
 OK_CODES = {"0", "00"}  # 명세서 예시는 00, 실제 응답은 0
@@ -99,15 +100,27 @@ def parse_farmmap_response(xml: str) -> list[FarmmapParcel]:
         raise _upstream_error() from None
 
 
-def parcels_by_pnu(pnu: str, *, client: httpx2.Client | None = None) -> list[FarmmapParcel]:
-    params = {"serviceKey": settings.farmmap_api_key, "type": "xml", "pnuCode": pnu}
+def _fetch(url: str, params: dict, client: httpx2.Client | None) -> list[FarmmapParcel]:
+    params = {"serviceKey": settings.farmmap_api_key, "type": "xml", **params}
     try:
         if client is None:
             with httpx2.Client(timeout=TIMEOUT_SECONDS) as default_client:
-                response = default_client.get(PNU_URL, params=params)
+                response = default_client.get(url, params=params)
         else:
-            response = client.get(PNU_URL, params=params)
+            response = client.get(url, params=params)
     except httpx2.HTTPError:
         raise _upstream_error() from None
     # 키 오류는 HTTP 403이지만 본문에 오류 코드가 있으므로 상태 코드와 관계없이 본문을 읽는다
     return parse_farmmap_response(response.text)
+
+
+def parcels_by_pnu(pnu: str, *, client: httpx2.Client | None = None) -> list[FarmmapParcel]:
+    return _fetch(PNU_URL, {"pnuCode": pnu}, client)
+
+
+def parcel_by_id(
+    farmmap_id: str, *, client: httpx2.Client | None = None
+) -> FarmmapParcel | None:
+    # 요청한 번호의 필지만 쓴다. 다른 필지만 오면 그 모양을 밭으로 쓰지 않도록 None
+    parcels = _fetch(ID_URL, {"id": farmmap_id}, client)
+    return next((p for p in parcels if p.farmmap_id == farmmap_id), None)
