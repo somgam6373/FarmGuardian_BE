@@ -85,6 +85,11 @@ def list_sprays(
     return total, [_view(spray) for spray in sprays]
 
 
+def history(db: Session, zone_id: int) -> list[SprayView]:
+    """판정 입력용: 구역의 살포 기록 전체, 최근순."""
+    return [_view(spray) for spray in repository.all_for_zone(db, zone_id)]
+
+
 def cancel_spray(db: Session, zone_id: int, spray_id: int) -> None:
     if not repository.delete(db, zone_id, spray_id):
         raise AppError("NOT_FOUND", 404, "찾을 수 없습니다")

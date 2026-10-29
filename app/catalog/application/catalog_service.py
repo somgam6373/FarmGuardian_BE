@@ -1,4 +1,5 @@
 import functools
+from datetime import date
 
 from app.catalog.domain.entities import (
     Crop,
@@ -7,6 +8,7 @@ from app.catalog.domain.entities import (
     Pesticide,
     PesticideEntry,
     PestVector,
+    UseRow,
 )
 from app.catalog.domain.pest_rules import (
     OCCURRENCE_SOURCES,
@@ -90,6 +92,41 @@ def list_pesticides(crop_id: int, pest_id: int | None = None) -> list[PesticideE
         )
     )
     return entries
+
+
+@functools.cache
+def _use_rows() -> dict[int, tuple[tuple[int, UseRow], ...]]:
+    """약제 id -> (작물 id, 등록 행) 목록. 행은 use_id 순이고 safe_use_std와 use_id로 묶는다."""
+    drug_ids = {(p.item_name, p.name): p.id for p, _ in _drugs()}
+    std = {s["use_id"]: s for s in load("safe_use_std")}
+    index: dict[int, list[tuple[int, UseRow]]] = {}
+    for u in sorted(load("pesticide_use"), key=lambda u: u["use_id"]):
+        s = std[u["use_id"]]
+        row = UseRow(
+            pest_id=u["pest_id"],
+            pest_name=_pests()[u["pest_id"]]["name"],
+            phi_days=s["phi_days"],
+            max_uses=s["max_count"],
+            use_time=u["use_time"],
+            use_count=u["use_count"],
+            dilution=u["dilution"],
+            method=u["method"],
+            parse_status=s["parse_status"],
+            base_date=date.fromisoformat(s["base_date"]),
+        )
+        index.setdefault(drug_ids[(u["product"], u["brand"])], []).append(
+            (_pest_crops()[u["pest_id"]], row)
+        )
+    return {drug_id: tuple(rows) for drug_id, rows in index.items()}
+
+
+def get_registrations(pesticide_id: int, crop_id: int) -> list[UseRow]:
+    return [row for crop, row in _use_rows().get(pesticide_id, ()) if crop == crop_id]
+
+
+@functools.cache
+def data_asof() -> date:
+    return min(date.fromisoformat(s["base_date"]) for s in load("safe_use_std"))
 
 
 _KIND = {"disease": "병", "insect": "해충"}
