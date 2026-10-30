@@ -7,10 +7,11 @@ from sqlalchemy.orm import Session
 from app.farm.domain.geometry import to_wkt
 from app.farm.infrastructure.integrations.farmmap import FarmmapParcel
 
-# 면적·GeoJSON·bbox를 한 번에 읽는다. GeoJSON은 소수 1자리
+# 면적·GeoJSON·bbox를 한 번에 읽는다. 명세대로 모두 소수 1자리
 _FIELD_COLUMNS = (
     "id, name, round(ST_Area(geom)::numeric, 1) AS area_m2, ST_AsGeoJSON(geom, 1) AS geojson, "
-    "ST_XMin(geom) AS minx, ST_YMin(geom) AS miny, ST_XMax(geom) AS maxx, ST_YMax(geom) AS maxy"
+    "round(ST_XMin(geom)::numeric, 1) AS minx, round(ST_YMin(geom)::numeric, 1) AS miny, "
+    "round(ST_XMax(geom)::numeric, 1) AS maxx, round(ST_YMax(geom)::numeric, 1) AS maxy"
 )
 
 
@@ -35,7 +36,7 @@ def _field(row) -> FieldRow:
         name=row.name,
         area_m2=float(row.area_m2),
         geometry=geojson(row.geojson),
-        bbox=[row.minx, row.miny, row.maxx, row.maxy],
+        bbox=[float(v) for v in (row.minx, row.miny, row.maxx, row.maxy)],
     )
 
 

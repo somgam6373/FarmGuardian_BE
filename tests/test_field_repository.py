@@ -71,3 +71,9 @@ def test_delete_field_cascades_zone(db, make_user, make_zone):
     repo.delete_field(db, field_id)
     assert db.scalar(text("SELECT count(*) FROM zone WHERE id = :z"), {"z": zone_id}) == 0
     assert repo.used_farmmap_ids(db, uid, ["1"]) == {}
+
+
+def test_bbox_rounded_to_one_decimal(db, make_user):
+    uid = make_user("farmer")
+    field = repo.get_field(db, repo.insert_field(db, uid, "f", [square("1", x0=0.04)]))
+    assert field.bbox == [0.0, 0.0, 10.0, 10.0]
