@@ -91,10 +91,16 @@ def rotate(polygons: MultiPolygon, angle: float, origin: tuple[float, float]) ->
 def split_strips(
     polygons: MultiPolygon, envelope: Ring, direction: str, ratios: list[int]
 ) -> list[Ring]:
-    """밭을 자를 띠(직사각형)들. 원래 좌표계이며 crosswise는 서→동, lengthwise는 남→북 순서."""
+    """밭을 자를 띠(직사각형)들. 원래 좌표계이며 서→동 순서 (남북으로 늘어서면 남→북)."""
     angle = long_side_angle(envelope)
     if direction == "lengthwise":
         angle += pi / 2
+    # 조각이 늘어서는 방향을 서→동(남북으로 늘어서면 남→북)으로 맞춘다.
+    # 경계를 대각선(-45°)에 두어 남북·동서로 긴 밭이 조금 기울어도 순서가 뒤집히지 않는다
+    while angle <= -pi / 4:
+        angle += pi
+    while angle > 3 * pi / 4:
+        angle -= pi
     # 자르는 방향이 x축이 되게 돌린 좌표계에서 세로선으로 자른다
     origin = envelope[0]
     rotated = rotate(polygons, -angle, origin)

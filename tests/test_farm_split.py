@@ -164,3 +164,30 @@ def test_single_ratio_one_strip():
     [strip] = split_strips(field, field[0][0], "crosswise", [3])
     minx, miny, maxx, maxy = bounds(strip)
     assert minx < 0 and miny < 0 and maxx > 20 and maxy > 10
+
+
+def centers(strips):
+    return [(sum(x for x, _ in s[:-1]) / 4, sum(y for _, y in s[:-1]) / 4) for s in strips]
+
+
+@pytest.mark.parametrize("degrees", [89.9999, 90.0, 90.0001])
+def test_near_vertical_crosswise_goes_south_to_north(degrees):
+    ring = turned([(0, 0), (20, 0), (20, 10), (0, 10), (0, 0)], radians(degrees))
+    first, second = centers(split_strips([[ring]], ring, "crosswise", [1, 1]))
+    assert first[1] < second[1]
+
+
+@pytest.mark.parametrize("degrees", [89.9999, 90.0, 90.0001])
+def test_near_vertical_lengthwise_goes_west_to_east(degrees):
+    ring = turned([(0, 0), (20, 0), (20, 10), (0, 10), (0, 0)], radians(degrees))
+    first, second = centers(split_strips([[ring]], ring, "lengthwise", [1, 1]))
+    assert first[0] < second[0]
+
+
+@pytest.mark.parametrize("degrees", [-0.0001, 0.0, 0.0001])
+def test_near_horizontal_orders(degrees):
+    ring = turned([(0, 0), (20, 0), (20, 10), (0, 10), (0, 0)], radians(degrees))
+    first, second = centers(split_strips([[ring]], ring, "crosswise", [1, 1]))
+    assert first[0] < second[0]
+    first, second = centers(split_strips([[ring]], ring, "lengthwise", [1, 1]))
+    assert first[1] < second[1]

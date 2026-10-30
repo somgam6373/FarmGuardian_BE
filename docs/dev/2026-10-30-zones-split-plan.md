@@ -15,7 +15,7 @@
 - Branch `feat/hb-zones`, stacked on `feat/hb-fields` (PR #22). Commit messages in English, no AI attribution.
 - `ratios`: 1–10 items, each int 1–100. `direction`: `"crosswise" | "lengthwise"`. `zones` length == `ratios` length; `name` stripped, 1–30 chars; `crop_id` must exist; `planted_at` optional date.
 - Errors (exact): 409 `AppError("FIELD_ALREADY_SPLIT", 409, "이미 구역이 나뉜 밭입니다")`; unknown crop 422 `AppError("VALIDATION_ERROR", 422, "요청 값이 올바르지 않습니다", {"errors": [{"loc": ["body", "zones", i, "crop_id"], "msg": "없는 작물입니다", "type": "not_found"}, ...]})`; 404/401 from `get_owned_field` / `current_user`.
-- Order: crosswise west→east, lengthwise south→north (angle normalised to (−90°, 90°]).
+- Order: west→east, or south→north when pieces line up north-south (angle normalised to (−45°, 135°]).
 - Output geometry: GeoJSON MultiPolygon 1 decimal without `crs`; `area_m2`, `bbox` 1 decimal (reuse `field_repository.geojson` and the rounding SQL style).
 - Ruff line length 100, E/F/I. Short Korean comments.
 

@@ -53,11 +53,12 @@ and the created zones must be identical, so the server recomputes the split on c
    `ST_Intersection` of the rotated field with that strip, rotate back with the same angle and
    origin, keep polygons only, `ST_Multi`.
 5. Order ("the start of the direction", my call, fixed in map terms so it never flips between
-   fields): normalise the long-side angle θ to (−90°, 90°], i.e. the long-side direction points
-   east-ish (exactly north when the long side is vertical). `crosswise` pieces go along that
-   direction → **west to east**. `lengthwise` pieces go along its left normal (θ + 90°) → **south to
-   north**. In the rotated frame both are simply left to right. A concave field may give one strip
-   several pieces — that is still one zone (MultiPolygon).
+   fields): pieces run **west to east**, or **south to north** when they line up north-south. The
+   direction the pieces line up in (the long side for `crosswise`, its normal for `lengthwise`) is
+   normalised to (−45°, 135°], so the only switch is on the diagonal and a north-south field tilted
+   by a hair does not flip. (Revised 2026-10-30 after the final review: the first rule, "crosswise
+   W→E, lengthwise S→N", flipped near vertical and gave E→W for lengthwise on north-south fields.)
+   A concave field may give one strip several pieces — that is still one zone (MultiPolygon).
 - `ratios == [n]` → one piece, the whole field.
 - Geometry out as everywhere else: GeoJSON MultiPolygon, 1 decimal, no `crs`; `area_m2` 1 decimal.
 

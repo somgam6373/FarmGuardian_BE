@@ -66,7 +66,7 @@ Zone          {id, field_id, name, crop: Crop, planted_at: date|null, history_co
 ZoneSummary   {id, name, crop: Crop, planted_at: date|null, history_confirmed: bool, area_m2, geometry,
                last_spray: Spray|null, last_judgment: JudgmentBrief|null}
 ZoneSpec      {name: string, crop_id: int, planted_at?: date}
-SplitPiece    {geometry, area_m2}          순서 = 방향의 시작 쪽부터 (crosswise 서→동, lengthwise 남→북), ratios 순서와 같다
+SplitPiece    {geometry, area_m2}          순서 = 방향의 시작 쪽부터 (서→동, 조각이 남북으로 늘어서면 남→북), ratios 순서와 같다
 Spray         {id: int, pesticide: Pesticide, sprayed_on: date, source: "manual"|"app"}
 JudgmentBrief {judgment_id: int, created_at: datetime, pesticide: {id, name, item_name},
                pest: {id, name}|null, verdict: Verdict}                       【결정】
