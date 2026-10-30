@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import event, text
 
 from app.core.errors import AppError
 from app.farm.application import zone_service
@@ -76,3 +76,19 @@ def test_unknown_crop_and_future_date_together(db, zone):
         ["body", "crop_id"],
         ["body", "planted_at"],
     ]
+
+
+def test_update_locks_zone_row_before_reading(db, zone):
+    # 동시 수정에서 한쪽 변경이 사라지지 않게 읽을 때 행을 잠근다
+    zone_id = zone()
+    statements = []
+    connection = db.connection()
+
+    def record(conn, cursor, statement, *args):
+        statements.append(statement)
+
+    event.listen(connection, "before_cursor_execute", record)
+    zone_service.update_zone(db, zone_id, {"name": "x"}, TODAY)
+    event.remove(connection, "before_cursor_execute", record)
+    read = next(s for s in statements if s.lstrip().startswith("SELECT name, crop_id"))
+    assert "FOR UPDATE" in read

@@ -134,7 +134,11 @@ def update_zone(db: Session, zone_id: int, changes: dict, today: date) -> dict:
     """changes = 보낸 값만 (name, crop_id, planted_at, history_confirmed). 커밋하지 않는다."""
     check_values(db, [(["body"], changes.get("crop_id"), changes.get("planted_at"))], today)
     current = db.execute(
-        text("SELECT name, crop_id, planted_at, history_confirmed FROM zone WHERE id = :id"),
+        # 동시 수정에서 한쪽 변경이 사라지지 않게 행을 잠그고 읽는다
+        text(
+            "SELECT name, crop_id, planted_at, history_confirmed FROM zone "
+            "WHERE id = :id FOR UPDATE"
+        ),
         {"id": zone_id},
     ).one()
     crop_id = changes.get("crop_id", current.crop_id)

@@ -69,3 +69,10 @@ def test_invalid_body_is_422(client, zone, body):
     response = patch(client, *zone, body)
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+@pytest.mark.parametrize("field", ["name", "crop_id", "history_confirmed"])
+def test_null_points_at_the_field(client, zone, field):
+    response = patch(client, *zone, {field: None})
+    [error] = response.json()["error"]["details"]["errors"]
+    assert error["loc"] == ["body", field]
