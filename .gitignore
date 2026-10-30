@@ -23,3 +23,6 @@ __pycache__/
 
 # 외부 API 원문 문서
 /docs/info/
+
+# 프론트엔드 (별도 repo)
+/frontend/
