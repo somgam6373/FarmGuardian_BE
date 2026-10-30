@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query
 from sqlalchemy.orm import Session
 
 from app.core.auth import current_user, get_owned_field
@@ -17,9 +17,20 @@ from app.farm.presentation.schemas import (
 router = APIRouter()
 
 
+def optional_user(
+    x_user_id: Annotated[str | None, Header()] = None, db: Session = Depends(get_db)
+) -> int | None:
+    # 인증 없이 부를 수 있지만, 헤더를 보냈다면 current_user와 같은 규칙으로 확인한다
+    return None if x_user_id is None else current_user(x_user_id, db)
+
+
 @router.get("/parcels", response_model=list[Parcel])
-def list_parcels(pnu: Annotated[str, Query(pattern=r"^\d{19}$")]):
-    return field_service.find_parcels(pnu)
+def list_parcels(
+    pnu: Annotated[str, Query(pattern=r"^\d{19}$")],
+    user_id: Annotated[int | None, Depends(optional_user)],
+    db: Session = Depends(get_db),
+):
+    return field_service.find_parcels(pnu, db, user_id)
 
 
 @router.get("/addresses/search", response_model=AddressSearchResult)

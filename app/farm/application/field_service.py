@@ -26,7 +26,14 @@ def _geojson(polygons: MultiPolygon) -> dict:
     }
 
 
-def find_parcels(pnu: str) -> list[dict]:
+def find_parcels(pnu: str, db: Session | None = None, user_id: int | None = None) -> list[dict]:
+    parcels = farmmap.parcels_by_pnu(pnu)
+    # 헤더가 없으면 DB를 읽지 않고 항상 null
+    used = (
+        field_repository.used_farmmap_ids(db, user_id, [p.farmmap_id for p in parcels])
+        if user_id is not None
+        else {}
+    )
     return [
         {
             "farmmap_id": p.farmmap_id,
@@ -37,9 +44,9 @@ def find_parcels(pnu: str) -> list[dict]:
             "area_m2": round(multipolygon_area(p.polygons), 1),
             "geometry": _geojson(p.polygons),
             "matches_query": p.pnu == pnu,
-            "used_by_field_id": None,  # 밭 저장(POST /fields) 전까지는 항상 없음
+            "used_by_field_id": used.get(p.farmmap_id),
         }
-        for p in farmmap.parcels_by_pnu(pnu)
+        for p in parcels
     ]
 
 

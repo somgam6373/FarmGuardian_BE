@@ -2,9 +2,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.errors import AppError
+from app.farm.infrastructure import field_repository
 from app.farm.infrastructure.integrations import farmmap
 from app.farm.infrastructure.integrations.farmmap import FarmmapParcel
 from app.main import app
+from tests.farm_support import square
 
 PNU = "4182032521101610003"
 SQUARE = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0), (0.0, 0.0)]
@@ -89,3 +91,28 @@ def test_upstream_error_is_502(monkeypatch):
     assert r.status_code == 502
     assert r.json()["error"]["code"] == "UPSTREAM_ERROR"
     assert r.json()["error"]["details"] == {"source": "farmmap"}
+
+
+def _used_by(response) -> dict:
+    return {p["farmmap_id"]: p["used_by_field_id"] for p in response.json()}
+
+
+def test_used_by_field_id_with_header(client, db, make_user, farmmap_calls):
+    uid = make_user("farmer")
+    field_id = field_repository.insert_field(db, uid, "f", [square("1")])
+    response = client.get("/parcels", params={"pnu": PNU}, headers={"X-User-Id": str(uid)})
+    assert response.status_code == 200
+    assert _used_by(response) == {"1": field_id, "2": None}
+
+
+def test_other_users_field_not_shown(client, db, make_user, farmmap_calls):
+    me, other = make_user("me"), make_user("other")
+    field_repository.insert_field(db, other, "f", [square("1")])
+    response = client.get("/parcels", params={"pnu": PNU}, headers={"X-User-Id": str(me)})
+    assert _used_by(response) == {"1": None, "2": None}
+
+
+@pytest.mark.parametrize("header", ["abc", "999999999"])
+def test_bad_header_is_401(client, farmmap_calls, header):
+    response = client.get("/parcels", params={"pnu": PNU}, headers={"X-User-Id": header})
+    assert response.status_code == 401
