@@ -12,6 +12,7 @@ ZONE_KEYS = {
     "id", "field_id", "name", "crop", "planted_at", "history_confirmed", "area_m2", "geometry",
     "bbox",
 }
+TODAY = date(2026, 10, 30)
 RECT = [[(0, 0), (20, 0), (20, 10), (0, 10), (0, 0)]]
 SPECS = [
     {"name": "앞", "crop_id": 1, "planted_at": None},
@@ -32,7 +33,7 @@ def zone_count(db):
 
 def test_create_returns_zones_in_order(db, farm):
     uid, field_id = farm
-    first, second = field_service.create_zones(db, field_id, uid, "crosswise", [1, 1], SPECS)
+    first, second = field_service.create_zones(db, field_id, uid, "crosswise", [1, 1], SPECS, TODAY)
     assert set(first) == ZONE_KEYS
     assert first["field_id"] == field_id and first["name"] == "앞"
     assert first["crop"] == {"id": 1, "name": "감자"}
@@ -47,16 +48,16 @@ def test_create_returns_zones_in_order(db, farm):
 def test_create_matches_preview(db, farm):
     uid, field_id = farm
     preview = field_service.split_preview(db, field_id, "lengthwise", [6, 4])
-    zones = field_service.create_zones(db, field_id, uid, "lengthwise", [6, 4], SPECS)
+    zones = field_service.create_zones(db, field_id, uid, "lengthwise", [6, 4], SPECS, TODAY)
     assert [z["geometry"] for z in zones] == [p["geometry"] for p in preview]
     assert [z["area_m2"] for z in zones] == [p["area_m2"] for p in preview]
 
 
 def test_already_split_is_409(db, farm):
     uid, field_id = farm
-    field_service.create_zones(db, field_id, uid, "crosswise", [1, 1], SPECS)
+    field_service.create_zones(db, field_id, uid, "crosswise", [1, 1], SPECS, TODAY)
     with pytest.raises(AppError) as error:
-        field_service.create_zones(db, field_id, uid, "crosswise", [1, 1], SPECS)
+        field_service.create_zones(db, field_id, uid, "crosswise", [1, 1], SPECS, TODAY)
     assert error.value.code == "FIELD_ALREADY_SPLIT" and error.value.status == 409
     assert zone_count(db) == 2
 
@@ -65,7 +66,7 @@ def test_unknown_crop_is_422(db, farm):
     uid, field_id = farm
     specs = [SPECS[0], {**SPECS[1], "crop_id": 999}]
     with pytest.raises(AppError) as error:
-        field_service.create_zones(db, field_id, uid, "crosswise", [1, 1], specs)
+        field_service.create_zones(db, field_id, uid, "crosswise", [1, 1], specs, TODAY)
     assert error.value.status == 422
     [err] = error.value.details["errors"]
     assert err["loc"] == ["body", "zones", 1, "crop_id"] and err["type"] == "not_found"
@@ -74,6 +75,34 @@ def test_unknown_crop_is_422(db, farm):
 
 def test_field_list_shows_new_zones(db, farm):
     uid, field_id = farm
-    zones = field_service.create_zones(db, field_id, uid, "crosswise", [1, 1], SPECS)
+    zones = field_service.create_zones(db, field_id, uid, "crosswise", [1, 1], SPECS, TODAY)
     [field] = field_service.list_fields(db, uid)
     assert [z["id"] for z in field["zones"]] == [z["id"] for z in zones]
+
+
+def test_future_planted_at_is_422(db, farm):
+    uid, field_id = farm
+    specs = [SPECS[0], {**SPECS[1], "planted_at": date(2026, 10, 31)}]
+    with pytest.raises(AppError) as error:
+        field_service.create_zones(db, field_id, uid, "crosswise", [1, 1], specs, TODAY)
+    [err] = error.value.details["errors"]
+    assert err["loc"] == ["body", "zones", 1, "planted_at"]
+    assert zone_count(db) == 0
+
+
+def test_today_planted_at_is_ok(db, farm):
+    uid, field_id = farm
+    specs = [SPECS[0], {**SPECS[1], "planted_at": TODAY}]
+    zones = field_service.create_zones(db, field_id, uid, "crosswise", [1, 1], specs, TODAY)
+    assert zones[1]["planted_at"] == TODAY
+
+
+def test_crop_and_date_errors_together(db, farm):
+    uid, field_id = farm
+    specs = [{**SPECS[0], "crop_id": 999}, {**SPECS[1], "planted_at": date(2027, 1, 1)}]
+    with pytest.raises(AppError) as error:
+        field_service.create_zones(db, field_id, uid, "crosswise", [1, 1], specs, TODAY)
+    assert [e["loc"] for e in error.value.details["errors"]] == [
+        ["body", "zones", 0, "crop_id"],
+        ["body", "zones", 1, "planted_at"],
+    ]

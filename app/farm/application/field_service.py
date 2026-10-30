@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date
 
 import httpx2
 from sqlalchemy.exc import IntegrityError
@@ -138,18 +139,16 @@ def create_zones(
     direction: str,
     ratios: list[int],
     zones: list[dict],
+    today: date,
 ) -> list[dict]:
     """zones = [{name, crop_id, planted_at}] (ratios 순서). 커밋은 호출한 쪽이 한다."""
     if split_repository.lock_field_has_zones(db, field_id):
         raise AppError("FIELD_ALREADY_SPLIT", 409, "이미 구역이 나뉜 밭입니다")
-    known = split_repository.existing_crop_ids(db, [z["crop_id"] for z in zones])
-    errors = [
-        {"loc": ["body", "zones", index, "crop_id"], "msg": "없는 작물입니다", "type": "not_found"}
+    entries = [
+        (["body", "zones", index], zone["crop_id"], zone["planted_at"])
         for index, zone in enumerate(zones)
-        if zone["crop_id"] not in known
     ]
-    if errors:
-        raise AppError("VALIDATION_ERROR", 422, "요청 값이 올바르지 않습니다", {"errors": errors})
+    zone_service.check_values(db, entries, today)
     strips = split_strips_for(db, field_id, direction, ratios)
     parts = [{**zone, "strip": strip} for zone, strip in zip(zones, strips)]
     return zone_service.create_many(db, field_id, user_id, parts)

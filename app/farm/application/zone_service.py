@@ -1,11 +1,15 @@
 from collections import defaultdict
+from dataclasses import dataclass
+from datetime import date
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.catalog.presentation.schemas import pesticide_base
+from app.core.errors import AppError
 from app.farm.infrastructure.field_repository import geojson
-from app.farm.infrastructure.split_repository import piece_sql
+from app.farm.infrastructure.split_repository import existing_crop_ids, piece_sql
+from app.judgment.application import reader
 from app.spraying.application import spray_service
 
 
@@ -34,6 +38,7 @@ def summaries(db: Session, field_ids: list[int]) -> dict[int, list[dict]]:
         ),
         {"ids": field_ids},
     ).all()
+    last_judgments = reader.last_judgments(db, [row.id for row in rows])  # 한 번에 조회
     result = defaultdict(list)
     for row in rows:
         result[row.field_id].append(
@@ -46,8 +51,7 @@ def summaries(db: Session, field_ids: list[int]) -> dict[int, list[dict]]:
                 "area_m2": float(row.area_m2),
                 "geometry": geojson(row.geojson),
                 "last_spray": _last_spray(db, row.id),
-                # 판정 컨텍스트에 최근 판정을 읽는 서비스가 생기면 채운다
-                "last_judgment": None,
+                "last_judgment": last_judgments.get(row.id),
             }
         )
     return dict(result)
@@ -99,3 +103,95 @@ def create_many(db: Session, field_id: int, user_id: int, parts: list[dict]) -> 
         for part in parts
     ]
     return get_zones(db, zone_ids)
+
+
+def check_values(
+    db: Session, entries: list[tuple[list, int | None, date | None]], today: date
+) -> None:
+    """(오류 위치 앞부분, crop_id, planted_at)마다 없는 작물·미래 정식일을 모아 422로 알린다.
+
+    정식일 이후 살포만 세므로 미래 정식일은 기록을 하나도 세지 않게 된다 (판정 ③).
+    """
+    known = existing_crop_ids(db, [crop for _, crop, _ in entries if crop is not None])
+    errors = []
+    for loc, crop_id, planted_at in entries:
+        if crop_id is not None and crop_id not in known:
+            errors.append(
+                {"loc": [*loc, "crop_id"], "msg": "없는 작물입니다", "type": "not_found"}
+            )
+        if planted_at is not None and planted_at > today:
+            errors.append(
+                {
+                    "loc": [*loc, "planted_at"],
+                    "msg": "정식일은 오늘 이후일 수 없습니다",
+                    "type": "value_error",
+                }
+            )
+    if errors:
+        raise AppError("VALIDATION_ERROR", 422, "요청 값이 올바르지 않습니다", {"errors": errors})
+
+
+def update_zone(db: Session, zone_id: int, changes: dict, today: date) -> dict:
+    """changes = 보낸 값만 (name, crop_id, planted_at, history_confirmed). 커밋하지 않는다."""
+    check_values(db, [(["body"], changes.get("crop_id"), changes.get("planted_at"))], today)
+    current = db.execute(
+        # 동시 수정에서 한쪽 변경이 사라지지 않게 행을 잠그고 읽는다
+        text(
+            "SELECT name, crop_id, planted_at, history_confirmed FROM zone "
+            "WHERE id = :id FOR UPDATE"
+        ),
+        {"id": zone_id},
+    ).one()
+    crop_id = changes.get("crop_id", current.crop_id)
+    planted_at = current.planted_at
+    if crop_id != current.crop_id:
+        planted_at = None  # 작물이 바뀌면 새 작기다. 정식일은 보낸 값, 없으면 비운다
+    planted_at = changes.get("planted_at", planted_at)
+    confirmed = current.history_confirmed
+    if planted_at != current.planted_at:
+        confirmed = False  # 세는 기간이 바뀌어 「누락 없음」을 다시 확인받는다
+    confirmed = changes.get("history_confirmed", confirmed)
+    db.execute(
+        text(
+            "UPDATE zone SET name = :name, crop_id = :crop_id, planted_at = :planted_at, "
+            "history_confirmed = :confirmed WHERE id = :id"
+        ),
+        {
+            "id": zone_id,
+            "name": changes.get("name", current.name),
+            "crop_id": crop_id,
+            "planted_at": planted_at,
+            "confirmed": confirmed,
+        },
+    )
+    return get_zones(db, [zone_id])[0]
+
+
+@dataclass(frozen=True)
+class WgsPoint:
+    lon: float  # 경도
+    lat: float  # 위도
+
+
+def centroid_wgs84(db: Session, zone_id: int) -> WgsPoint:
+    """날씨(기상청 격자 변환)가 쓰는 구역 중심점. 소유자 확인은 호출하는 쪽이 한다."""
+    row = db.execute(
+        text(
+            "SELECT ST_X(p) AS lon, ST_Y(p) AS lat FROM "
+            "(SELECT ST_Transform(ST_Centroid(geom), 4326) AS p FROM zone WHERE id = :id) q"
+        ),
+        {"id": zone_id},
+    ).one_or_none()
+    if row is None:
+        raise AppError("NOT_FOUND", 404, "찾을 수 없습니다")
+    return WgsPoint(row.lon, row.lat)
+
+
+def zone_detail(db: Session, zone_id: int) -> dict:
+    """구역 상세: Zone + 편중도 + 최근 판정 5건. 소유자 확인은 라우트가 한다."""
+    zone = get_zones(db, [zone_id])[0]
+    return {
+        **zone,
+        "rotation": reader.rotation(db, zone_id, zone["planted_at"]),
+        "recent_judgments": reader.recent_judgments(db, zone_id),
+    }

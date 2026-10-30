@@ -5,6 +5,7 @@ from sqlalchemy import text
 
 from app.catalog.application import catalog_service
 from app.farm.application import zone_service
+from tests.farm_support import judge
 
 SUMMARY_KEYS = {
     "id", "name", "crop", "planted_at", "history_confirmed", "area_m2", "geometry",
@@ -66,3 +67,15 @@ def test_groups_by_field_and_orders_by_id(db, make_user, make_field, make_zone):
 def test_field_without_zones_is_missing(db, make_user, make_field):
     field_id = make_field(make_user("farmer"))
     assert zone_service.summaries(db, [field_id]) == {}
+
+
+def test_last_judgment_is_newest(db, make_user, make_field, make_zone):
+    uid = make_user("farmer")
+    field_id = make_field(uid)
+    zone_id = make_zone(field_id, uid)
+    judge(db, zone_id, PESTICIDE_ID, "BLOCKED", "2026-10-01T09:00:00+09:00")
+    newest = judge(db, zone_id, PESTICIDE_ID, "CAUTION", "2026-10-02T09:00:00+09:00")
+    last = zone_service.summaries(db, [field_id])[field_id][0]["last_judgment"]
+    assert set(last) == {"judgment_id", "created_at", "pesticide", "pest", "verdict"}
+    assert last["judgment_id"] == newest and last["verdict"] == "CAUTION"
+    assert last["pest"] is None
