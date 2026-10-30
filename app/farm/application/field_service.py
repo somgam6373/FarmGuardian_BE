@@ -129,3 +129,27 @@ def split_strips_for(db: Session, field_id: int, direction: str, ratios: list[in
 
 def split_preview(db: Session, field_id: int, direction: str, ratios: list[int]) -> list[dict]:
     return split_repository.preview(db, field_id, split_strips_for(db, field_id, direction, ratios))
+
+
+def create_zones(
+    db: Session,
+    field_id: int,
+    user_id: int,
+    direction: str,
+    ratios: list[int],
+    zones: list[dict],
+) -> list[dict]:
+    """zones = [{name, crop_id, planted_at}] (ratios 순서). 커밋은 호출한 쪽이 한다."""
+    if split_repository.lock_field_has_zones(db, field_id):
+        raise AppError("FIELD_ALREADY_SPLIT", 409, "이미 구역이 나뉜 밭입니다")
+    known = split_repository.existing_crop_ids(db, [z["crop_id"] for z in zones])
+    errors = [
+        {"loc": ["body", "zones", index, "crop_id"], "msg": "없는 작물입니다", "type": "not_found"}
+        for index, zone in enumerate(zones)
+        if zone["crop_id"] not in known
+    ]
+    if errors:
+        raise AppError("VALIDATION_ERROR", 422, "요청 값이 올바르지 않습니다", {"errors": errors})
+    strips = split_strips_for(db, field_id, direction, ratios)
+    parts = [{**zone, "strip": strip} for zone, strip in zip(zones, strips)]
+    return zone_service.create_many(db, field_id, user_id, parts)

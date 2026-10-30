@@ -44,3 +44,16 @@ def preview(db: Session, field_id: int, strips: list[str]) -> list[dict]:
         {"id": field_id, "strips": strips},
     ).all()
     return [{"geometry": geojson(r.geojson), "area_m2": float(r.area_m2)} for r in rows]
+
+
+def lock_field_has_zones(db: Session, field_id: int) -> bool:
+    """밭 행을 잠그고 (동시 구역 생성 방지) 구역이 이미 있는지 돌려준다."""
+    db.execute(text("SELECT 1 FROM field WHERE id = :id FOR UPDATE"), {"id": field_id})
+    return db.scalar(
+        text("SELECT EXISTS (SELECT 1 FROM zone WHERE field_id = :id)"), {"id": field_id}
+    )
+
+
+def existing_crop_ids(db: Session, crop_ids: list[int]) -> set[int]:
+    rows = db.scalars(text("SELECT id FROM crop WHERE id = ANY(:ids)"), {"ids": crop_ids})
+    return set(rows)
