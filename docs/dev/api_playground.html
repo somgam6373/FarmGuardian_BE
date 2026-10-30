@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>팜가디언 API 플레이그라운드</title>
+<style>
+:root {
+  --bg: #f6f7f4; --panel: #ffffff; --text: #1d2a1f; --muted: #647067; --line: #dfe4dc;
+  --accent: #2f7d4f; --accent-text: #ffffff; --danger: #b3382c; --warn: #9a6a00;
+  --ok-bg: #e4f3e8; --err-bg: #fbe7e4; --warn-bg: #fff3d6; --info-bg: #e8eef5;
+  --v-ok: #2f7d4f; --v-caution: #b7791f; --v-blocked: #b3382c; --v-check: #5a6b85;
+  --mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14181a; --panel: #1c2225; --text: #e4ebe5; --muted: #98a59c; --line: #2c363a;
+    --accent: #5bb77f; --accent-text: #0e1a12; --danger: #ef7d70; --warn: #e3b04b;
+    --ok-bg: #1d3326; --err-bg: #3a2220; --warn-bg: #3a3017; --info-bg: #212b38;
+    --v-ok: #5bb77f; --v-caution: #e3b04b; --v-blocked: #ef7d70; --v-check: #8fa3c4;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, "Malgun Gothic", sans-serif; padding-bottom: 260px; }
+header { position: sticky; top: 0; z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line); padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+header h1 { font-size: 15px; margin: 0; }
+header .grow { flex: 1; }
+.layout { display: grid; grid-template-columns: 220px minmax(0, 1fr) 300px; gap: 16px; padding: 16px; align-items: start; }
+@media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
+nav#rail, aside#coverage, main#panel > .intro { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+nav#rail button { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 8px; color: var(--text); cursor: pointer; font: inherit; }
+nav#rail button small { display: block; color: var(--muted); }
+nav#rail button.active { background: var(--ok-bg); font-weight: 600; }
+main#panel h2 { font-size: 17px; margin: 0 0 4px; }
+.intro p { margin: 4px 0 0; color: var(--muted); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin: 12px 0; }
+.card > h3 { font-size: 14px; margin: 0 0 2px; }
+.card .apis { font: 12px var(--mono); color: var(--muted); margin: 0 0 8px; word-break: break-all; }
+.card .body > * + * { margin-top: 8px; }
+.note { border-radius: 6px; padding: 8px 10px; font-size: 13px; white-space: pre-wrap; word-break: break-word; }
+.note.info { background: var(--info-bg); } .note.ok { background: var(--ok-bg); }
+.note.warn { background: var(--warn-bg); } .note.err { background: var(--err-bg); }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--info-bg); }
+.badge.v-OK { background: var(--v-ok); color: #fff; } .badge.v-CAUTION { background: var(--v-caution); color: #fff; }
+.badge.v-BLOCKED { background: var(--v-blocked); color: #fff; } .badge.v-NEEDS_CHECK { background: var(--v-check); color: #fff; }
+.badge.good { background: var(--ok-bg); } .badge.bad { background: var(--err-bg); }
+button, input, select, textarea { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; }
+input, select { min-width: 0; }
+button { cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+button.danger { color: var(--danger); border-color: var(--danger); }
+button.armed { background: var(--danger); color: #fff; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row label { display: flex; gap: 4px; align-items: center; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+td, th { border-bottom: 1px solid var(--line); padding: 3px 4px; text-align: left; vertical-align: top; }
+td.mono, .mono { font-family: var(--mono); }
+aside#coverage td:first-child { white-space: nowrap; }
+svg.geo { width: 100%; max-width: 420px; height: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+svg.geo path { stroke-linejoin: round; }
+svg.geo text { font: 11px system-ui, sans-serif; fill: var(--text); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
+#log { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--panel); border-top: 2px solid var(--line); max-height: 250px; display: flex; flex-direction: column; }
+#log.collapsed { max-height: 34px; }
+#log .bar { display: flex; gap: 8px; align-items: center; padding: 4px 12px; border-bottom: 1px solid var(--line); }
+#log .items { overflow: auto; padding: 4px 12px; }
+details.entry { border-bottom: 1px solid var(--line); font-size: 12px; }
+details.entry summary { cursor: pointer; padding: 3px 0; font-family: var(--mono); }
+details.entry.bad summary { color: var(--danger); }
+details.entry pre { margin: 2px 0 6px; padding: 6px; background: var(--bg); border-radius: 4px; overflow: auto; max-height: 160px; white-space: pre-wrap; word-break: break-all; }
+#notice { display: none; margin: 0; padding: 8px 16px; background: var(--warn-bg); border-bottom: 1px solid var(--line); }
+#notice.on { display: flex; gap: 12px; align-items: center; }
+.cov-sum { font-weight: 600; margin-bottom: 6px; }
+.st-ok { color: var(--v-ok); } .st-bad { color: var(--danger); } .st-na { color: var(--muted); } .st-miss { color: var(--warn); }
+</style>
+</head>
+<body>
+<header>
+  <h1>팜가디언 API 플레이그라운드</h1>
+  <label class="row">API 주소 <input id="base" size="26" spellcheck="false"></label>
+  <button id="baseApply" type="button">적용</button>
+  <span id="health" class="badge">확인 중</span>
+  <span class="grow"></span>
+  <span id="who"></span>
+  <button id="logout" type="button">로그아웃</button>
+</header>
+<p id="notice"><span id="noticeText"></span><button id="noticeGo" type="button">로그인 화면으로</button></p>
+<div class="layout">
+  <nav id="rail"></nav>
+  <main id="panel"></main>
+  <aside id="coverage"></aside>
+</div>
+<section id="log">
+  <div class="bar"><strong id="logTitle">요청 로그 (0)</strong><button id="logClear" type="button">지우기</button><button id="logToggle" type="button">접기</button></div>
+  <div class="items" id="logItems"></div>
+</section>
+
+<script>
+"use strict";
+// ============================================================ 기본 도구
+// API가 준 문자열은 항상 textContent로만 넣는다 (병해충 설명은 외부 데이터, 이름은 사용자 입력).
+function h(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === "class") e.className = v;
+    else if (k === "style" && typeof v === "object") Object.assign(e.style, v);
+    else if (k.startsWith("on") && typeof v === "function") e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const kid of kids.flat(Infinity)) {
+    if (kid == null || kid === false) continue;
+    e.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+  }
+  return e;
+}
+const $ = (id) => document.getElementById(id);
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* 저장 실패는 무시 */ } },
+};
+// localStorage에는 API 주소, 사용자 id, 아이디만 둔다. 비밀번호는 저장하지 않는다.
+const state = {
+  base: store.get("fg_base") || "http://localhost:8000",
+  userId: store.get("fg_user") ? Number(store.get("fg_user")) : null,
+  username: store.get("fg_username") || null,
+  zoneId: null,
+  sectionId: "A",
+};
+function persist() { store.set("fg_base", state.base); store.set("fg_user", state.userId); store.set("fg_username", state.username); }
+
+function note(box, kind, text) {
+  const n = h("div", { class: `note ${kind}` }, text);
+  box.append(n);
+  return n;
+}
+
+// 파괴적 동작은 확인 창 대신 같은 버튼을 한 번 더 누르게 한다.
+function twoStep(button, label, onConfirm) {
+  let timer = null;
+  const reset = () => { timer = null; button.textContent = label; button.classList.remove("armed"); };
+  button.textContent = label;
+  button.addEventListener("click", () => {
+    if (timer) { clearTimeout(timer); reset(); onConfirm(button); return; }
+    button.textContent = `한 번 더 누르면 ${label}`;
+    button.classList.add("armed");
+    timer = setTimeout(reset, 4000);
+  });
+  return button;
+}
+
+const VERDICT = { OK: "가능", CAUTION: "주의", BLOCKED: "불가", NEEDS_CHECK: "확인 필요" };
+function vBadge(verdict) {
+  return h("span", { class: `badge v-${verdict}` }, VERDICT[verdict] || verdict);
+}
+
+// GeoJSON MultiPolygon(미터 좌표, y가 위쪽)을 SVG로 그린다. 레이어 전체에 bbox 하나를 쓰고 y를 뒤집는다 (명세 §1).
+function drawGeometry(svg, layers, { width = 360, height = 240, pad = 8 } = {}) {
+  svg.replaceChildren();
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("class", "geo");
+  const pts = layers.flatMap((l) => l.geometry.coordinates.flat(2));
+  if (!pts.length) return svg;
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const minx = Math.min(...xs), maxx = Math.max(...xs), miny = Math.min(...ys), maxy = Math.max(...ys);
+  const w = Math.max(maxx - minx, 1e-6), hh = Math.max(maxy - miny, 1e-6);
+  const s = Math.min((width - 2 * pad) / w, (height - 2 * pad) / hh);
+  const ox = pad + ((width - 2 * pad) - w * s) / 2, oy = pad + ((height - 2 * pad) - hh * s) / 2;
+  const X = (x) => (ox + (x - minx) * s).toFixed(1);
+  const Y = (y) => (height - (oy + (y - miny) * s)).toFixed(1);
+  for (const layer of layers) {
+    const d = layer.geometry.coordinates
+      .map((polygon) => polygon.map((ring) => "M" + ring.map((p) => `${X(p[0])},${Y(p[1])}`).join("L") + "Z").join(""))
+      .join("");
+    const path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute("d", d);
+    path.setAttribute("fill-rule", "evenodd");
+    path.setAttribute("fill", layer.fill || "none");
+    path.setAttribute("fill-opacity", layer.opacity ?? "0.45");
+    path.setAttribute("stroke", layer.stroke || "currentColor");
+    path.setAttribute("stroke-width", layer.strokeWidth || "1.2");
+    svg.append(path);
+    if (layer.label) {
+      const lp = layer.geometry.coordinates.flat(2);
+      const cx = lp.reduce((a, p) => a + p[0], 0) / lp.length, cy = lp.reduce((a, p) => a + p[1], 0) / lp.length;
+      const t = document.createElementNS(SVG_NS, "text");
+      t.setAttribute("x", X(cx)); t.setAttribute("y", Y(cy)); t.setAttribute("text-anchor", "middle");
+      t.textContent = layer.label;
+      svg.append(t);
+    }
+  }
+  return svg;
+}
+function geoSvg(layers, opts) { return drawGeometry(document.createElementNS(SVG_NS, "svg"), layers, opts); }
+
+// ============================================================ 명세 24개 (시나리오의 「사용한 API 체크」 표)
+const SPEC_APIS = [
+  ["POST", "/auth/signup", [3]], ["POST", "/auth/login", [26]], ["GET", "/me", [4]],
+  ["POST", "/me/onboarding", [11]], ["DELETE", "/me", [25]],
+  ["GET", "/crops", [5]], ["GET", "/addresses/search", [1, 23]], ["GET", "/parcels", [2, 23]],
+  ["POST", "/fields", [23]], ["GET", "/fields", [12]], ["DELETE", "/fields/{id}", [24]],
+  ["POST", "/fields/{id}/split-preview", [6]], ["POST", "/fields/{id}/zones", [7]],
+  ["GET", "/zones/{id}", [13]], ["PATCH", "/zones/{id}", [10, 22]], ["GET", "/zones/{id}/weather", [19]],
+  ["GET", "/crops/{id}/symptom-parts", [14]], ["GET", "/pests/candidates", [15]], ["GET", "/pests", [16]],
+  ["GET", "/pesticides", [17]], ["POST", "/zones/{id}/judgments", [18]],
+  ["POST", "/zones/{id}/sprays", [8, 20]], ["GET", "/zones/{id}/sprays", [9, 21]], ["DELETE", "/zones/{id}/sprays/{sid}", [9]],
+];
+const normSpec = (p) => p.replace(/\{[^}]+\}/g, "{}");
+const normCall = (p) => p.replace(/\/\d+(?=\/|$)/g, "/{}");
+const apiKey = (m, p) => `${m} ${normSpec(p)}`;
+
+// 서버의 /openapi.json으로 구현 여부를 안다. 못 읽으면(서버 꺼짐) 모두 구현된 것으로 보고 경고만 따로 띄운다.
+const probe = { ok: false, set: new Set() };
+function implemented(method, path) {
+  return !probe.ok || probe.set.has(apiKey(method, path));
+}
+async function loadOpenapi() {
+  probe.ok = false; probe.set = new Set();
+  try {
+    const res = await fetch(state.base.replace(/\/+$/, "") + "/openapi.json");
+    const spec = await res.json();
+    for (const [path, item] of Object.entries(spec.paths || {})) {
+      for (const m of Object.keys(item)) probe.set.add(`${m.toUpperCase()} ${normSpec(path)}`);
+    }
+    probe.ok = probe.set.size > 0;
+  } catch { probe.ok = false; }
+  renderCoverage();
+  showSection(state.sectionId);
+}
+
+// ============================================================ 커버리지 패널
+const coverage = new Map(); // key -> {ok, status}
+function markApi(method, path, result) {
+  const key = apiKey(method, normCall(path));
+  const prev = coverage.get(key);
+  if (prev && prev.ok && !result.ok) return; // 한 번 성공했으면 성공으로 둔다
+  coverage.set(key, { ok: result.ok, status: result.status });
+  renderCoverage();
+}
+function renderCoverage() {
+  const box = $("coverage");
+  const missing = SPEC_APIS.filter(([m, p]) => probe.ok && !implemented(m, p)).length;
+  const done = SPEC_APIS.filter(([m, p]) => coverage.get(apiKey(m, p))?.ok).length;
+  box.replaceChildren(
+    h("div", { class: "cov-sum" }, `${done}/24 호출 성공 · ${missing} 미구현`),
+    h("p", { class: "mono", style: { margin: "0 0 6px", color: "var(--muted)" } }, probe.ok ? "서버 openapi.json 기준" : "서버 연결 안 됨"),
+    h("table", {}, SPEC_APIS.map(([m, p, steps]) => {
+      const c = coverage.get(apiKey(m, p));
+      let icon = "–", cls = "st-na", tip = "아직 안 불렀음";
+      if (probe.ok && !implemented(m, p)) { icon = "미구현"; cls = "st-miss"; tip = "서버에 없음"; }
+      else if (c && c.ok) { icon = "✔"; cls = "st-ok"; tip = `성공 (${c.status})`; }
+      else if (c) { icon = `✖ ${c.status}`; cls = "st-bad"; tip = `마지막 호출 실패 (${c.status})`; }
+      return h("tr", { title: tip }, h("td", { class: cls }, icon), h("td", { class: "mono" }, m), h("td", { class: "mono" }, p), h("td", {}, steps.join(",")));
+    })),
+  );
+}
+
+// ============================================================ 요청 로그
+let logCount = 0;
+function redact(body) { return JSON.stringify(body, (k, v) => (k === "password" ? "••••" : v), 2); }
+function clip(text) { return text.length > 20000 ? text.slice(0, 20000) + "\n… (잘림)" : text; }
+function addLog({ method, url, body, status, ms, data, error }) {
+  logCount += 1;
+  $("logTitle").textContent = `요청 로그 (${logCount})`;
+  const bad = !!error;
+  const time = new Date().toLocaleTimeString("ko-KR", { hour12: false });
+  const shown = url.pathname + url.search;
+  const entry = h("details", { class: `entry${bad ? " bad" : ""}` },
+    h("summary", {}, `${time} ${method} ${shown} → ${status || "연결 실패"} ${ms}ms${error ? " " + error.code : ""}`),
+    body !== undefined ? h("pre", {}, "요청 본문\n" + redact(body)) : null,
+    h("pre", {}, "응답\n" + clip(error && status === 0 ? error.message : data == null ? "(본문 없음)" : JSON.stringify(data, null, 2))),
+  );
+  $("logItems").prepend(entry);
+}
+$("logClear").addEventListener("click", () => { $("logItems").replaceChildren(); logCount = 0; $("logTitle").textContent = "요청 로그 (0)"; });
+$("logToggle").addEventListener("click", () => {
+  const c = $("log").classList.toggle("collapsed");
+  $("logToggle").textContent = c ? "펴기" : "접기";
+});
+
+// ============================================================ API 호출
+// 절대 throw하지 않는다. 연결 실패는 status 0, error.code NETWORK로 돌려준다.
+async function api(method, path, { query, body, auth = true, quiet = false } = {}) {
+  let url;
+  try {
+    url = new URL(state.base.replace(/\/+$/, "") + path);
+  } catch {
+    return { ok: false, status: 0, ms: 0, data: null, error: { code: "NETWORK", message: `API 주소가 올바르지 않습니다: ${state.base}` } };
+  }
+  for (const [k, v] of Object.entries(query || {})) if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, v);
+  const headers = {};
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (auth && state.userId) headers["X-User-Id"] = String(state.userId);
+  const t0 = performance.now();
+  let status = 0, text = "", data = null, error = null;
+  try {
+    const res = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    status = res.status;
+    text = await res.text();
+  } catch {
+    error = { code: "NETWORK", message: `서버에 연결할 수 없습니다 (${state.base}).\nAPI 서버가 켜져 있는지, 이 페이지를 서버 CORS가 허용한 주소(예: http://localhost:3000)에서 열었는지 확인하세요.` };
+  }
+  if (!error) {
+    if (text) {
+      try { data = JSON.parse(text); } catch { error = { code: "NON_JSON", message: text.slice(0, 200) }; }
+    }
+    if (!error && status >= 400) error = (data && data.error) || { code: `HTTP_${status}`, message: text.slice(0, 200) };
+  }
+  const result = { ok: !error && status >= 200 && status < 300, status, ms: Math.round(performance.now() - t0), data, error };
+  if (!quiet) {
+    addLog({ method, url, body, status, ms: result.ms, data, error });
+    markApi(method, path, result);
+  }
+  if (status === 401 && auth && state.userId) {
+    state.userId = null; state.username = null; persist(); renderWho();
+    showNotice("저장된 사용자 id가 더 이상 유효하지 않습니다(탈퇴했거나 없는 사용자). 다시 로그인하세요.");
+  }
+  return result;
+}
+
+// 오류를 사람이 읽을 문장으로. 422는 항목별 loc와 msg를 풀어 쓴다.
+function errorText(r) {
+  const e = r.error;
+  if (!e) return "";
+  const items = e.details && e.details.errors;
+  const lines = items ? items.map((i) => `· ${(i.loc || []).slice(1).join(".") || "-"}: ${i.msg}`).join("\n") : "";
+  return `${e.code}${e.message ? ` — ${e.message}` : ""}${lines ? "\n" + lines : ""}`;
+}
+
+// ============================================================ 머리말·알림
+function renderWho() {
+  $("who").textContent = state.userId ? `로그인: ${state.username || "?"} (id ${state.userId})` : "로그인 안 됨";
+  $("logout").disabled = !state.userId;
+}
+function showNotice(text) { $("noticeText").textContent = text; $("notice").classList.add("on"); }
+$("noticeGo").addEventListener("click", () => { $("notice").classList.remove("on"); showSection("A"); });
+$("logout").addEventListener("click", () => { state.userId = null; state.username = null; state.zoneId = null; persist(); renderWho(); showSection(state.sectionId); });
+async function checkHealth() {
+  const r = await api("GET", "/health", { auth: false, quiet: true });
+  const ok = r.ok && r.data && r.data.status === "ok";
+  const b = $("health");
+  b.textContent = ok ? "연결됨" : "연결 안 됨";
+  b.className = `badge ${ok ? "good" : "bad"}`;
+  b.title = ok ? "" : (r.error ? r.error.message : "");
+  if (!ok) showNotice(r.error ? r.error.message : "서버가 응답하지 않습니다.");
+  else if ($("noticeText").textContent.startsWith("서버에 연결")) $("notice").classList.remove("on");
+}
+$("base").value = state.base;
+$("baseApply").addEventListener("click", () => {
+  state.base = $("base").value.trim() || "http://localhost:8000";
+  persist(); $("notice").classList.remove("on");
+  checkHealth(); loadOpenapi();
+});
+
+// ============================================================ 시나리오 (docs/dev/팜가디언_사용자_시나리오.md)
+const STEP_RENDER = {};
+function defineStep(no, fn) { STEP_RENDER[no] = fn; }
+
+const SECTIONS = [
+  { id: "A", title: "A. 가입과 첫 밭", range: "1–4, 26", intro: "김씨(배추 밭)가 처음 앱을 열어 주소를 찾고 필지를 골라 가입한다. 주소 검색과 필지 조회는 로그인 없이 쓴다.",
+    steps: [[1, "주소 검색", ["GET /addresses/search"]], [2, "필지 선택", ["GET /parcels"]], [3, "가입과 첫 밭 생성", ["POST /auth/signup"]],
+      [4, "온보딩 상태 확인", ["GET /me"]], [26, "다시 방문: 로그인", ["POST /auth/login"]]] },
+  { id: "B", title: "B. 구역 나누기 (온보딩)", range: "5–11", intro: "작물 목록 → 분할 미리보기 → 구역 생성 → 과거 살포 입력 → 정식일 정하기 → 「누락 없음」 확인 → 온보딩 완료. 정식일을 바꾸면 확인이 풀리므로 정식일을 먼저 정한다.",
+    steps: [[5, "작물 목록", ["GET /crops"]], [6, "분할 미리보기", ["POST /fields/{id}/split-preview"]], [7, "구역 만들기", ["POST /fields/{id}/zones"]],
+      [8, "과거 살포 입력", ["POST /zones/{id}/sprays"]], [9, "이력 확인과 취소", ["GET /zones/{id}/sprays", "DELETE /zones/{id}/sprays/{sid}"]],
+      [10, "정식일과 「누락 없음」", ["PATCH /zones/{id}"]], [11, "온보딩 완료", ["POST /me/onboarding"]]] },
+  { id: "C", title: "C. 홈", range: "12–13", intro: "밭별 구역 요약, 그리고 구역의 작용기작 편중도와 최근 판정 5건.",
+    steps: [[12, "밭별 구역 요약", ["GET /fields"]], [13, "구역 상세 (편중도·최근 판정)", ["GET /zones/{id}"]]] },
+  { id: "D", title: "D. 병해충·약제 판정", range: "14–20", intro: "증상 부위 → 병해충 → 약제 → 판정. 판정은 살포를 저장하지 않는다. 날씨는 판정과 따로이고, 실패해도 판정 화면은 계속 동작한다.",
+    steps: [[14, "증상 부위", ["GET /crops/{id}/symptom-parts"]], [15, "후보 카드로 병해충 고르기", ["GET /pests/candidates"]], [16, "이름으로 검색", ["GET /pests"]],
+      [17, "등록 약제 목록", ["GET /pesticides"]], [18, "판정", ["POST /zones/{id}/judgments"]], [19, "날씨 (판정과 별개)", ["GET /zones/{id}/weather"]],
+      [20, "살포 기록 저장", ["POST /zones/{id}/sprays"]]] },
+  { id: "E", title: "E. 조회수정", range: "21–22", intro: "이력을 다시 보고, 구역의 작물과 정식일을 바꾼다. 작물을 바꾸면 새 작기가 되고 「누락 없음」이 풀린다.",
+    steps: [[21, "이력 다시 확인", ["GET /zones/{id}/sprays"]], [22, "구역 수정 (작물·정식일)", ["PATCH /zones/{id}"]]] },
+  { id: "F", title: "F. 밭 추가와 정리", range: "23–25", intro: "새 밭 추가(이미 쓰는 필지는 「사용 중」), 잘못 만든 밭 삭제, 시즌이 끝나 탈퇴.",
+    steps: [[23, "새 밭 추가", ["GET /addresses/search", "GET /parcels", "POST /fields"]], [24, "밭 삭제", ["DELETE /fields/{id}"]], [25, "탈퇴", ["DELETE /me"]]] },
+];
+
+function card(no, title, apis) {
+  const missing = apis.filter((a) => { const [m, p] = a.split(" "); return !implemented(m, p); });
+  const body = h("div", { class: "body" });
+  const el = h("section", { class: "card", id: `step-${no}` },
+    h("h3", {}, `${no}. ${title}`),
+    h("p", { class: "apis" }, "부르는 API: " + apis.join(" · ")),
+  );
+  if (missing.length) note(el, "warn", `아직 구현 안 됨 (서버 openapi.json에 없음): ${missing.join(", ")}\n구현되면 이 카드는 수정 없이 동작합니다.`);
+  el.append(body);
+  return { el, body, missing };
+}
+
+function showSection(id) {
+  state.sectionId = id;
+  const sec = SECTIONS.find((s) => s.id === id) || SECTIONS[0];
+  $("rail").replaceChildren(...SECTIONS.map((s) => h("button", { class: s.id === sec.id ? "active" : "", type: "button", onclick: () => showSection(s.id) },
+    s.title, h("small", {}, `단계 ${s.range}`))));
+  const panel = $("panel");
+  panel.replaceChildren(h("div", { class: "intro" }, h("h2", {}, sec.title), h("p", {}, sec.intro)));
+  for (const [no, title, apis] of sec.steps) {
+    const c = card(no, title, apis);
+    const fn = STEP_RENDER[no];
+    if (fn) fn(c.body, c); else note(c.body, "info", "이 단계는 아직 화면이 없습니다 (다음 작업에서 추가됩니다).");
+    panel.append(c.el);
+  }
+}
+
+// 구역 고르기: Task 3에서 GET /fields 목록과 직접 입력으로 바꾼다.
+function pickZone(box, onPick) { note(box, "info", "구역 선택은 B 섹션 작업에서 추가됩니다."); }
+
+// ============================================================ 시작
+window.addEventListener("error", (e) => { addLog({ method: "JS", url: new URL(location.href), status: 0, ms: 0, data: null, error: { code: "PAGE_ERROR", message: String(e.message) } }); });
+function init() {
+  renderWho(); renderCoverage(); showSection("A");
+  checkHealth(); loadOpenapi();
+}
+init();
+</script>
+</body>
+</html>
