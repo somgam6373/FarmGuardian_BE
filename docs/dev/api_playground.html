@@ -1,0 +1,1333 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>팜가디언 API 플레이그라운드</title>
+<style>
+:root {
+  --bg: #f6f7f4; --panel: #ffffff; --text: #1d2a1f; --muted: #647067; --line: #dfe4dc;
+  --accent: #2f7d4f; --accent-text: #ffffff; --danger: #b3382c; --warn: #9a6a00;
+  --ok-bg: #e4f3e8; --err-bg: #fbe7e4; --warn-bg: #fff3d6; --info-bg: #e8eef5;
+  --v-ok: #2f7d4f; --v-caution: #b7791f; --v-blocked: #b3382c; --v-check: #5a6b85;
+  --mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14181a; --panel: #1c2225; --text: #e4ebe5; --muted: #98a59c; --line: #2c363a;
+    --accent: #5bb77f; --accent-text: #0e1a12; --danger: #ef7d70; --warn: #e3b04b;
+    --ok-bg: #1d3326; --err-bg: #3a2220; --warn-bg: #3a3017; --info-bg: #212b38;
+    --v-ok: #5bb77f; --v-caution: #e3b04b; --v-blocked: #ef7d70; --v-check: #8fa3c4;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, "Malgun Gothic", sans-serif; padding-bottom: 260px; }
+header { position: sticky; top: 0; z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line); padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+header h1 { font-size: 15px; margin: 0; }
+header .grow { flex: 1; }
+.layout { display: grid; grid-template-columns: 220px minmax(0, 1fr) 300px; gap: 16px; padding: 16px; align-items: start; }
+@media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
+nav#rail, aside#coverage, main#panel > .intro { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+nav#rail button { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 8px; color: var(--text); cursor: pointer; font: inherit; }
+nav#rail button small { display: block; color: var(--muted); }
+nav#rail button.active { background: var(--ok-bg); font-weight: 600; }
+main#panel h2 { font-size: 17px; margin: 0 0 4px; }
+.intro p { margin: 4px 0 0; color: var(--muted); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin: 12px 0; }
+.card > h3 { font-size: 14px; margin: 0 0 2px; }
+.card .apis { font: 12px var(--mono); color: var(--muted); margin: 0 0 8px; word-break: break-all; }
+.card .body > * + * { margin-top: 8px; }
+.note { border-radius: 6px; padding: 8px 10px; font-size: 13px; white-space: pre-wrap; word-break: break-word; }
+.note.info { background: var(--info-bg); } .note.ok { background: var(--ok-bg); }
+.note.warn { background: var(--warn-bg); } .note.err { background: var(--err-bg); }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--info-bg); }
+.badge.v-OK { background: var(--v-ok); color: #fff; } .badge.v-CAUTION { background: var(--v-caution); color: #fff; }
+.badge.v-BLOCKED { background: var(--v-blocked); color: #fff; } .badge.v-NEEDS_CHECK { background: var(--v-check); color: #fff; }
+.badge.good { background: var(--ok-bg); } .badge.bad { background: var(--err-bg); }
+button, input, select, textarea { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; }
+input, select { min-width: 0; }
+button { cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+button.danger { color: var(--danger); border-color: var(--danger); }
+button.armed { background: var(--danger); color: #fff; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row label { display: flex; gap: 4px; align-items: center; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+td, th { border-bottom: 1px solid var(--line); padding: 3px 4px; text-align: left; vertical-align: top; }
+td.mono, .mono { font-family: var(--mono); }
+aside#coverage td:first-child { white-space: nowrap; }
+svg.geo { width: 100%; max-width: 420px; height: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+svg.geo path { stroke-linejoin: round; }
+svg.geo text { font: 11px system-ui, sans-serif; fill: var(--text); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
+#log { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--panel); border-top: 2px solid var(--line); max-height: 250px; display: flex; flex-direction: column; }
+#log.collapsed { max-height: 34px; }
+#log .bar { display: flex; gap: 8px; align-items: center; padding: 4px 12px; border-bottom: 1px solid var(--line); }
+#log .items { overflow: auto; padding: 4px 12px; }
+details.entry { border-bottom: 1px solid var(--line); font-size: 12px; }
+details.entry summary { cursor: pointer; padding: 3px 0; font-family: var(--mono); }
+details.entry.bad summary { color: var(--danger); }
+details.entry pre { margin: 2px 0 6px; padding: 6px; background: var(--bg); border-radius: 4px; overflow: auto; max-height: 160px; white-space: pre-wrap; word-break: break-all; }
+#notice { display: none; margin: 0; padding: 8px 16px; background: var(--warn-bg); border-bottom: 1px solid var(--line); }
+#notice.on { display: flex; gap: 12px; align-items: center; }
+.cov-sum { font-weight: 600; margin-bottom: 6px; }
+.st-ok { color: var(--v-ok); } .st-bad { color: var(--danger); } .st-na { color: var(--muted); } .st-miss { color: var(--warn); }
+</style>
+</head>
+<body>
+<header>
+  <h1>팜가디언 API 플레이그라운드</h1>
+  <label class="row">API 주소 <input id="base" size="26" spellcheck="false"></label>
+  <button id="baseApply" type="button">적용</button>
+  <span id="health" class="badge">확인 중</span>
+  <span class="grow"></span>
+  <span id="who"></span>
+  <button id="logout" type="button">로그아웃</button>
+</header>
+<p id="notice"><span id="noticeText"></span><button id="noticeGo" type="button">로그인 화면으로</button></p>
+<div class="layout">
+  <nav id="rail"></nav>
+  <main id="panel"></main>
+  <aside id="coverage"></aside>
+</div>
+<section id="log">
+  <div class="bar"><strong id="logTitle">요청 로그 (0)</strong><button id="logClear" type="button">지우기</button><button id="logToggle" type="button">접기</button></div>
+  <div class="items" id="logItems"></div>
+</section>
+
+<script>
+"use strict";
+// ============================================================ 기본 도구
+// API가 준 문자열은 항상 textContent로만 넣는다 (병해충 설명은 외부 데이터, 이름은 사용자 입력).
+function h(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === "class") e.className = v;
+    else if (k === "style" && typeof v === "object") Object.assign(e.style, v);
+    else if (k.startsWith("on") && typeof v === "function") e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const kid of kids.flat(Infinity)) {
+    if (kid == null || kid === false) continue;
+    e.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+  }
+  return e;
+}
+const $ = (id) => document.getElementById(id);
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* 저장 실패는 무시 */ } },
+};
+// localStorage에는 API 주소, 사용자 id, 아이디만 둔다. 비밀번호는 저장하지 않는다.
+const state = {
+  base: store.get("fg_base") || "http://localhost:8000",
+  userId: store.get("fg_user") ? Number(store.get("fg_user")) : null,
+  username: store.get("fg_username") || null,
+  zone: null, // 고른 구역 {id, name, cropId, cropName}
+  sectionId: "A",
+};
+function persist() { store.set("fg_base", state.base); store.set("fg_user", state.userId); store.set("fg_username", state.username); }
+
+function note(box, kind, text) {
+  const n = h("div", { class: `note ${kind}` }, text);
+  box.append(n);
+  return n;
+}
+
+// 파괴적 동작은 확인 창 대신 같은 버튼을 한 번 더 누르게 한다.
+function twoStep(button, label, onConfirm) {
+  let timer = null;
+  const reset = () => { timer = null; button.textContent = label; button.classList.remove("armed"); };
+  button.textContent = label;
+  button.addEventListener("click", () => {
+    if (timer) { clearTimeout(timer); reset(); onConfirm(button); return; }
+    button.textContent = `한 번 더 누르면 ${label}`;
+    button.classList.add("armed");
+    timer = setTimeout(reset, 4000);
+  });
+  return button;
+}
+
+// 입력값은 form에 보관한다. 섹션을 다시 그려도(서버 확인이 끝났을 때 등) 입력이 사라지지 않게 한다.
+const form = {};
+function input(key, attrs = {}) {
+  const el = h("input", attrs);
+  el.value = form[key] ?? attrs.value ?? "";
+  el.addEventListener("input", () => { form[key] = el.value; });
+  return el;
+}
+function labeled(text, el) { return h("label", {}, text, el); }
+// 요청이 끝날 때까지 버튼을 잠근다 (더블클릭 방지).
+async function withLock(btn, fn) {
+  if (btn.disabled) return undefined;
+  btn.disabled = true;
+  try { return await fn(); } finally { btn.disabled = false; }
+}
+function loginAs(id, username) {
+  state.userId = id; state.username = username; persist(); renderWho(); $("notice").classList.remove("on");
+  invalidateCaches();
+}
+
+const VERDICT = { OK: "가능", CAUTION: "주의", BLOCKED: "불가", NEEDS_CHECK: "확인 필요" };
+function vBadge(verdict) {
+  return h("span", { class: `badge v-${verdict}` }, VERDICT[verdict] || verdict);
+}
+
+// GeoJSON MultiPolygon(미터 좌표, y가 위쪽)을 SVG로 그린다. 레이어 전체에 bbox 하나를 쓰고 y를 뒤집는다 (명세 §1).
+function drawGeometry(svg, layers, { width = 360, height = 240, pad = 8 } = {}) {
+  svg.replaceChildren();
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("class", "geo");
+  const pts = layers.flatMap((l) => l.geometry.coordinates.flat(2));
+  if (!pts.length) return svg;
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const minx = Math.min(...xs), maxx = Math.max(...xs), miny = Math.min(...ys), maxy = Math.max(...ys);
+  const w = Math.max(maxx - minx, 1e-6), hh = Math.max(maxy - miny, 1e-6);
+  const s = Math.min((width - 2 * pad) / w, (height - 2 * pad) / hh);
+  const ox = pad + ((width - 2 * pad) - w * s) / 2, oy = pad + ((height - 2 * pad) - hh * s) / 2;
+  const X = (x) => (ox + (x - minx) * s).toFixed(1);
+  const Y = (y) => (height - (oy + (y - miny) * s)).toFixed(1);
+  for (const layer of layers) {
+    const d = layer.geometry.coordinates
+      .map((polygon) => polygon.map((ring) => "M" + ring.map((p) => `${X(p[0])},${Y(p[1])}`).join("L") + "Z").join(""))
+      .join("");
+    const path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute("d", d);
+    path.setAttribute("fill-rule", "evenodd");
+    path.style.fill = layer.fill || "none";
+    path.style.fillOpacity = layer.opacity ?? "0.45";
+    path.style.stroke = layer.stroke || "var(--text)";
+    path.style.strokeWidth = layer.strokeWidth || "1.2";
+    svg.append(path);
+    if (layer.label) {
+      const lp = layer.geometry.coordinates.flat(2);
+      const cx = lp.reduce((a, p) => a + p[0], 0) / lp.length, cy = lp.reduce((a, p) => a + p[1], 0) / lp.length;
+      const t = document.createElementNS(SVG_NS, "text");
+      t.setAttribute("x", X(cx)); t.setAttribute("y", Y(cy)); t.setAttribute("text-anchor", "middle");
+      t.textContent = layer.label;
+      svg.append(t);
+    }
+  }
+  return svg;
+}
+function geoSvg(layers, opts) { return drawGeometry(document.createElementNS(SVG_NS, "svg"), layers, opts); }
+
+// ============================================================ 명세 24개 (시나리오의 「사용한 API 체크」 표)
+const SPEC_APIS = [
+  ["POST", "/auth/signup", [3]], ["POST", "/auth/login", [26]], ["GET", "/me", [4]],
+  ["POST", "/me/onboarding", [11]], ["DELETE", "/me", [25]],
+  ["GET", "/crops", [5]], ["GET", "/addresses/search", [1, 23]], ["GET", "/parcels", [2, 23]],
+  ["POST", "/fields", [23]], ["GET", "/fields", [12]], ["DELETE", "/fields/{id}", [24]],
+  ["POST", "/fields/{id}/split-preview", [6]], ["POST", "/fields/{id}/zones", [7]],
+  ["GET", "/zones/{id}", [13]], ["PATCH", "/zones/{id}", [10, 22]], ["GET", "/zones/{id}/weather", [19]],
+  ["GET", "/crops/{id}/symptom-parts", [14]], ["GET", "/pests/candidates", [15]], ["GET", "/pests", [16]],
+  ["GET", "/pesticides", [17]], ["POST", "/zones/{id}/judgments", [18]],
+  ["POST", "/zones/{id}/sprays", [8, 20]], ["GET", "/zones/{id}/sprays", [9, 21]], ["DELETE", "/zones/{id}/sprays/{sid}", [9]],
+];
+const normSpec = (p) => p.replace(/\{[^}]+\}/g, "{}");
+const normCall = (p) => p.replace(/\/\d+(?=\/|$)/g, "/{}");
+const apiKey = (m, p) => `${m} ${normSpec(p)}`;
+
+// 서버의 /openapi.json으로 구현 여부를 안다. 못 읽으면(서버 꺼짐) 모두 구현된 것으로 보고 경고만 따로 띄운다.
+const probe = { ok: false, set: new Set() };
+function implemented(method, path) {
+  return !probe.ok || probe.set.has(apiKey(method, path));
+}
+async function loadOpenapi() {
+  probe.ok = false; probe.set = new Set();
+  try {
+    const res = await fetch(state.base.replace(/\/+$/, "") + "/openapi.json");
+    const spec = await res.json();
+    for (const [path, item] of Object.entries(spec.paths || {})) {
+      for (const m of Object.keys(item)) probe.set.add(`${m.toUpperCase()} ${normSpec(path)}`);
+    }
+    probe.ok = probe.set.size > 0;
+  } catch { probe.ok = false; }
+  renderCoverage();
+  showSection(state.sectionId);
+}
+
+// ============================================================ 커버리지 패널
+const coverage = new Map(); // key -> {ok, status}
+function markApi(method, path, result) {
+  const key = apiKey(method, normCall(path));
+  const prev = coverage.get(key);
+  if (prev && prev.ok && !result.ok) return; // 한 번 성공했으면 성공으로 둔다
+  coverage.set(key, { ok: result.ok, status: result.status });
+  renderCoverage();
+}
+function renderCoverage() {
+  const box = $("coverage");
+  const missing = SPEC_APIS.filter(([m, p]) => probe.ok && !implemented(m, p)).length;
+  const done = SPEC_APIS.filter(([m, p]) => coverage.get(apiKey(m, p))?.ok).length;
+  box.replaceChildren(
+    h("div", { class: "cov-sum" }, `${done}/24 호출 성공 · ${missing} 미구현`),
+    h("p", { class: "mono", style: { margin: "0 0 6px", color: "var(--muted)" } }, probe.ok ? "서버 openapi.json 기준" : "서버 연결 안 됨"),
+    h("table", {}, SPEC_APIS.map(([m, p, steps]) => {
+      const c = coverage.get(apiKey(m, p));
+      let icon = "–", cls = "st-na", tip = "아직 안 불렀음";
+      if (probe.ok && !implemented(m, p)) { icon = "미구현"; cls = "st-miss"; tip = "서버에 없음"; }
+      else if (c && c.ok) { icon = "✔"; cls = "st-ok"; tip = `성공 (${c.status})`; }
+      else if (c) { icon = `✖ ${c.status}`; cls = "st-bad"; tip = `마지막 호출 실패 (${c.status})`; }
+      return h("tr", { title: tip }, h("td", { class: cls }, icon), h("td", { class: "mono" }, m), h("td", { class: "mono" }, p), h("td", {}, steps.join(",")));
+    })),
+  );
+}
+
+// ============================================================ 요청 로그
+let logCount = 0;
+function redact(body) { return JSON.stringify(body, (k, v) => (k === "password" ? "••••" : v), 2); }
+function clip(text) { return text.length > 20000 ? text.slice(0, 20000) + "\n… (잘림)" : text; }
+function addLog({ method, url, body, status, ms, data, error }) {
+  logCount += 1;
+  $("logTitle").textContent = `요청 로그 (${logCount})`;
+  const bad = !!error;
+  const time = new Date().toLocaleTimeString("ko-KR", { hour12: false });
+  const shown = url.pathname + url.search;
+  const entry = h("details", { class: `entry${bad ? " bad" : ""}` },
+    h("summary", {}, `${time} ${method} ${shown} → ${status || "연결 실패"} ${ms}ms${error ? " " + error.code : ""}`),
+    body !== undefined ? h("pre", {}, "요청 본문\n" + redact(body)) : null,
+    h("pre", {}, "응답\n" + clip(error && status === 0 ? error.message : data == null ? "(본문 없음)" : JSON.stringify(data, null, 2))),
+  );
+  $("logItems").prepend(entry);
+}
+$("logClear").addEventListener("click", () => { $("logItems").replaceChildren(); logCount = 0; $("logTitle").textContent = "요청 로그 (0)"; });
+$("logToggle").addEventListener("click", () => {
+  const c = $("log").classList.toggle("collapsed");
+  $("logToggle").textContent = c ? "펴기" : "접기";
+});
+
+// ============================================================ API 호출
+// 절대 throw하지 않는다. 연결 실패는 status 0, error.code NETWORK로 돌려준다.
+async function api(method, path, { query, body, auth = true, quiet = false } = {}) {
+  let url;
+  try {
+    url = new URL(state.base.replace(/\/+$/, "") + path);
+  } catch {
+    return { ok: false, status: 0, ms: 0, data: null, error: { code: "NETWORK", message: `API 주소가 올바르지 않습니다: ${state.base}` } };
+  }
+  for (const [k, v] of Object.entries(query || {})) if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, v);
+  const headers = {};
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (auth && state.userId) headers["X-User-Id"] = String(state.userId);
+  const t0 = performance.now();
+  let status = 0, text = "", data = null, error = null;
+  try {
+    const res = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    status = res.status;
+    text = await res.text();
+  } catch {
+    error = { code: "NETWORK", message: `서버에 연결할 수 없습니다 (${state.base}).\nAPI 서버가 켜져 있는지, 이 페이지를 서버 CORS가 허용한 주소(예: http://localhost:3000)에서 열었는지 확인하세요.` };
+  }
+  if (!error) {
+    if (text) {
+      try { data = JSON.parse(text); } catch { error = { code: "NON_JSON", message: text.slice(0, 200) }; }
+    }
+    if (!error && status >= 400) error = (data && data.error) || { code: `HTTP_${status}`, message: text.slice(0, 200) };
+  }
+  const result = { ok: !error && status >= 200 && status < 300, status, ms: Math.round(performance.now() - t0), data, error };
+  if (!quiet) {
+    addLog({ method, url, body, status, ms: result.ms, data, error });
+    markApi(method, path, result);
+  }
+  if (status === 401 && auth && state.userId) {
+    state.userId = null; state.username = null; persist(); renderWho(); invalidateCaches();
+    showNotice("저장된 사용자 id가 더 이상 유효하지 않습니다(탈퇴했거나 없는 사용자). 다시 로그인하세요.");
+  }
+  return result;
+}
+
+// 오류를 사람이 읽을 문장으로. 422는 항목별 loc와 msg를 풀어 쓴다.
+function errorText(r) {
+  const e = r.error;
+  if (!e) return "";
+  const items = e.details && e.details.errors;
+  const lines = items ? items.map((i) => `· ${(i.loc || []).slice(1).join(".") || "-"}: ${i.msg}`).join("\n") : "";
+  return `${e.code}${e.message ? ` — ${e.message}` : ""}${lines ? "\n" + lines : ""}`;
+}
+
+// ============================================================ 머리말·알림
+function renderWho() {
+  $("who").textContent = state.userId ? `로그인: ${state.username || "?"} (id ${state.userId})` : "로그인 안 됨";
+  $("logout").disabled = !state.userId;
+}
+function showNotice(text) { $("noticeText").textContent = text; $("notice").classList.add("on"); }
+$("noticeGo").addEventListener("click", () => { $("notice").classList.remove("on"); showSection("A"); });
+$("logout").addEventListener("click", () => { state.userId = null; state.username = null; persist(); renderWho(); invalidateCaches(); showSection(state.sectionId); });
+async function checkHealth() {
+  const r = await api("GET", "/health", { auth: false, quiet: true });
+  const ok = r.ok && r.data && r.data.status === "ok";
+  const b = $("health");
+  b.textContent = ok ? "연결됨" : "연결 안 됨";
+  b.className = `badge ${ok ? "good" : "bad"}`;
+  b.title = ok ? "" : (r.error ? r.error.message : "");
+  if (!ok) showNotice(r.error ? r.error.message : "서버가 응답하지 않습니다.");
+  else if ($("noticeText").textContent.startsWith("서버에 연결")) $("notice").classList.remove("on");
+}
+$("base").value = state.base;
+$("baseApply").addEventListener("click", () => {
+  state.base = $("base").value.trim() || "http://localhost:8000";
+  persist(); $("notice").classList.remove("on");
+  checkHealth(); loadOpenapi();
+});
+
+// ============================================================ 시나리오 (docs/dev/팜가디언_사용자_시나리오.md)
+const STEP_RENDER = {};
+function defineStep(no, fn) { STEP_RENDER[no] = fn; }
+
+const SECTIONS = [
+  { id: "A", title: "A. 가입과 첫 밭", range: "1–4, 26", intro: "김씨(배추 밭)가 처음 앱을 열어 주소를 찾고 필지를 골라 가입한다. 주소 검색과 필지 조회는 로그인 없이 쓴다.",
+    steps: [[1, "주소 검색", ["GET /addresses/search"]], [2, "필지 선택", ["GET /parcels"]], [3, "가입과 첫 밭 생성", ["POST /auth/signup"]],
+      [4, "온보딩 상태 확인", ["GET /me"]], [26, "다시 방문: 로그인", ["POST /auth/login"]]] },
+  { id: "B", title: "B. 구역 나누기 (온보딩)", range: "5–11", intro: "작물 목록 → 분할 미리보기 → 구역 생성 → 과거 살포 입력 → 정식일 정하기 → 「누락 없음」 확인 → 온보딩 완료. 정식일을 바꾸면 확인이 풀리므로 정식일을 먼저 정한다.",
+    steps: [[5, "작물 목록", ["GET /crops"]], [6, "분할 미리보기", ["POST /fields/{id}/split-preview"]], [7, "구역 만들기", ["POST /fields/{id}/zones"]],
+      [8, "과거 살포 입력", ["POST /zones/{id}/sprays"]], [9, "이력 확인과 취소", ["GET /zones/{id}/sprays", "DELETE /zones/{id}/sprays/{sid}"]],
+      [10, "정식일과 「누락 없음」", ["PATCH /zones/{id}"]], [11, "온보딩 완료", ["POST /me/onboarding"]]] },
+  { id: "C", title: "C. 홈", range: "12–13", intro: "밭별 구역 요약, 그리고 구역의 작용기작 편중도와 최근 판정 5건.",
+    steps: [[12, "밭별 구역 요약", ["GET /fields"]], [13, "구역 상세 (편중도·최근 판정)", ["GET /zones/{id}"]]] },
+  { id: "D", title: "D. 병해충·약제 판정", range: "14–20", intro: "증상 부위 → 병해충 → 약제 → 판정. 판정은 살포를 저장하지 않는다. 날씨는 판정과 따로이고, 실패해도 판정 화면은 계속 동작한다.",
+    steps: [[14, "증상 부위", ["GET /crops/{id}/symptom-parts"]], [15, "후보 카드로 병해충 고르기", ["GET /pests/candidates"]], [16, "이름으로 검색", ["GET /pests"]],
+      [17, "등록 약제 목록", ["GET /pesticides"]], [18, "판정", ["POST /zones/{id}/judgments"]], [19, "날씨 (판정과 별개)", ["GET /zones/{id}/weather"]],
+      [20, "살포 기록 저장", ["POST /zones/{id}/sprays"]]] },
+  { id: "E", title: "E. 조회수정", range: "21–22", intro: "이력을 다시 보고, 구역의 작물과 정식일을 바꾼다. 작물을 바꾸면 새 작기가 되고 「누락 없음」이 풀린다.",
+    steps: [[21, "이력 다시 확인", ["GET /zones/{id}/sprays"]], [22, "구역 수정 (작물·정식일)", ["PATCH /zones/{id}"]]] },
+  { id: "F", title: "F. 밭 추가와 정리", range: "23–25", intro: "새 밭 추가(이미 쓰는 필지는 「사용 중」), 잘못 만든 밭 삭제, 시즌이 끝나 탈퇴.",
+    steps: [[23, "새 밭 추가", ["GET /addresses/search", "GET /parcels", "POST /fields"]], [24, "밭 삭제", ["DELETE /fields/{id}"]], [25, "탈퇴", ["DELETE /me"]]] },
+];
+
+function card(no, title, apis) {
+  const missing = apis.filter((a) => { const [m, p] = a.split(" "); return !implemented(m, p); });
+  const body = h("div", { class: "body" });
+  const el = h("section", { class: "card", id: `step-${no}` },
+    h("h3", {}, `${no}. ${title}`),
+    h("p", { class: "apis" }, "부르는 API: " + apis.join(" · ")),
+  );
+  if (missing.length) note(el, "warn", `아직 구현 안 됨 (서버 openapi.json에 없음): ${missing.join(", ")}\n구현되면 이 카드는 수정 없이 동작합니다.`);
+  el.append(body);
+  return { el, body, missing };
+}
+
+function showSection(id) {
+  state.sectionId = id;
+  for (const k of Object.keys(PICK)) PICK[k].views = {};
+  JUDGE.views = {};
+  zoneWidgets.length = 0;
+  FIELD_SELECTS.length = 0;
+  const sec = SECTIONS.find((s) => s.id === id) || SECTIONS[0];
+  $("rail").replaceChildren(...SECTIONS.map((s) => h("button", { class: s.id === sec.id ? "active" : "", type: "button", onclick: () => showSection(s.id) },
+    s.title, h("small", {}, `단계 ${s.range}`))));
+  const panel = $("panel");
+  panel.replaceChildren(h("div", { class: "intro" }, h("h2", {}, sec.title), h("p", {}, sec.intro)));
+  for (const [no, title, apis] of sec.steps) {
+    const c = card(no, title, apis);
+    const fn = STEP_RENDER[no];
+    if (fn) fn(c.body, c); else note(c.body, "info", "이 단계는 아직 화면이 없습니다 (다음 작업에서 추가됩니다).");
+    panel.append(c.el);
+  }
+}
+
+// ============================================================ 필지 고르기 (A의 1–2단계, F의 23단계)
+// 검색 결과·필지 목록·선택 상태는 PICK[key]에 두고, 화면 조각(search/parcels/count)만 다시 그린다.
+const PICK = {};
+function pickState(key) {
+  return (PICK[key] ||= { keyword: "", page: 1, total: null, items: [], msg: null, pnu: null, parcels: null, parcelMsg: null, selected: new Set(), views: {} });
+}
+function pickView(key, role, box) { pickState(key).views[role] = box; pickRedraw(key, role); }
+function pickRedraw(key, ...roles) {
+  const st = pickState(key);
+  const draw = { search: drawSearch, parcels: drawParcels, count: drawCount };
+  for (const r of roles) if (st.views[r]) draw[r](key, st, st.views[r]);
+}
+function drawCount(key, st, box) { box.className = "badge"; box.textContent = `${st.selected.size}개`; }
+function drawSearch(key, st, box) {
+  box.replaceChildren();
+  const kw = h("input", { size: 28, placeholder: "예: 청평리 161-3", spellcheck: "false" });
+  kw.value = st.keyword;
+  kw.addEventListener("input", () => { st.keyword = kw.value; });
+  const go = h("button", { class: "primary", type: "button" }, "검색");
+  const run = (page) => withLock(go, async () => {
+    const r = await api("GET", "/addresses/search", { query: { keyword: st.keyword, page }, auth: false });
+    st.page = page;
+    if (r.ok) { st.total = r.data.total; st.items = r.data.items; st.msg = null; }
+    else { st.total = null; st.items = []; st.msg = errorText(r); }
+    pickRedraw(key, "search");
+  });
+  go.addEventListener("click", () => run(1));
+  kw.addEventListener("keydown", (e) => { if (e.key === "Enter") run(1); });
+  box.append(h("div", { class: "row" }, kw, go));
+  if (st.msg) note(box, "err", st.msg);
+  if (st.total === 0) note(box, "info", "검색 결과가 없습니다 ({total: 0, items: []}).");
+  if (st.items.length) {
+    box.append(h("table", {}, st.items.map((it) => h("tr", {},
+      h("td", {}, it.jibun_addr), h("td", { class: "mono" }, it.pnu),
+      h("td", {}, h("button", { type: "button", onclick: (e) => loadParcels(key, st, it.pnu, e.currentTarget) }, "필지 불러오기"))))));
+    const pages = Math.ceil(st.total / 10);
+    box.append(h("div", { class: "row" }, `총 ${st.total}건 · ${st.page}/${pages} 페이지`,
+      h("button", { type: "button", disabled: st.page <= 1, onclick: () => run(st.page - 1) }, "이전"),
+      h("button", { type: "button", disabled: st.page >= pages, onclick: () => run(st.page + 1) }, "다음")));
+  }
+}
+async function loadParcels(key, st, pnu, btn) {
+  await withLock(btn, async () => {
+    const r = await api("GET", "/parcels", { query: { pnu } }); // 로그인했으면 X-User-Id가 붙어 「사용 중」이 표시된다
+    st.pnu = pnu;
+    if (r.ok) {
+      st.parcels = r.data; st.parcelMsg = null;
+      st.selected = new Set(r.data.filter((p) => p.matches_query && p.used_by_field_id == null).map((p) => p.farmmap_id));
+    } else { st.parcels = null; st.parcelMsg = errorText(r); st.selected = new Set(); }
+    pickRedraw(key, "parcels", "count");
+  });
+}
+function drawParcels(key, st, box) {
+  box.replaceChildren();
+  if (st.parcelMsg) note(box, "err", st.parcelMsg);
+  if (!st.parcels) { if (!st.parcelMsg) note(box, "info", "먼저 검색 결과에서 「필지 불러오기」를 누르세요."); return; }
+  if (!st.parcels.length) { note(box, "info", "이 지번과 겹치는 팜맵 필지가 없습니다 (빈 배열)."); return; }
+  box.append(geoSvg(st.parcels.map((p) => ({
+    geometry: p.geometry, label: p.lnm,
+    fill: p.used_by_field_id != null ? "var(--warn)" : st.selected.has(p.farmmap_id) ? "var(--accent)" : "var(--muted)",
+  }))));
+  note(box, "info", "이웃 지번의 필지도 함께 나옵니다. 내 필지를 골라 주세요. 「사용 중」은 이 사용자의 다른 밭이 쓰는 필지입니다.");
+  for (const p of st.parcels) {
+    const cb = h("input", { type: "checkbox", disabled: p.used_by_field_id != null });
+    cb.checked = st.selected.has(p.farmmap_id);
+    cb.addEventListener("change", () => {
+      if (cb.checked) st.selected.add(p.farmmap_id); else st.selected.delete(p.farmmap_id);
+      pickRedraw(key, "parcels", "count");
+    });
+    box.append(h("label", { class: "row" }, cb, h("span", { class: "mono" }, p.farmmap_id),
+      `${p.lnm} · ${p.land_use} · ${p.area_m2}㎡ · ${p.vdpt_yr ?? "-"}`,
+      p.matches_query ? h("span", { class: "badge good" }, "조회한 지번") : null,
+      p.used_by_field_id != null ? h("span", { class: "badge bad" }, `사용 중 (밭 #${p.used_by_field_id})`) : null));
+  }
+}
+
+// ============================================================ 밭 보여주기 (Field: 도형과 구역 요약)
+const ZONE_COLORS = ["#2f7d4f", "#b7791f", "#3b6ea5", "#a0457a", "#6b8e23", "#c0562a"];
+function judgmentCell(j) {
+  return j ? [vBadge(j.verdict), ` ${j.pesticide.name}${j.pest ? " / " + j.pest.name : ""}`] : "기록 없음";
+}
+function renderField(box, field, { onZone } = {}) {
+  const layers = [{ geometry: field.geometry, fill: "none", strokeWidth: "1.8" }];
+  (field.zones || []).forEach((z, i) => layers.push({ geometry: z.geometry, fill: ZONE_COLORS[i % ZONE_COLORS.length], label: z.name }));
+  const wrap = h("div", {},
+    h("div", {}, h("strong", {}, field.name), ` · 밭 #${field.id} · ${field.area_m2}㎡ · bbox [${field.bbox.join(", ")}]`),
+    geoSvg(layers));
+  if ((field.zones || []).length) {
+    wrap.append(h("table", {},
+      h("tr", {}, ["구역", "작물", "정식일", "누락 없음", "마지막 살포", "최근 판정", onZone ? "" : null].map((t) => (t === null ? null : h("th", {}, t)))),
+      field.zones.map((z) => h("tr", {},
+        h("td", {}, `#${z.id} ${z.name}`), h("td", {}, z.crop.name), h("td", {}, z.planted_at || "-"),
+        h("td", {}, z.history_confirmed ? "✔" : "–"),
+        h("td", {}, z.last_spray ? `${z.last_spray.sprayed_on} ${z.last_spray.pesticide.name}` : "기록 없음"),
+        h("td", {}, judgmentCell(z.last_judgment)),
+        onZone ? h("td", {}, h("button", { type: "button", onclick: () => onZone({ id: z.id, name: z.name, cropId: z.crop.id, cropName: z.crop.name }) }, "선택")) : null))));
+  } else {
+    note(wrap, "info", "아직 나누지 않은 밭입니다 (zones가 비어 있음).");
+  }
+  box.append(wrap);
+  return wrap;
+}
+
+// ============================================================ A. 가입과 첫 밭 (1–4, 26)
+defineStep(1, (box) => pickView("A", "search", box));
+defineStep(2, (box) => pickView("A", "parcels", box));
+defineStep(3, (box) => {
+  const count = h("span");
+  pickView("A", "count", count);
+  const out = h("div");
+  const btn = h("button", { class: "primary", type: "button" }, "가입");
+  btn.addEventListener("click", () => withLock(btn, async () => {
+    out.replaceChildren();
+    const r = await api("POST", "/auth/signup", { auth: false, body: {
+      username: form.su_name ?? "", password: form.su_pw ?? "", field_name: form.su_field ?? "",
+      parcel_farmmap_ids: [...pickState("A").selected],
+    } });
+    if (!r.ok) { note(out, "err", errorText(r)); return; }
+    loginAs(r.data.id, r.data.username);
+    note(out, "ok", `가입 완료 — id ${r.data.id}. 서버가 팜맵에서 필지 도형을 받아 첫 밭을 만들었습니다. 이후 모든 요청에 X-User-Id: ${r.data.id}가 붙습니다.`);
+    renderField(out, r.data.field);
+  }));
+  box.append(
+    h("div", { class: "row" }, labeled("아이디 ", input("su_name", { size: 14, autocomplete: "off" })),
+      labeled("비밀번호 ", input("su_pw", { type: "password", size: 14, autocomplete: "new-password" })),
+      labeled("밭 이름 ", input("su_field", { size: 14 }))),
+    h("div", { class: "row" }, "선택한 필지: ", count, btn),
+    h("div", { class: "note info" }, "아이디 3~30자(영문·숫자·_), 비밀번호 4~72자, 밭 이름 1~30자, 필지 1~20개. 어기면 서버의 422 메시지가 그대로 나옵니다."),
+    out);
+});
+defineStep(4, (box) => {
+  const out = h("div");
+  const btn = h("button", { class: "primary", type: "button" }, "내 정보 조회");
+  btn.addEventListener("click", () => withLock(btn, async () => {
+    out.replaceChildren();
+    const r = await api("GET", "/me");
+    if (!r.ok) { note(out, "err", errorText(r)); return; }
+    out.append(h("div", {}, `${r.data.username} (id ${r.data.id}) · 온보딩 `,
+      h("span", { class: `badge ${r.data.onboarded ? "good" : ""}` }, r.data.onboarded ? "완료" : "미완료")));
+    if (!r.data.onboarded) {
+      out.append(h("div", { class: "row" }, "온보딩이 끝나지 않았으니 구역 나누기로 보냅니다. ",
+        h("button", { type: "button", onclick: () => showSection("B") }, "B. 구역 나누기로")));
+    }
+  }));
+  box.append(btn, out);
+});
+defineStep(26, (box) => {
+  const out = h("div");
+  const pw = input("li_pw", { type: "password", size: 14, autocomplete: "off" });
+  const btn = h("button", { class: "primary", type: "button" }, "로그인");
+  const run = () => withLock(btn, async () => {
+    out.replaceChildren();
+    const r = await api("POST", "/auth/login", { auth: false, body: { username: form.li_name ?? "", password: form.li_pw ?? "" } });
+    if (!r.ok) { note(out, "err", errorText(r)); return; }
+    loginAs(r.data.id, r.data.username);
+    note(out, "ok", `로그인 — id ${r.data.id}. 이후 요청에 X-User-Id: ${r.data.id}가 붙습니다.`);
+  });
+  btn.addEventListener("click", run);
+  pw.addEventListener("keydown", (e) => { if (e.key === "Enter") run(); });
+  box.append(h("div", { class: "row" }, labeled("아이디 ", input("li_name", { size: 14, autocomplete: "username" })), labeled("비밀번호 ", pw), btn), out);
+});
+
+// ============================================================ 공용: 밭·작물 캐시와 구역 고르기
+const zoneWidgets = [];
+let FIELDS_P = null; // GET /fields 결과(밭 + 구역 요약)의 프라미스. 여러 위젯이 한 번의 호출을 같이 쓴다
+let CROPS = null;  // GET /crops 결과
+const CROP_FALLBACK = [{ id: 1, name: "감자" }, { id: 2, name: "배추" }, { id: 3, name: "토마토" }]; // 명세 §4
+function invalidateFields() { FIELDS_P = null; }
+function invalidateCaches() { FIELDS_P = null; state.zone = null; zoneWidgets.length = 0; }
+function loadFields(force) {
+  if (!force && FIELDS_P) return FIELDS_P;
+  FIELDS_P = api("GET", "/fields").then((r) => (r.ok ? r.data : null));
+  return FIELDS_P;
+}
+async function loadCrops() {
+  if (CROPS) return CROPS;
+  const r = await api("GET", "/crops");
+  if (r.ok) CROPS = r.data;
+  return CROPS;
+}
+const todayStr = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" }); // YYYY-MM-DD (KST)
+const zonesOf = (fields) => fields.flatMap((f) => f.zones.map((z) => ({
+  id: z.id, name: z.name, cropId: z.crop.id, cropName: z.crop.name, fieldId: f.id, fieldName: f.name,
+  plantedAt: z.planted_at, confirmed: z.history_confirmed,
+})));
+
+const FIELD_SELECTS = []; // 밭 선택 칸을 다시 채우는 함수들 (섹션을 그릴 때마다 비운다)
+function fieldSelect(key) {
+  const sel = h("select");
+  sel.addEventListener("change", () => { form[key] = sel.value; });
+  const fill = () => loadFields().then((fs) => {
+    sel.replaceChildren(...(fs && fs.length
+      ? fs.map((f) => h("option", { value: String(f.id) }, `#${f.id} ${f.name}`))
+      : [h("option", { value: "" }, fs ? "밭이 없습니다" : "밭 목록 없음 (로그인했나요?)")]));
+    if (form[key] && [...sel.options].some((o) => o.value === form[key])) sel.value = form[key];
+    else if (fs && fs.length) { sel.value = String(fs[0].id); form[key] = sel.value; }
+    else form[key] = "";
+  });
+  FIELD_SELECTS.push(fill);
+  fill();
+  return sel;
+}
+// 밭이나 구역이 바뀌었을 때: 목록을 다시 받아 같은 화면의 밭 선택과 구역 위젯을 모두 갱신한다.
+function refreshFieldViews() {
+  invalidateFields();
+  for (const fill of FIELD_SELECTS) fill();
+  for (const w of zoneWidgets) if (w.refresh) w.refresh(false);
+}
+function cropSelect(key, def) {
+  const sel = h("select", {}, (CROPS || CROP_FALLBACK).map((c) => h("option", { value: String(c.id) }, `${c.id} ${c.name}`)));
+  sel.value = form[key] ?? def ?? "1";
+  sel.addEventListener("change", () => { form[key] = sel.value; });
+  return sel;
+}
+
+// 구역 고르기: GET /fields의 구역 목록, 또는 구역 id를 직접 입력 (구역 생성 API가 없는 동안의 대체 경로).
+function setZone(z) { state.zone = z; for (const w of zoneWidgets) w.sync(); }
+function pickZone(box, onPick) {
+  const sel = h("select");
+  const info = h("div", { class: "mono" });
+  const manualId = h("input", { type: "number", min: "1", size: 8, placeholder: "구역 id" });
+  const manualCrop = cropSelect("zm_crop", "1");
+  let zones = [];
+  const w = {
+    sync() {
+      const z = state.zone;
+      if (z && zones.some((x) => x.id === z.id)) sel.value = String(z.id); else sel.value = "";
+      info.textContent = z ? `선택한 구역: #${z.id} ${z.name || ""} (작물 ${z.cropName || z.cropId})` : "선택한 구역: 없음";
+      onPick(z);
+    },
+    async refresh(force) {
+      const fs = await loadFields(force);
+      zones = fs ? zonesOf(fs) : [];
+      sel.replaceChildren(h("option", { value: "" }, fs ? (zones.length ? "구역을 고르세요" : "구역이 없습니다") : "밭 목록을 못 불러왔습니다 (로그인했나요?)"),
+        ...zones.map((z) => h("option", { value: String(z.id) }, `${z.fieldName} / #${z.id} ${z.name} (${z.cropName})`)));
+      // 한 위젯에서 새로고침하면 같은 카드 묶음의 다른 위젯도 새 목록을 쓴다
+      if (force) for (const x of zoneWidgets) if (x !== w && x.refresh) x.refresh(false);
+      if (!state.zone && zones.length === 1) setZone(zones[0]); // 모든 위젯에 선택을 알린다
+      else w.sync();
+    },
+  };
+  zoneWidgets.push(w);
+  sel.addEventListener("change", () => { const z = zones.find((x) => String(x.id) === sel.value); if (z) setZone(z); });
+  box.append(
+    h("div", { class: "row" }, labeled("구역 ", sel), h("button", { type: "button", onclick: () => w.refresh(true) }, "새로고침")),
+    h("div", { class: "row" }, "직접 입력: ", manualId, manualCrop, h("button", { type: "button", onclick: () => {
+      const id = Number(manualId.value);
+      if (Number.isInteger(id) && id > 0) setZone({ id, name: "", cropId: Number(manualCrop.value), cropName: "" });
+    } }, "사용")),
+    info);
+  w.refresh(false);
+  return w;
+}
+
+// ============================================================ 공용: SQL 대체 블록 (구현이 없는 API용)
+const sqlQ = (v) => `'${String(v).replace(/'/g, "''")}'`;
+const sqlInt = (v) => String(Math.trunc(Number(v)) || 0);
+function sqlZone(fieldId, userId, cropId, name) {
+  return `INSERT INTO zone (field_id, user_id, name, crop_id, geom)\nSELECT id, user_id, ${sqlQ(name || "구역")}, ${sqlInt(cropId)}, geom\nFROM field WHERE id = ${sqlInt(fieldId)} AND user_id = ${sqlInt(userId)}\nRETURNING id;`;
+}
+// 명세 §5 PATCH 규칙: 작물이 바뀌면 정식일은 요청 값(없으면 NULL)이 되고 「누락 없음」은 풀린다. 정식일이 바뀌어도 풀린다(같은 요청에서 명시하면 그 값).
+function sqlZoneUpdate(zoneId, { name, cropId, plantedAt, confirmed }) {
+  const set = [];
+  if (name) set.push(`name = ${sqlQ(name)}`);
+  if (cropId) set.push(`crop_id = ${sqlInt(cropId)}`);
+  if (plantedAt !== undefined || cropId) set.push(`planted_at = ${plantedAt ? sqlQ(plantedAt) : "NULL"}`);
+  if (confirmed !== undefined) set.push(`history_confirmed = ${confirmed ? "true" : "false"}`);
+  else if (plantedAt !== undefined || cropId) set.push("history_confirmed = false");
+  return set.length ? `UPDATE zone SET ${set.join(", ")} WHERE id = ${sqlInt(zoneId)};` : "-- 바꿀 값이 없습니다";
+}
+const sqlConfirm = (zoneId, plantedAt) => sqlZoneUpdate(zoneId, { plantedAt, confirmed: true });
+function sqlBlock(box, title, getSql) {
+  const pre = h("pre", { class: "mono", style: { margin: 0, padding: "8px", background: "var(--bg)", borderRadius: "6px", whiteSpace: "pre-wrap", wordBreak: "break-all" } });
+  const copy = h("button", { type: "button" }, "복사");
+  copy.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(pre.textContent); copy.textContent = "복사됨"; }
+    catch { copy.textContent = "직접 선택해 복사하세요"; }
+    setTimeout(() => { copy.textContent = "복사"; }, 2000);
+  });
+  const wrap = h("div", {}, h("div", { class: "note warn" }, `${title}\n개발 DB(farmguardian)에서 실행하세요 (Windows는 PGCLIENTENCODING=UTF8을 먼저 설정).`), pre, copy);
+  box.append(wrap);
+  const update = () => { pre.textContent = getSql(); };
+  update();
+  return { update };
+}
+
+// ============================================================ 공용: 약제 고르기와 살포 기록 저장
+const DRUGS = {}; // cropId -> [Pesticide + at_planting_only]
+async function loadDrugs(cropId) {
+  if (DRUGS[cropId]) return DRUGS[cropId];
+  const r = await api("GET", "/pesticides", { query: { crop_id: cropId } });
+  if (r.ok) DRUGS[cropId] = r.data;
+  return DRUGS[cropId] || null;
+}
+function drugPicker(box, getCropId) {
+  let list = null, sel = null;
+  const q = input("dp_q", { size: 16, placeholder: "약제 이름 (예: 알칸타)" });
+  const result = h("div"), chosen = h("div", { class: "mono" }, "고른 약제: 없음");
+  const drawList = () => {
+    result.replaceChildren();
+    if (!getCropId()) { note(result, "info", "구역을 먼저 고르면 그 작물의 등록 약제를 불러옵니다."); return; }
+    if (!list) { note(result, "info", "약제 목록을 불러오는 중이거나 불러오지 못했습니다."); return; }
+    const t = q.value.trim().toLowerCase();
+    const hits = list.filter((d) => !t || d.name.toLowerCase().includes(t) || d.item_name.toLowerCase().includes(t)).slice(0, 30);
+    if (!hits.length) note(result, "info", "일치하는 약제가 없습니다.");
+    result.append(h("div", { class: "row" }, hits.map((d) => h("button", { type: "button", onclick: () => {
+      sel = d; chosen.textContent = `고른 약제: ${d.name} (${d.item_name}) · id ${d.id}`;
+    } }, `${d.name} (${d.item_name})${d.moa ? " · " + d.moa.label_kr : ""}`))));
+    result.append(h("small", {}, `${list.length}개 중 ${hits.length}개 표시 (최대 30)`));
+  };
+  q.addEventListener("input", drawList);
+  async function reload() {
+    const c = getCropId();
+    sel = null; chosen.textContent = "고른 약제: 없음";
+    list = c ? await loadDrugs(c) : null;
+    drawList();
+  }
+  box.append(h("div", { class: "row" }, labeled("약제 ", q)), result, chosen);
+  drawList();
+  return { get: () => sel, reload };
+}
+
+// 「살포 기록 저장」: 저장 동작 한 번에 request_id 하나를 만들고 재시도에는 같은 값을 쓴다 (명세 §8).
+// 성공(200/201)이나 「돌아가기」로 끝나면 비우고, 연결 실패·5xx면 남겨서 재시도가 같은 값을 쓰게 한다.
+function spraySummary(s) { return `#${s.id} ${s.sprayed_on} ${s.pesticide.name} (${s.pesticide.item_name}) · ${s.source}`; }
+function saveSprayUI(box, { getDrug, getDate, getZone, doubleDemo = false, onSaved }) {
+  let pending = null;
+  const out = h("div");
+  const btn = h("button", { class: "primary", type: "button" }, "살포 기록 저장");
+  const body = (allowDup) => {
+    const drug = getDrug();
+    const b = { pesticide_id: drug.id, source: "manual", request_id: pending.rid };
+    if (getDate()) b.sprayed_on = getDate();
+    if (allowDup) b.allow_duplicate = true;
+    return b;
+  };
+  const ready = () => {
+    out.replaceChildren();
+    if (!getZone()) { note(out, "err", "구역을 먼저 고르세요."); return false; }
+    if (!getDrug()) { note(out, "err", "약제를 먼저 고르세요."); return false; }
+    return true;
+  };
+  async function send(allowDup) {
+    pending ||= { rid: crypto.randomUUID() };
+    const r = await api("POST", `/zones/${getZone().id}/sprays`, { body: body(allowDup) });
+    out.replaceChildren();
+    if (r.status === 201) { pending = null; note(out, "ok", `저장됨 (201): ${spraySummary(r.data)}`); if (onSaved) onSaved(r.data); }
+    else if (r.status === 200) { pending = null; note(out, "info", `같은 request_id가 이미 저장돼 있어 그 기록을 그대로 돌려받았습니다 (200, 다시 저장하지 않음): ${spraySummary(r.data)}`); if (onSaved) onSaved(r.data); }
+    else if (r.status === 409 && r.error.code === "DUPLICATE_SPRAY") {
+      const ex = r.error.details && r.error.details.existing;
+      const detail = h("div");
+      note(out, "warn", `같은 구역·약제·날짜 기록이 이미 있습니다 (409 DUPLICATE_SPRAY).\n기존 기록: ${ex ? spraySummary(ex) : "(details.existing 없음)"}`);
+      out.append(h("div", { class: "row" },
+        h("button", { type: "button", onclick: () => { detail.replaceChildren(h("pre", {}, JSON.stringify(ex, null, 2))); } }, "기존 기록 확인"),
+        h("button", { class: "primary", type: "button", onclick: (e) => withLock(e.currentTarget, async () => { await send(true); }) }, "별도 살포로 저장"),
+        h("button", { type: "button", onclick: () => { pending = null; out.replaceChildren(); } }, "돌아가기")), detail);
+    } else if (r.status === 0 || r.status >= 500) {
+      note(out, "err", `${errorText(r)}\n저장 결과를 알 수 없습니다. 다시 누르면 같은 request_id(${pending.rid})로 재시도합니다.`);
+    } else { pending = null; note(out, "err", errorText(r)); }
+    return r;
+  }
+  btn.addEventListener("click", () => withLock(btn, async () => { if (ready()) await send(false); }));
+  box.append(btn);
+  if (doubleDemo) {
+    const demo = h("button", { type: "button" }, "두 번 눌러 보기");
+    demo.addEventListener("click", () => withLock(demo, async () => {
+      if (!ready()) return;
+      pending = { rid: crypto.randomUUID() };
+      const post = () => api("POST", `/zones/${getZone().id}/sprays`, { body: body(false) });
+      const r1 = await post();
+      const r2 = await post();
+      const same = r1.data && r2.data && r1.data.id === r2.data.id;
+      pending = null; out.replaceChildren();
+      note(out, r1.status === 201 && r2.status === 200 && same ? "ok" : "warn",
+        `같은 request_id로 두 번 보냄: 1회차 ${r1.status}, 2회차 ${r2.status}${same ? ` — 같은 기록(#${r1.data.id}), 한 번만 저장됨` : ""}${r1.error ? "\n" + errorText(r1) : ""}`);
+      if (r1.data && onSaved) onSaved(r1.data);
+    }));
+    box.append(demo);
+  }
+  box.append(out);
+  return { reset() { pending = null; out.replaceChildren(); } };
+}
+
+// ============================================================ 공용: 살포 이력 목록 (9단계, 21단계)
+function historyView(box, { limit: limit0 = 20 } = {}) {
+  const out = h("div");
+  let offset = 0, seq = 0; // seq: 동시에 여러 번 불러도 마지막 요청만 그린다
+  const limSel = h("select", {}, [1, 5, 20, 100].map((n) => h("option", { value: String(n) }, `${n}건씩`)));
+  limSel.value = String(limit0);
+  async function load() {
+    const z = state.zone, my = ++seq;
+    out.replaceChildren();
+    if (!z) { note(out, "info", "구역을 먼저 고르세요."); return; }
+    const limit = Number(limSel.value);
+    const r = await api("GET", `/zones/${z.id}/sprays`, { query: { limit, offset } });
+    if (my !== seq) return;
+    if (!r.ok) { note(out, "err", errorText(r)); return; }
+    const { total, items } = r.data;
+    if (!items.length) note(out, "info", total ? `이 페이지에는 기록이 없습니다 (전체 ${total}건, offset ${offset}).` : "살포 기록이 없습니다.");
+    else {
+      out.append(h("table", {}, h("tr", {}, ["날짜", "약제", "작용기작", "입력", "id", ""].map((t) => h("th", {}, t))),
+        items.map((s) => h("tr", {}, h("td", {}, s.sprayed_on), h("td", {}, `${s.pesticide.name} (${s.pesticide.item_name})`),
+          h("td", {}, s.pesticide.moa ? s.pesticide.moa.label_kr : "-"), h("td", {}, s.source), h("td", { class: "mono" }, s.id),
+          h("td", {}, twoStep(h("button", { class: "danger", type: "button" }, "취소"), "취소", async () => {
+            const d = await api("DELETE", `/zones/${z.id}/sprays/${s.id}`);
+            if (d.status === 204) await load(); else { out.replaceChildren(); note(out, "err", errorText(d)); }
+          }))))));
+    }
+    const first = total ? offset + 1 : 0, last = Math.min(offset + limit, total);
+    out.append(h("div", { class: "row" }, `전체 ${total}건 · ${first}–${last}번`,
+      h("button", { type: "button", disabled: offset <= 0, onclick: () => { offset = Math.max(0, offset - limit); load(); } }, "이전"),
+      h("button", { type: "button", disabled: offset + limit >= total, onclick: () => { offset += limit; load(); } }, "다음")));
+  }
+  pickZone(box, () => { offset = 0; load(); });
+  limSel.addEventListener("change", () => { offset = 0; load(); });
+  box.append(h("div", { class: "row" }, h("button", { type: "button", onclick: load }, "이력 새로고침"), limSel), out);
+  return { reload: load };
+}
+
+// ============================================================ 공용: 구역 수정 (10단계, 22단계)
+function zoneEditForm(box, c, { name = false, crop = false, planted = true, confirmed = false } = {}) {
+  const out = h("div");
+  const nameIn = name ? h("input", { size: 14, placeholder: "새 이름" }) : null;
+  const cropSel = crop ? cropSelect(`ze_crop_${c.no || "x"}`, "1") : null;
+  const cropGo = crop ? h("input", { type: "checkbox" }) : null;
+  const dateIn = planted ? h("input", { type: "date" }) : null;
+  const nullBox = planted ? h("input", { type: "checkbox" }) : null;
+  const confSel = confirmed ? h("select", {}, [["", "변경 안 함"], ["true", "누락 없음 확인 (true)"], ["false", "확인 풀기 (false)"]].map(([v, t]) => h("option", { value: v }, t))) : null;
+  const patch = () => {
+    const b = {};
+    if (nameIn && nameIn.value.trim()) b.name = nameIn.value.trim();
+    if (cropGo && cropGo.checked) b.crop_id = Number(cropSel.value);
+    if (dateIn && nullBox.checked) b.planted_at = null; else if (dateIn && dateIn.value) b.planted_at = dateIn.value;
+    if (confSel && confSel.value) b.history_confirmed = confSel.value === "true";
+    return b;
+  };
+  const sqlOf = () => {
+    const b = patch();
+    return state.zone ? sqlZoneUpdate(state.zone.id, { name: b.name, cropId: b.crop_id, plantedAt: b.planted_at, confirmed: b.history_confirmed }) : "-- 구역을 먼저 고르세요";
+  };
+  pickZone(box, () => {});
+  box.append(h("div", { class: "row" },
+    nameIn ? labeled("이름 ", nameIn) : null,
+    cropSel ? h("label", {}, cropGo, " 작물 변경 ", cropSel) : null,
+    dateIn ? labeled("정식일 ", dateIn) : null, nullBox ? h("label", {}, nullBox, " 정식일 비우기") : null,
+    confSel ? labeled("누락 없음 ", confSel) : null));
+  const btn = h("button", { class: "primary", type: "button" }, "구역 수정");
+  btn.disabled = c.missing.length > 0;
+  btn.addEventListener("click", () => withLock(btn, async () => {
+    out.replaceChildren();
+    if (!state.zone) { note(out, "err", "구역을 먼저 고르세요."); return; }
+    const r = await api("PATCH", `/zones/${state.zone.id}`, { body: patch() });
+    if (!r.ok) { note(out, "err", errorText(r)); return; }
+    refreshFieldViews();
+    const z = r.data;
+    note(out, "ok", `수정됨: #${z.id} ${z.name} · 작물 ${z.crop.name} · 정식일 ${z.planted_at || "없음"} · 누락 없음 ${z.history_confirmed}\n(정식일이 바뀌면 서버가 「누락 없음」을 풀어 둡니다. 같은 요청에서 명시하면 그 값.)`);
+  }));
+  box.append(btn, out);
+  if (c.missing.length) {
+    const sb = sqlBlock(box, "PATCH /zones/{id}가 없어서 같은 규칙의 SQL로 대신합니다.", sqlOf);
+    for (const el of [nameIn, cropSel, cropGo, dateIn, nullBox, confSel]) if (el) { el.addEventListener("input", sb.update); el.addEventListener("change", sb.update); }
+    zoneWidgets.push({ sync: sb.update });
+  }
+}
+
+// ============================================================ B. 구역 나누기·온보딩 (5–11)
+defineStep(5, (box) => {
+  const out = h("div");
+  const show = (crops) => out.replaceChildren(h("div", { class: "row" }, crops.map((c) => h("span", { class: "badge" }, `${c.id} ${c.name}`))));
+  const btn = h("button", { class: "primary", type: "button" }, "작물 목록 불러오기");
+  btn.addEventListener("click", () => withLock(btn, async () => {
+    const r = await api("GET", "/crops");
+    if (r.ok) { CROPS = r.data; show(r.data); } else { out.replaceChildren(); note(out, "err", errorText(r)); }
+  }));
+  box.append(btn, out, h("div", { class: "note info" }, "구역 생성에 작물 id가 필요하므로 이 호출이 구역 만들기보다 앞에 옵니다."));
+  if (CROPS) show(CROPS);
+});
+
+const parseRatios = () => (form.sp_ratios ?? "1,1").split(",").map((s) => Number(s.trim()));
+defineStep(6, (box, c) => {
+  const fs = fieldSelect("sp_field");
+  const dir = h("select", {}, [["crosswise", "crosswise (가로)"], ["lengthwise", "lengthwise (세로)"]].map(([v, t]) => h("option", { value: v }, t)));
+  dir.value = form.sp_dir ?? "crosswise";
+  dir.addEventListener("change", () => { form.sp_dir = dir.value; });
+  const out = h("div");
+  const btn = h("button", { class: "primary", type: "button" }, "미리보기");
+  btn.disabled = c.missing.length > 0;
+  btn.addEventListener("click", () => withLock(btn, async () => {
+    out.replaceChildren();
+    const r = await api("POST", `/fields/${form.sp_field}/split-preview`, { body: { direction: dir.value, ratios: parseRatios() } });
+    if (!r.ok) { note(out, "err", errorText(r)); return; }
+    const total = r.data.reduce((a, p) => a + p.area_m2, 0);
+    out.append(geoSvg(r.data.map((p, i) => ({ geometry: p.geometry, fill: ZONE_COLORS[i % ZONE_COLORS.length], label: `${i + 1}: ${p.area_m2}㎡` }))),
+      h("div", { class: "note info" }, r.data.map((p, i) => `${i + 1}번 조각 ${p.area_m2}㎡ (${((p.area_m2 / total) * 100).toFixed(1)}%)`).join("\n") + "\n저장되지 않았습니다. 비율을 바꿔 다시 볼 수 있습니다."));
+  }));
+  box.append(h("div", { class: "row" }, labeled("밭 ", fs), labeled("방향 ", dir), labeled("비율 ", input("sp_ratios", { size: 10, value: "1,1" })), btn), out);
+});
+
+defineStep(7, (box, c) => {
+  const fs = fieldSelect("zc_field");
+  const rows = h("div");
+  const out = h("div");
+  const drawRows = () => {
+    rows.replaceChildren(...parseRatios().map((ratio, i) => h("div", { class: "row" }, `비율 ${ratio}:`,
+      input(`zc_name_${i}`, { size: 10, value: `${String.fromCharCode(65 + i)}구역` }), cropSelect(`zc_crop_${i}`, "2"),
+      h("label", {}, "정식일 ", input(`zc_date_${i}`, { type: "date" })))));
+  };
+  drawRows();
+  const btn = h("button", { class: "primary", type: "button" }, "구역 만들기");
+  btn.disabled = c.missing.length > 0;
+  btn.addEventListener("click", () => withLock(btn, async () => {
+    out.replaceChildren();
+    const ratios = parseRatios();
+    const zones = ratios.map((_, i) => {
+      const z = { name: form[`zc_name_${i}`] ?? `${String.fromCharCode(65 + i)}구역`, crop_id: Number(form[`zc_crop_${i}`] ?? 2) };
+      if (form[`zc_date_${i}`]) z.planted_at = form[`zc_date_${i}`];
+      return z;
+    });
+    const r = await api("POST", `/fields/${form.zc_field}/zones`, { body: { direction: form.sp_dir ?? "crosswise", ratios, zones } });
+    if (!r.ok) { note(out, "err", errorText(r)); return; }
+    refreshFieldViews();
+    note(out, "ok", `구역 ${r.data.length}개 생성: ` + r.data.map((z) => `#${z.id} ${z.name}`).join(", "));
+  }));
+  box.append(h("div", { class: "note info" }, "방향과 비율은 6단계 입력을 씁니다. 서버가 같은 입력으로 분할을 다시 계산합니다."),
+    h("div", { class: "row" }, labeled("밭 ", fs), h("button", { type: "button", onclick: drawRows }, "비율 다시 읽기")), rows, btn, out);
+  if (c.missing.length) {
+    const fq = fieldSelect("zq_field"), cq = cropSelect("zq_crop", "2"), nq = input("zq_name", { size: 10, value: "A구역" });
+    box.append(h("div", { class: "row" }, "임시 구역: ", labeled("밭 ", fq), labeled("작물 ", cq), labeled("이름 ", nq)));
+    const sb = sqlBlock(box, "구역 생성 API가 없어서 SQL로 구역을 하나 만듭니다 (밭 전체가 한 구역). 실행 뒤 아래 구역 선택의 「새로고침」을 누르세요.",
+      () => sqlZone(form.zq_field, state.userId, form.zq_crop ?? "2", form.zq_name ?? "A구역"));
+    for (const el of [fq, cq, nq]) { el.addEventListener("input", sb.update); el.addEventListener("change", sb.update); }
+    loadFields().then(sb.update);
+  }
+});
+
+defineStep(8, (box) => {
+  const holder = h("div");
+  let drug = null;
+  pickZone(box, () => { if (drug) drug.reload(); });
+  drug = drugPicker(holder, () => state.zone && state.zone.cropId);
+  box.append(holder, h("div", { class: "row" }, labeled("살포일 ", input("sp8_date", { type: "date", value: "" }))));
+  saveSprayUI(box, { getDrug: () => drug.get(), getDate: () => form.sp8_date, getZone: () => state.zone });
+  if (state.zone) drug.reload();
+});
+
+defineStep(9, (box) => historyView(box));
+defineStep(10, (box, c) => {
+  box.append(h("div", { class: "note info" }, "순서: 정식일 → 과거 이력 입력 → 마지막에 「누락 없음」 확인. 정식일을 바꾸면 확인이 풀립니다."));
+  zoneEditForm(box, { ...c, no: 10 }, { planted: true, confirmed: true });
+});
+defineStep(11, (box) => {
+  const out = h("div");
+  const btn = h("button", { class: "primary", type: "button" }, "온보딩 완료");
+  btn.addEventListener("click", () => withLock(btn, async () => {
+    out.replaceChildren();
+    const r = await api("POST", "/me/onboarding");
+    if (r.ok) { note(out, "ok", `온보딩 완료 (onboarded: ${r.data.onboarded}). 이미 끝났어도 200입니다.`); return; }
+    const d = r.error && r.error.details;
+    if (r.error && r.error.code === "ONBOARDING_INCOMPLETE" && d) {
+      note(out, "warn", `온보딩을 끝낼 수 없습니다 (422 ONBOARDING_INCOMPLETE): 구역 ${d.zone_count}개, 「누락 없음」이 안 된 구역 id ${d.unconfirmed_zone_ids.length ? d.unconfirmed_zone_ids.join(", ") : "없음"}\n구역이 없거나 한 구역이라도 확인이 안 됐으면 끝낼 수 없습니다.`);
+    } else note(out, "err", errorText(r));
+  }));
+  box.append(btn, out);
+});
+
+// ============================================================ C. 홈 (12–13)
+defineStep(12, (box) => {
+  const out = h("div");
+  const show = (fields) => {
+    out.replaceChildren();
+    if (fields === null) { note(out, "err", "밭 목록을 불러오지 못했습니다 (로그인했나요?)."); return; }
+    if (!fields.length) note(out, "info", "밭이 없습니다 ([]).");
+    for (const f of fields) renderField(out, f, { onZone: (z) => { setZone(z); note(out, "ok", `구역 #${z.id} ${z.name}을 선택했습니다.`); } });
+  };
+  const btn = h("button", { class: "primary", type: "button" }, "홈 새로고침");
+  btn.addEventListener("click", () => withLock(btn, async () => { invalidateFields(); show(await loadFields(true)); }));
+  box.append(btn, h("div", { class: "note info" }, "구역별로 마지막 살포와 최근 판정을 보여 줍니다. 기록이 없으면 「기록 없음」입니다. 구역 줄의 「선택」은 아래 단계들이 쓰는 구역을 정합니다."), out);
+  if (state.userId) loadFields(true).then(show);
+});
+
+const PTY = { 0: "없음", 1: "비", 2: "비/눈", 3: "눈", 4: "소나기" };
+function renderZoneDetail(box, d) {
+  box.append(h("div", {}, h("strong", {}, `#${d.id} ${d.name}`), ` · 밭 #${d.field_id} · 작물 ${d.crop.name} · 정식일 ${d.planted_at || "없음"} · 누락 없음 ${d.history_confirmed ? "✔" : "–"} · ${d.area_m2}㎡`));
+  const rot = d.rotation;
+  box.append(h("div", {}, h("strong", {}, "작용기작 편중도"), ` · ${rot.window_start ? `${rot.window_start} 이후` : "정식일이 없어 전체 기록 기준"} · 살포 ${rot.total}건`));
+  if (!rot.items.length) note(box, "info", "살포 기록이 없습니다.");
+  for (const it of rot.items) {
+    const pct = rot.total ? Math.round((it.count / rot.total) * 100) : 0;
+    box.append(h("div", { class: "row" }, h("span", { class: "mono", style: { width: "9em" } }, it.moa ? it.moa.label_kr : "작용기작 미상"),
+      h("span", { style: { display: "inline-block", height: "10px", width: `${pct * 2}px`, background: "var(--accent)", borderRadius: "3px" } }), `${it.count}건 (${pct}%)`));
+  }
+  box.append(h("div", {}, h("strong", {}, "최근 판정 (최대 5건, 최신순)")));
+  if (!d.recent_judgments.length) note(box, "info", "판정 기록이 없습니다.");
+  else box.append(h("table", {}, d.recent_judgments.map((j) => h("tr", {}, h("td", {}, j.created_at), h("td", {}, vBadge(j.verdict)),
+    h("td", {}, `${j.pesticide.name} (${j.pesticide.item_name})`), h("td", {}, j.pest ? j.pest.name : "병해충 지정 안 함")))));
+}
+defineStep(13, (box, c) => {
+  const out = h("div");
+  const btn = h("button", { class: "primary", type: "button" }, "구역 상세 불러오기");
+  btn.disabled = c.missing.length > 0;
+  pickZone(box, () => {});
+  btn.addEventListener("click", () => withLock(btn, async () => {
+    out.replaceChildren();
+    if (!state.zone) { note(out, "err", "구역을 먼저 고르세요."); return; }
+    const r = await api("GET", `/zones/${state.zone.id}`);
+    if (!r.ok) { note(out, "err", errorText(r)); return; }
+    renderZoneDetail(out, r.data);
+  }));
+  box.append(btn, out);
+});
+
+// ============================================================ D. 병해충·약제 판정 (14–20)
+// 14–20단계가 한 흐름이라 선택 상태를 JUDGE에 두고, 화면 조각(parts/candidates/search/chosen/drugs/result)만 다시 그린다.
+const JUDGE = { cropId: null, zoneId: null, parts: null, partsErr: null, part: null, candidates: null, candErr: null, searchRes: null, searchErr: null,
+  pest: null, noPest: false, drugs: null, drugsErr: null, drug: null, result: null, applyDate: "", views: {}, seq: { parts: 0, drugs: 0 } };
+function jview(role, box) { (JUDGE.views[role] ||= []).push(box); jdraw(role); }
+function jdraw(...roles) { for (const r of roles) for (const b of JUDGE.views[r] || []) JDRAW[r](b); }
+
+const pestLabel = () => (JUDGE.noPest ? "병해충 지정 안 함" : JUDGE.pest ? `${JUDGE.pest.name} (id ${JUDGE.pest.id})` : "아직 안 고름");
+async function judgeZoneChanged(z) {
+  if (!z) return;
+  if (JUDGE.zoneId !== z.id) { JUDGE.zoneId = z.id; JUDGE.result = null; }
+  if (JUDGE.cropId !== z.cropId) {
+    Object.assign(JUDGE, { cropId: z.cropId, parts: null, partsErr: null, part: null, candidates: null, searchRes: null, pest: null, noPest: false, drugs: null, drug: null, result: null });
+    jdraw("parts", "candidates", "search", "chosen", "drugs", "result");
+    const my = ++JUDGE.seq.parts;
+    const r = await api("GET", `/crops/${z.cropId}/symptom-parts`);
+    if (my !== JUDGE.seq.parts) return;
+    JUDGE.parts = r.ok ? r.data : null; JUDGE.partsErr = r.ok ? null : errorText(r);
+  }
+  jdraw("parts", "chosen", "result");
+}
+async function loadCandidates(part) {
+  JUDGE.part = part; JUDGE.candidates = null; JUDGE.candErr = null; jdraw("parts", "candidates");
+  const r = await api("GET", "/pests/candidates", { query: { crop_id: JUDGE.cropId, part } });
+  JUDGE.candidates = r.ok ? r.data : null; JUDGE.candErr = r.ok ? null : errorText(r);
+  jdraw("candidates");
+}
+async function loadJudgeDrugs() {
+  JUDGE.drug = null; JUDGE.drugs = null; JUDGE.drugsErr = null;
+  if (!JUDGE.cropId || (!JUDGE.pest && !JUDGE.noPest)) { jdraw("drugs", "chosen"); return; }
+  jdraw("drugs", "chosen");
+  const my = ++JUDGE.seq.drugs;
+  const r = await api("GET", "/pesticides", { query: { crop_id: JUDGE.cropId, pest_id: JUDGE.noPest ? undefined : JUDGE.pest.id } });
+  if (my !== JUDGE.seq.drugs) return;
+  JUDGE.drugs = r.ok ? r.data : null; JUDGE.drugsErr = r.ok ? null : errorText(r);
+  jdraw("drugs", "chosen");
+}
+function choosePest(p) { JUDGE.pest = { id: p.id, name: p.name }; JUDGE.noPest = false; jdraw("candidates", "search", "chosen"); loadJudgeDrugs(); }
+
+// 병해충 카드 (후보와 검색 결과가 같은 모양): 사진, 이름, 증상, 발생 시기, 매개충
+function pestCards(box, list) {
+  if (!list.length) { note(box, "info", "결과가 없습니다."); return; }
+  for (const p of list) {
+    const img = p.photo_url ? h("img", { src: p.photo_url, alt: p.name, width: "110", loading: "lazy", referrerpolicy: "no-referrer", style: { borderRadius: "6px" } }) : null;
+    if (img) img.addEventListener("error", () => img.replaceWith(h("span", { class: "note warn" }, "사진을 불러오지 못했습니다")));
+    const picked = JUDGE.pest && JUDGE.pest.id === p.id;
+    box.append(h("div", { class: "card", style: { margin: "6px 0" } }, h("div", { class: "row", style: { alignItems: "flex-start" } }, img,
+      h("div", { style: { flex: "1", minWidth: "220px" } },
+        h("div", {}, h("strong", {}, p.name), " ", p.kind ? h("span", { class: "badge" }, p.kind) : null, " ", h("span", { class: "mono" }, `id ${p.id}`),
+          p.photo_source ? h("small", {}, `  사진: ${p.photo_source}`) : null),
+        h("div", {}, `증상·피해: ${p.description || "없음"}`),
+        h("div", {}, `발생 시기: ${p.occurrence || "없음"}${p.occurrence_source ? ` (${p.occurrence_source})` : ""}`),
+        p.vectors.length ? h("div", {}, "매개충: ", p.vectors.map((v) => h("button", { type: "button", title: `${v.guide} / ${v.source}`,
+          onclick: () => choosePest(v) }, `${v.name} 선택`))) : null,
+        p.vectors.length ? h("small", {}, p.vectors.map((v) => `${v.name}: ${v.guide} (${v.source})`).join(" · ")) : null),
+      h("button", { class: picked ? "primary" : "", type: "button", onclick: () => choosePest(p) }, picked ? "고름 ✔" : "이 병해충 고르기"))));
+  }
+}
+
+const JDRAW = {
+  parts(box) {
+    box.replaceChildren();
+    if (!state.zone) { note(box, "info", "위에서 구역을 먼저 고르세요."); return; }
+    if (JUDGE.partsErr) { note(box, "err", JUDGE.partsErr); return; }
+    if (!JUDGE.parts) { note(box, "info", "증상 부위를 불러오는 중입니다."); return; }
+    box.append(h("div", { class: "row" }, "증상 부위: ", JUDGE.parts.map((p) => h("button", { class: JUDGE.part === p ? "primary" : "", type: "button", onclick: () => loadCandidates(p) }, p))));
+  },
+  candidates(box) {
+    box.replaceChildren();
+    if (JUDGE.candErr) { note(box, "err", JUDGE.candErr); return; }
+    if (!JUDGE.part) { note(box, "info", "증상 부위를 고르면 그 부위에 맞는 후보 카드가 나옵니다 (14단계)."); return; }
+    if (!JUDGE.candidates) { note(box, "info", "후보를 불러오는 중입니다."); return; }
+    pestCards(box, JUDGE.candidates);
+  },
+  search(box) {
+    box.replaceChildren();
+    const q = input("pest_q", { size: 16, placeholder: "예: 좀나방" });
+    const go = h("button", { class: "primary", type: "button" }, "검색");
+    const run = () => withLock(go, async () => {
+      if (!JUDGE.cropId) { JUDGE.searchErr = "구역을 먼저 고르세요 (14단계)."; JUDGE.searchRes = null; jdraw("search"); return; }
+      const r = await api("GET", "/pests", { query: { crop_id: JUDGE.cropId, q: (form.pest_q || "").trim() } });
+      JUDGE.searchRes = r.ok ? r.data : null; JUDGE.searchErr = r.ok ? null : errorText(r);
+      jdraw("search");
+    });
+    go.addEventListener("click", run);
+    q.addEventListener("keydown", (e) => { if (e.key === "Enter") run(); });
+    box.append(h("div", { class: "row" }, labeled("병해충 이름 ", q), go));
+    if (JUDGE.searchErr) note(box, "err", JUDGE.searchErr);
+    if (JUDGE.searchRes) { box.append(h("small", {}, `${JUDGE.searchRes.length}건 (이름순, 페이징 없음)`)); pestCards(box, JUDGE.searchRes.slice(0, 40)); }
+  },
+  chosen(box) {
+    const z = state.zone;
+    box.textContent = `구역: ${z ? `#${z.id} ${z.name || ""} (작물 ${z.cropName || z.cropId})` : "없음"} · 병해충: ${pestLabel()} · 약제: ${JUDGE.drug ? `${JUDGE.drug.name} (${JUDGE.drug.item_name})` : "아직 안 고름"}`;
+    box.className = "mono";
+  },
+  drugs(box) {
+    box.replaceChildren();
+    const none = h("input", { type: "checkbox" });
+    none.checked = JUDGE.noPest;
+    none.addEventListener("change", () => { JUDGE.noPest = none.checked; if (none.checked) JUDGE.pest = null; jdraw("candidates", "search", "chosen"); loadJudgeDrugs(); });
+    box.append(h("label", { class: "row" }, none, "병해충 지정 안 함 (이 작물에 등록된 약제 전체)"));
+    if (JUDGE.drugsErr) { note(box, "err", JUDGE.drugsErr); return; }
+    if (!state.zone) { note(box, "info", "구역을 먼저 고르세요 (14단계)."); return; }
+    if (!JUDGE.pest && !JUDGE.noPest) { note(box, "info", "병해충을 고르거나 「지정 안 함」을 체크하면 약제 목록이 나옵니다."); return; }
+    if (!JUDGE.drugs) { note(box, "info", "약제 목록을 불러오는 중입니다."); return; }
+    // 이름으로 거르는 입력칸은 목록 바깥에 둔다 (목록만 다시 그려야 입력 중에 포커스가 유지된다)
+    const q = input("dj_q", { size: 16, placeholder: "예: 알칸타" });
+    const listBox = h("div");
+    const draw = () => {
+      listBox.replaceChildren();
+      const t = q.value.trim().toLowerCase();
+      const match = (d) => !t || d.name.toLowerCase().includes(t) || d.item_name.toLowerCase().includes(t);
+      const group = (title, list) => {
+        const hits = list.filter(match);
+        listBox.append(h("div", {}, h("strong", {}, `${title} (${hits.length}/${list.length})`)));
+        if (!hits.length) { note(listBox, "info", "없음"); return; }
+        listBox.append(h("div", { class: "row" }, hits.slice(0, 60).map((d) => h("button", { class: JUDGE.drug && JUDGE.drug.id === d.id ? "primary" : "", type: "button",
+          onclick: () => { JUDGE.drug = d; JUDGE.result = null; jdraw("drugs", "chosen", "result"); } }, `${d.name} (${d.item_name})${d.moa ? " · " + d.moa.label_kr : ""}`))));
+        if (hits.length > 60) listBox.append(h("small", {}, `앞 60개만 표시 (일치 ${hits.length}개). 이름으로 더 거르세요.`));
+      };
+      group("일반 약제", JUDGE.drugs.filter((d) => !d.at_planting_only));
+      group("심을 때 쓰는 약 (판정에서 ②가 확인 필요)", JUDGE.drugs.filter((d) => d.at_planting_only));
+    };
+    q.addEventListener("input", draw);
+    box.append(h("div", { class: "row" }, labeled("약제 이름으로 거르기 ", q)), listBox);
+    draw();
+  },
+  result(box) {
+    box.replaceChildren();
+    const r = JUDGE.result;
+    if (!r) return;
+    if (!r.ok) { note(box, "err", errorText(r)); return; }
+    renderJudgment(box, r.data);
+  },
+};
+
+const CHECK_TITLE = { registration: "① 등록", timing: "② 시기", count: "③ 횟수", moa: "④ 작용기작" };
+function renderJudgment(box, d) {
+  const res = d.result;
+  box.append(h("div", { class: "row" }, h("strong", {}, "판정 결과"), vBadge(res.verdict), `판정 #${d.judgment_id} · 기준 날짜 ${d.apply_date} · 데이터 조회일 ${res.data_asof}`));
+  note(box, "info", "이 호출은 판정만 합니다. 살포 기록은 저장되지 않습니다 (20단계에서 따로 저장).");
+  for (const c of res.checks) {
+    box.append(h("div", { class: "card", style: { margin: "6px 0" } },
+      h("div", { class: "row" }, h("strong", {}, CHECK_TITLE[c.key] || c.key), vBadge(c.status)),
+      h("div", {}, c.message),
+      Object.keys(c.facts || {}).length ? h("table", {}, Object.entries(c.facts).map(([k, v]) => h("tr", {}, h("td", { class: "mono" }, k), h("td", { class: "mono" }, typeof v === "object" ? JSON.stringify(v) : String(v)))))
+        : h("small", {}, "facts 없음"),
+      h("div", { class: "note info" }, `근거 원문: ${c.evidence.source_text}\n데이터 조회일: ${c.evidence.data_asof}`)));
+  }
+  for (const n of res.notices) note(box, "warn", n);
+  if (res.moa) box.append(h("div", { class: "mono" }, `이 약의 작용기작: ${res.moa.label_kr}${res.moa.system ? ` (${res.moa.system} ${res.moa.code})` : ""}`));
+  if (d.show_extension_office) note(box, "warn", "농업기술센터에 문의하세요. 병해충을 지목했고 불가·주의인데 대안 약제가 없습니다.");
+  box.append(h("div", {}, h("strong", {}, `대안 약제 (${d.alternatives.length})`)));
+  if (!d.alternatives.length) note(box, "info", "대안이 없습니다 (병해충을 지정했을 때만 계산합니다).");
+  else {
+    box.append(h("div", { class: "row" }, d.alternatives.slice(0, 30).map((a) => h("button", { type: "button", onclick: () => { JUDGE.drug = a; jdraw("drugs", "chosen"); runJudgment(); } },
+      `${a.name} (${a.item_name}) · ${a.moa ? a.moa.label_kr : "-"} — 이 약으로 판정`))));
+    if (d.alternatives.length > 30) box.append(h("small", {}, `앞 30개만 표시 (전체 ${d.alternatives.length}개, 서버가 준 순서: 작용기작 → 품목명 → 상표명)`));
+  }
+}
+function renderWeather(box, w) {
+  box.append(h("div", {}, `발표 시각 ${w.issued_at} · 앞으로 24시간`));
+  box.append(h("table", {}, h("tr", {}, ["시각", "강수형태", "1시간 강수량", "강수확률"].map((t) => h("th", {}, t))),
+    w.items.map((i) => h("tr", {}, h("td", {}, i.at.slice(5, 16).replace("T", " ")), h("td", {}, PTY[i.pty] ?? `코드 ${i.pty}`), h("td", {}, i.pcp), h("td", {}, i.pop == null ? "-" : `${i.pop}%`)))));
+}
+
+async function runJudgment() {
+  const z = state.zone, d = JUDGE.drug;
+  JUDGE.result = null;
+  if (!z) JUDGE.result = { ok: false, status: 0, error: { code: "CLIENT", message: "구역을 먼저 고르세요 (14단계)." } };
+  else if (!d) JUDGE.result = { ok: false, status: 0, error: { code: "CLIENT", message: "약제를 먼저 고르세요 (17단계)." } };
+  else {
+    const body = { pesticide_id: d.id };
+    if (JUDGE.pest && !JUDGE.noPest) body.pest_id = JUDGE.pest.id;
+    if (form.apply_date) body.apply_date = form.apply_date;
+    JUDGE.result = await api("POST", `/zones/${z.id}/judgments`, { body });
+  }
+  jdraw("result");
+}
+
+defineStep(14, (box) => {
+  const parts = h("div");
+  pickZone(box, (z) => judgeZoneChanged(z));
+  box.append(parts);
+  jview("parts", parts);
+});
+defineStep(15, (box) => { const b = h("div"); box.append(b); jview("candidates", b); });
+defineStep(16, (box) => { const b = h("div"); box.append(b); jview("search", b); });
+defineStep(17, (box) => {
+  const chosen = h("div"), b = h("div");
+  box.append(chosen, b);
+  jview("chosen", chosen); jview("drugs", b);
+});
+defineStep(18, (box) => {
+  const chosen = h("div"), res = h("div");
+  const btn = h("button", { class: "primary", type: "button" }, "판정");
+  btn.addEventListener("click", () => withLock(btn, runJudgment));
+  box.append(chosen, h("div", { class: "row" }, labeled("apply_date(선택) ", input("apply_date", { type: "date" })),
+    h("small", {}, "시연용: 「이 날 살포한다면」의 날짜. 수확 가능일과 문구의 날짜만 달라집니다.")), btn, res);
+  jview("chosen", chosen); jview("result", res);
+});
+defineStep(19, (box, c) => {
+  const out = h("div");
+  pickZone(box, () => {});
+  const btn = h("button", { class: "primary", type: "button" }, "날씨 불러오기");
+  btn.disabled = c.missing.length > 0;
+  btn.addEventListener("click", () => withLock(btn, async () => {
+    out.replaceChildren();
+    if (!state.zone) { note(out, "err", "구역을 먼저 고르세요."); return; }
+    const r = await api("GET", `/zones/${state.zone.id}/weather`);
+    if (!r.ok) { note(out, "err", `날씨 조회 실패 — ${errorText(r)}\n판정 화면에는 영향이 없습니다.`); return; }
+    renderWeather(out, r.data);
+  }));
+  box.append(h("div", { class: "note info" }, "날씨는 판정과 따로입니다. 실패(502)해도 위 판정 결과는 그대로 둡니다."), btn, out);
+});
+defineStep(20, (box) => {
+  const chosen = h("div");
+  box.append(chosen, h("div", { class: "row" }, labeled("살포일 ", input("sp20_date", { type: "date", value: todayStr() }))));
+  saveSprayUI(box, { getDrug: () => JUDGE.drug, getDate: () => form.sp20_date, getZone: () => state.zone, doubleDemo: true });
+  jview("chosen", chosen);
+});
+
+// ============================================================ E. 조회수정 (21–22)
+defineStep(21, (box) => historyView(box));
+defineStep(22, (box, c) => {
+  box.append(h("div", { class: "note info" }, "작물을 바꾸면 새 작기가 됩니다: 정식일은 요청한 값(없으면 비어 있음)이 되고 「누락 없음」이 풀립니다. 작물을 그대로 두고 정식일만 바꿔도 「누락 없음」이 풀립니다."));
+  zoneEditForm(box, { ...c, no: 22 }, { name: true, crop: true, planted: true, confirmed: false });
+});
+
+// ============================================================ F. 밭 추가와 정리 (23–25)
+defineStep(23, (box) => {
+  const sBox = h("div"), pBox = h("div"), count = h("span"), out = h("div");
+  const btn = h("button", { class: "primary", type: "button" }, "밭 추가");
+  btn.addEventListener("click", () => withLock(btn, async () => {
+    out.replaceChildren();
+    const r = await api("POST", "/fields", { body: { name: form.ff_name ?? "", parcel_farmmap_ids: [...pickState("F").selected] } });
+    if (r.ok) { refreshFieldViews(); note(out, "ok", `밭 추가됨 (201): #${r.data.id}`); renderField(out, r.data); return; }
+    const ids = r.error && r.error.details && r.error.details.farmmap_ids;
+    note(out, "err", errorText(r) + (ids ? `\n이미 사용 중인 필지: ${ids.join(", ")}` : ""));
+  }));
+  box.append(sBox, pBox, h("div", { class: "row" }, labeled("밭 이름 ", input("ff_name", { size: 14 })), "선택한 필지: ", count, btn), out);
+  pickView("F", "search", sBox); pickView("F", "parcels", pBox); pickView("F", "count", count);
+});
+
+defineStep(24, (box) => {
+  const out = h("div");
+  const fs = fieldSelect("fd_field");
+  const del = h("button", { class: "danger", type: "button" });
+  twoStep(del, "선택한 밭 삭제", async () => {
+    out.replaceChildren();
+    const id = Number(form.fd_field);
+    if (!id) { note(out, "err", "삭제할 밭을 고르세요."); return; }
+    const r = await api("DELETE", `/fields/${id}`);
+    if (r.status !== 204) { note(out, "err", errorText(r)); return; }
+    if (state.zone && state.zone.fieldId === id) state.zone = null;
+    refreshFieldViews();
+    note(out, "ok", "삭제됨 (204). 구역·살포 기록·판정도 함께 지워졌습니다. 잘못 고른 필지를 다시 고르거나 다시 나눌 때 씁니다.");
+  });
+  box.append(h("div", { class: "row" }, labeled("밭 ", fs), del), out);
+});
+
+defineStep(25, (box) => {
+  const out = h("div");
+  const del = h("button", { class: "danger", type: "button" });
+  twoStep(del, "회원 탈퇴 (모든 데이터 삭제)", async () => {
+    out.replaceChildren();
+    if (!state.userId) { note(out, "err", "로그인되어 있지 않습니다."); return; }
+    const oldId = state.userId;
+    const r = await api("DELETE", "/me");
+    if (r.status !== 204) { note(out, "err", errorText(r)); return; }
+    state.userId = null; state.username = null; persist(); renderWho(); invalidateCaches();
+    note(out, "ok", `탈퇴 처리됨 (204). 사용자 id ${oldId}의 밭·구역·기록·판정이 모두 지워졌습니다.`);
+    out.append(h("button", { type: "button", onclick: (e) => withLock(e.currentTarget, async () => {
+      state.userId = oldId; // 같은 id로 다시 불러 본다 (서버가 401로 답하면 api()가 id를 다시 지운다)
+      const r2 = await api("GET", "/me");
+      note(out, r2.status === 401 ? "ok" : "warn", `같은 X-User-Id(${oldId})로 GET /me → ${r2.status}${r2.error ? " " + r2.error.code : ""} (기대: 401 UNAUTHORIZED)`);
+    }) }, "같은 id로 GET /me 다시 불러 보기"));
+  });
+  box.append(h("div", { class: "note warn" }, "되돌릴 수 없습니다. 탈퇴하면 이 사용자의 모든 데이터가 지워지고, 같은 X-User-Id는 이후 401입니다."), del, out);
+});
+
+// ============================================================ 시작
+window.addEventListener("error", (e) => { addLog({ method: "JS", url: new URL(location.href), status: 0, ms: 0, data: null, error: { code: "PAGE_ERROR", message: String(e.message) } }); });
+function init() {
+  renderWho(); renderCoverage(); showSection("A");
+  checkHealth(); loadOpenapi();
+}
+init();
+</script>
+</body>
+</html>
