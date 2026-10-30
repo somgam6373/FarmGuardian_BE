@@ -1,4 +1,5 @@
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import date
 
 from sqlalchemy import text
@@ -159,3 +160,23 @@ def update_zone(db: Session, zone_id: int, changes: dict, today: date) -> dict:
         },
     )
     return get_zones(db, [zone_id])[0]
+
+
+@dataclass(frozen=True)
+class WgsPoint:
+    lon: float  # 경도
+    lat: float  # 위도
+
+
+def centroid_wgs84(db: Session, zone_id: int) -> WgsPoint:
+    """날씨(기상청 격자 변환)가 쓰는 구역 중심점. 소유자 확인은 호출하는 쪽이 한다."""
+    row = db.execute(
+        text(
+            "SELECT ST_X(p) AS lon, ST_Y(p) AS lat FROM "
+            "(SELECT ST_Transform(ST_Centroid(geom), 4326) AS p FROM zone WHERE id = :id) q"
+        ),
+        {"id": zone_id},
+    ).one_or_none()
+    if row is None:
+        raise AppError("NOT_FOUND", 404, "찾을 수 없습니다")
+    return WgsPoint(row.lon, row.lat)
