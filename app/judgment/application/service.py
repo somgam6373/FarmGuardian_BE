@@ -56,6 +56,20 @@ def _registration(row: UseRow) -> Registration:
     )
 
 
+def spray_records(history: Sequence[SprayView]) -> list[SprayRecord]:
+    """살포 기록을 판정 도메인의 SprayRecord로 바꾼다 (순서 유지)."""
+    return [
+        SprayRecord(
+            id=view.spray.id,
+            pesticide_id=view.spray.pesticide_id,
+            item_name=view.pesticide.item_name,
+            sprayed_on=view.spray.sprayed_on,
+            moa=_moa(view.pesticide.moa),
+        )
+        for view in history
+    ]
+
+
 def show_extension_office(pest_given: bool, verdict: Verdict, alternative_count: int) -> bool:
     """병해충을 지목했고 불가·주의인데 대안이 없을 때만 농업기술센터 문의를 안내한다."""
     return pest_given and verdict in (Verdict.BLOCKED, Verdict.CAUTION) and alternative_count == 0
@@ -77,16 +91,7 @@ def assess(
         raise AppError("NOT_FOUND", 404, "약제를 찾을 수 없습니다")
     # 병해충 확인과 후보 풀이 한 번에 나온다 (모르는 병해충·다른 작물의 병해충은 404)
     pool = catalog_service.list_pesticides(crop_id, pest_id) if pest_id is not None else []
-    records = [
-        SprayRecord(
-            id=view.spray.id,
-            pesticide_id=view.spray.pesticide_id,
-            item_name=view.pesticide.item_name,
-            sprayed_on=view.spray.sprayed_on,
-            moa=_moa(view.pesticide.moa),
-        )
-        for view in history
-    ]
+    records = spray_records(history)
     asof = catalog_service.data_asof()
 
     def judged(drug: Pesticide) -> JudgeResult:
