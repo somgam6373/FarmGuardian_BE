@@ -415,6 +415,7 @@ function showSection(id) {
   for (const k of Object.keys(PICK)) PICK[k].views = {};
   JUDGE.views = {};
   zoneWidgets.length = 0;
+  FIELD_SELECTS.length = 0;
   const sec = SECTIONS.find((s) => s.id === id) || SECTIONS[0];
   $("rail").replaceChildren(...SECTIONS.map((s) => h("button", { class: s.id === sec.id ? "active" : "", type: "button", onclick: () => showSection(s.id) },
     s.title, h("small", {}, `단계 ${s.range}`))));
@@ -614,17 +615,27 @@ const zonesOf = (fields) => fields.flatMap((f) => f.zones.map((z) => ({
   plantedAt: z.planted_at, confirmed: z.history_confirmed,
 })));
 
+const FIELD_SELECTS = []; // 밭 선택 칸을 다시 채우는 함수들 (섹션을 그릴 때마다 비운다)
 function fieldSelect(key) {
   const sel = h("select");
   sel.addEventListener("change", () => { form[key] = sel.value; });
-  loadFields().then((fs) => {
+  const fill = () => loadFields().then((fs) => {
     sel.replaceChildren(...(fs && fs.length
       ? fs.map((f) => h("option", { value: String(f.id) }, `#${f.id} ${f.name}`))
       : [h("option", { value: "" }, fs ? "밭이 없습니다" : "밭 목록 없음 (로그인했나요?)")]));
     if (form[key] && [...sel.options].some((o) => o.value === form[key])) sel.value = form[key];
     else if (fs && fs.length) { sel.value = String(fs[0].id); form[key] = sel.value; }
+    else form[key] = "";
   });
+  FIELD_SELECTS.push(fill);
+  fill();
   return sel;
+}
+// 밭이나 구역이 바뀌었을 때: 목록을 다시 받아 같은 화면의 밭 선택과 구역 위젯을 모두 갱신한다.
+function refreshFieldViews() {
+  invalidateFields();
+  for (const fill of FIELD_SELECTS) fill();
+  for (const w of zoneWidgets) if (w.refresh) w.refresh(false);
 }
 function cropSelect(key, def) {
   const sel = h("select", {}, (CROPS || CROP_FALLBACK).map((c) => h("option", { value: String(c.id) }, `${c.id} ${c.name}`)));
@@ -871,7 +882,7 @@ function zoneEditForm(box, c, { name = false, crop = false, planted = true, conf
     if (!state.zone) { note(out, "err", "구역을 먼저 고르세요."); return; }
     const r = await api("PATCH", `/zones/${state.zone.id}`, { body: patch() });
     if (!r.ok) { note(out, "err", errorText(r)); return; }
-    invalidateFields();
+    refreshFieldViews();
     const z = r.data;
     note(out, "ok", `수정됨: #${z.id} ${z.name} · 작물 ${z.crop.name} · 정식일 ${z.planted_at || "없음"} · 누락 없음 ${z.history_confirmed}\n(정식일이 바뀌면 서버가 「누락 없음」을 풀어 둡니다. 같은 요청에서 명시하면 그 값.)`);
   }));
@@ -938,7 +949,7 @@ defineStep(7, (box, c) => {
     });
     const r = await api("POST", `/fields/${form.zc_field}/zones`, { body: { direction: form.sp_dir ?? "crosswise", ratios, zones } });
     if (!r.ok) { note(out, "err", errorText(r)); return; }
-    invalidateFields();
+    refreshFieldViews();
     note(out, "ok", `구역 ${r.data.length}개 생성: ` + r.data.map((z) => `#${z.id} ${z.name}`).join(", "));
   }));
   box.append(h("div", { class: "note info" }, "방향과 비율은 6단계 입력을 씁니다. 서버가 같은 입력으로 분할을 다시 계산합니다."),
@@ -1249,6 +1260,65 @@ defineStep(20, (box) => {
   box.append(chosen, h("div", { class: "row" }, labeled("살포일 ", input("sp20_date", { type: "date", value: todayStr() }))));
   saveSprayUI(box, { getDrug: () => JUDGE.drug, getDate: () => form.sp20_date, getZone: () => state.zone, doubleDemo: true });
   jview("chosen", chosen);
+});
+
+// ============================================================ E. 조회수정 (21–22)
+defineStep(21, (box) => historyView(box));
+defineStep(22, (box, c) => {
+  box.append(h("div", { class: "note info" }, "작물을 바꾸면 새 작기가 됩니다: 정식일은 요청한 값(없으면 비어 있음)이 되고 「누락 없음」이 풀립니다. 작물을 그대로 두고 정식일만 바꿔도 「누락 없음」이 풀립니다."));
+  zoneEditForm(box, { ...c, no: 22 }, { name: true, crop: true, planted: true, confirmed: false });
+});
+
+// ============================================================ F. 밭 추가와 정리 (23–25)
+defineStep(23, (box) => {
+  const sBox = h("div"), pBox = h("div"), count = h("span"), out = h("div");
+  const btn = h("button", { class: "primary", type: "button" }, "밭 추가");
+  btn.addEventListener("click", () => withLock(btn, async () => {
+    out.replaceChildren();
+    const r = await api("POST", "/fields", { body: { name: form.ff_name ?? "", parcel_farmmap_ids: [...pickState("F").selected] } });
+    if (r.ok) { refreshFieldViews(); note(out, "ok", `밭 추가됨 (201): #${r.data.id}`); renderField(out, r.data); return; }
+    const ids = r.error && r.error.details && r.error.details.farmmap_ids;
+    note(out, "err", errorText(r) + (ids ? `\n이미 사용 중인 필지: ${ids.join(", ")}` : ""));
+  }));
+  box.append(sBox, pBox, h("div", { class: "row" }, labeled("밭 이름 ", input("ff_name", { size: 14 })), "선택한 필지: ", count, btn), out);
+  pickView("F", "search", sBox); pickView("F", "parcels", pBox); pickView("F", "count", count);
+});
+
+defineStep(24, (box) => {
+  const out = h("div");
+  const fs = fieldSelect("fd_field");
+  const del = h("button", { class: "danger", type: "button" });
+  twoStep(del, "선택한 밭 삭제", async () => {
+    out.replaceChildren();
+    const id = Number(form.fd_field);
+    if (!id) { note(out, "err", "삭제할 밭을 고르세요."); return; }
+    const r = await api("DELETE", `/fields/${id}`);
+    if (r.status !== 204) { note(out, "err", errorText(r)); return; }
+    if (state.zone && state.zone.fieldId === id) state.zone = null;
+    refreshFieldViews();
+    note(out, "ok", "삭제됨 (204). 구역·살포 기록·판정도 함께 지워졌습니다. 잘못 고른 필지를 다시 고르거나 다시 나눌 때 씁니다.");
+  });
+  box.append(h("div", { class: "row" }, labeled("밭 ", fs), del), out);
+});
+
+defineStep(25, (box) => {
+  const out = h("div");
+  const del = h("button", { class: "danger", type: "button" });
+  twoStep(del, "회원 탈퇴 (모든 데이터 삭제)", async () => {
+    out.replaceChildren();
+    if (!state.userId) { note(out, "err", "로그인되어 있지 않습니다."); return; }
+    const oldId = state.userId;
+    const r = await api("DELETE", "/me");
+    if (r.status !== 204) { note(out, "err", errorText(r)); return; }
+    state.userId = null; state.username = null; persist(); renderWho(); invalidateCaches();
+    note(out, "ok", `탈퇴 처리됨 (204). 사용자 id ${oldId}의 밭·구역·기록·판정이 모두 지워졌습니다.`);
+    out.append(h("button", { type: "button", onclick: (e) => withLock(e.currentTarget, async () => {
+      state.userId = oldId; // 같은 id로 다시 불러 본다 (서버가 401로 답하면 api()가 id를 다시 지운다)
+      const r2 = await api("GET", "/me");
+      note(out, r2.status === 401 ? "ok" : "warn", `같은 X-User-Id(${oldId})로 GET /me → ${r2.status}${r2.error ? " " + r2.error.code : ""} (기대: 401 UNAUTHORIZED)`);
+    }) }, "같은 id로 GET /me 다시 불러 보기"));
+  });
+  box.append(h("div", { class: "note warn" }, "되돌릴 수 없습니다. 탈퇴하면 이 사용자의 모든 데이터가 지워지고, 같은 X-User-Id는 이후 401입니다."), del, out);
 });
 
 // ============================================================ 시작
