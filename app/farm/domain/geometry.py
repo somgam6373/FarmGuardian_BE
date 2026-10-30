@@ -13,3 +13,12 @@ def multipolygon_area(polygons: MultiPolygon) -> float:
         _ring_area(outer) - sum(_ring_area(hole) for hole in holes)
         for outer, *holes in polygons
     )
+
+
+def to_wkt(polygons: MultiPolygon) -> str:
+    def ring(points: Ring) -> str:
+        return "(" + ",".join(f"{x} {y}" for x, y in points) + ")"
+
+    return "MULTIPOLYGON(" + ",".join(
+        "(" + ",".join(ring(r) for r in polygon) + ")" for polygon in polygons
+    ) + ")"
