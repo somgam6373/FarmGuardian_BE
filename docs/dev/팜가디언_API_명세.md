@@ -66,7 +66,7 @@ Zone          {id, field_id, name, crop: Crop, planted_at: date|null, history_co
 ZoneSummary   {id, name, crop: Crop, planted_at: date|null, history_confirmed: bool, area_m2, geometry,
                last_spray: Spray|null, last_judgment: JudgmentBrief|null}
 ZoneSpec      {name: string, crop_id: int, planted_at?: date}
-SplitPiece    {geometry, area_m2}          순서 = 방향의 시작 쪽부터, ratios 순서와 같다
+SplitPiece    {geometry, area_m2}          순서 = 방향의 시작 쪽부터 (서→동, 조각이 남북으로 늘어서면 남→북), ratios 순서와 같다
 Spray         {id: int, pesticide: Pesticide, sprayed_on: date, source: "manual"|"app"}
 JudgmentBrief {judgment_id: int, created_at: datetime, pesticide: {id, name, item_name},
                pest: {id, name}|null, verdict: Verdict}                       【결정】
@@ -167,7 +167,7 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 
 ### `POST /fields/{id}/split-preview` — 분할 미리보기 (저장 안 함)
 
-- 요청 본문: `{direction: "crosswise"|"lengthwise", ratios: [int]}` — `ratios`는 1~10개, 각 값은 1 이상의 정수. 균등 = `[1,1,1]`
+- 요청 본문: `{direction: "crosswise"|"lengthwise", ratios: [int]}` — `ratios`는 1~10개, 각 값은 1~100의 정수. 균등 = `[1,1,1]`
 - 응답 200: `[SplitPiece]` (`ratios`와 같은 길이)
 - 오류: 404, 422
 

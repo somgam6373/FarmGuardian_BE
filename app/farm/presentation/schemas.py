@@ -2,7 +2,7 @@ import re
 from datetime import date
 from typing import Annotated, Literal
 
-from pydantic import AfterValidator, BaseModel, Field, StringConstraints
+from pydantic import AfterValidator, BaseModel, Field, StringConstraints, model_validator
 
 from app.catalog.presentation.schemas import CropOut, PesticideBase
 
@@ -56,8 +56,11 @@ def check_unique(ids: list[str]) -> list[str]:
     return ids
 
 
+Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=30)]
+
+
 class FieldCreate(BaseModel):
-    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=30)]
+    name: Name
     parcel_farmmap_ids: Annotated[
         list[FarmmapId], Field(min_length=1, max_length=20), AfterValidator(check_unique)
     ]
@@ -89,3 +92,45 @@ class FieldOut(BaseModel):
     geometry: dict
     bbox: list[float]
     zones: list[ZoneSummary]
+
+
+# 비율 상한이 없으면 [1, 1000000000]처럼 면적 0인 구역이 생긴다
+Ratio = Annotated[int, Field(ge=1, le=100)]
+
+
+class SplitRequest(BaseModel):
+    direction: Literal["crosswise", "lengthwise"]
+    ratios: Annotated[list[Ratio], Field(min_length=1, max_length=10)]
+
+
+class ZoneSpec(BaseModel):
+    name: Name
+    crop_id: int
+    planted_at: date | None = None
+
+
+class ZonesCreate(SplitRequest):
+    zones: list[ZoneSpec]
+
+    @model_validator(mode="after")
+    def check_length(self):
+        if len(self.zones) != len(self.ratios):
+            raise ValueError("구역 수가 비율 수와 같아야 합니다")
+        return self
+
+
+class SplitPiece(BaseModel):
+    geometry: dict
+    area_m2: float
+
+
+class ZoneOut(BaseModel):
+    id: int
+    field_id: int
+    name: str
+    crop: CropOut
+    planted_at: date | None
+    history_confirmed: bool
+    area_m2: float
+    geometry: dict
+    bbox: list[float]

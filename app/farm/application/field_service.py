@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
 from app.farm.application import zone_service
-from app.farm.domain.geometry import MultiPolygon, multipolygon_area
-from app.farm.infrastructure import field_repository
+from app.farm.domain.geometry import MultiPolygon, multipolygon_area, to_wkt
+from app.farm.domain.split import split_strips
+from app.farm.infrastructure import field_repository, split_repository
 from app.farm.infrastructure.field_repository import FieldRow
 from app.farm.infrastructure.integrations import farmmap, vworld
 from app.farm.infrastructure.integrations.farmmap import FarmmapParcel
@@ -118,3 +119,37 @@ def list_fields(db: Session, user_id: int) -> list[dict]:
 
 def delete_field(db: Session, field_id: int) -> None:
     field_repository.delete_field(db, field_id)
+
+
+def split_strips_for(db: Session, field_id: int, direction: str, ratios: list[int]) -> list[str]:
+    """밭을 자를 띠들의 WKT. 같은 입력이면 같은 결과다 (미리보기 = 구역 생성)."""
+    polygons, envelope = split_repository.field_shape(db, field_id)
+    return [to_wkt([[ring]]) for ring in split_strips(polygons, envelope, direction, ratios)]
+
+
+def split_preview(db: Session, field_id: int, direction: str, ratios: list[int]) -> list[dict]:
+    return split_repository.preview(db, field_id, split_strips_for(db, field_id, direction, ratios))
+
+
+def create_zones(
+    db: Session,
+    field_id: int,
+    user_id: int,
+    direction: str,
+    ratios: list[int],
+    zones: list[dict],
+) -> list[dict]:
+    """zones = [{name, crop_id, planted_at}] (ratios 순서). 커밋은 호출한 쪽이 한다."""
+    if split_repository.lock_field_has_zones(db, field_id):
+        raise AppError("FIELD_ALREADY_SPLIT", 409, "이미 구역이 나뉜 밭입니다")
+    known = split_repository.existing_crop_ids(db, [z["crop_id"] for z in zones])
+    errors = [
+        {"loc": ["body", "zones", index, "crop_id"], "msg": "없는 작물입니다", "type": "not_found"}
+        for index, zone in enumerate(zones)
+        if zone["crop_id"] not in known
+    ]
+    if errors:
+        raise AppError("VALIDATION_ERROR", 422, "요청 값이 올바르지 않습니다", {"errors": errors})
+    strips = split_strips_for(db, field_id, direction, ratios)
+    parts = [{**zone, "strip": strip} for zone, strip in zip(zones, strips)]
+    return zone_service.create_many(db, field_id, user_id, parts)

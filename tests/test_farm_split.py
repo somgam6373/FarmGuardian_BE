@@ -1,7 +1,15 @@
+from math import cos, pi, radians, sin
+
 import pytest
 
 from app.farm.domain.geometry import multipolygon_area
-from app.farm.domain.split import area_left_of, cut_positions
+from app.farm.domain.split import (
+    area_left_of,
+    cut_positions,
+    long_side_angle,
+    rotate,
+    split_strips,
+)
 
 
 def rect(x0, y0, x1, y1):
@@ -110,3 +118,76 @@ def test_uneven_and_many_ratios(ratios):
 def test_invalid_input_raises(polygons, ratios):
     with pytest.raises(ValueError):
         cut_positions(polygons, ratios)
+
+
+def turned(points, angle):
+    return [(x * cos(angle) - y * sin(angle), x * sin(angle) + y * cos(angle)) for x, y in points]
+
+
+def bounds(ring):
+    xs, ys = [x for x, _ in ring], [y for _, y in ring]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def test_long_side_angle():
+    assert long_side_angle(rect(0, 0, 20, 10)[0]) == pytest.approx(0.0)
+    assert long_side_angle(rect(0, 0, 20, 10)[0][::-1]) == pytest.approx(0.0)
+    assert long_side_angle([(20, 10), (0, 10), (0, 0), (20, 0), (20, 10)]) == pytest.approx(0.0)
+    assert long_side_angle(rect(0, 0, 10, 20)[0]) == pytest.approx(pi / 2)
+    tilted = turned([(0, 0), (30, 0), (30, 10), (0, 10), (0, 0)], radians(30))
+    assert long_side_angle(tilted) == pytest.approx(radians(30))
+
+
+def test_rotate_quarter_turn():
+    [[ring]] = rotate([[[(1, 0), (2, 0), (2, 1), (1, 0)]]], pi / 2, (0, 0))
+    expected = [(0, 1), (0, 2), (-1, 2), (0, 1)]
+    for (x, y), (ex, ey) in zip(ring, expected):
+        assert x == pytest.approx(ex, abs=1e-9) and y == pytest.approx(ey, abs=1e-9)
+
+
+def test_strips_crosswise_rectangle():
+    field = [rect(0, 0, 20, 10)]
+    first, second = split_strips(field, field[0][0], "crosswise", [1, 1])
+    assert bounds(first)[2] == pytest.approx(10)
+    assert bounds(first)[0] < bounds(second)[0]  # 서쪽부터
+
+
+def test_strips_lengthwise_rectangle():
+    field = [rect(0, 0, 20, 10)]
+    first, second = split_strips(field, field[0][0], "lengthwise", [1, 1])
+    assert bounds(first)[3] == pytest.approx(5)
+    assert bounds(first)[1] < bounds(second)[1]  # 남쪽부터
+
+
+def test_single_ratio_one_strip():
+    field = [rect(0, 0, 20, 10)]
+    [strip] = split_strips(field, field[0][0], "crosswise", [3])
+    minx, miny, maxx, maxy = bounds(strip)
+    assert minx < 0 and miny < 0 and maxx > 20 and maxy > 10
+
+
+def centers(strips):
+    return [(sum(x for x, _ in s[:-1]) / 4, sum(y for _, y in s[:-1]) / 4) for s in strips]
+
+
+@pytest.mark.parametrize("degrees", [89.9999, 90.0, 90.0001])
+def test_near_vertical_crosswise_goes_south_to_north(degrees):
+    ring = turned([(0, 0), (20, 0), (20, 10), (0, 10), (0, 0)], radians(degrees))
+    first, second = centers(split_strips([[ring]], ring, "crosswise", [1, 1]))
+    assert first[1] < second[1]
+
+
+@pytest.mark.parametrize("degrees", [89.9999, 90.0, 90.0001])
+def test_near_vertical_lengthwise_goes_west_to_east(degrees):
+    ring = turned([(0, 0), (20, 0), (20, 10), (0, 10), (0, 0)], radians(degrees))
+    first, second = centers(split_strips([[ring]], ring, "lengthwise", [1, 1]))
+    assert first[0] < second[0]
+
+
+@pytest.mark.parametrize("degrees", [-0.0001, 0.0, 0.0001])
+def test_near_horizontal_orders(degrees):
+    ring = turned([(0, 0), (20, 0), (20, 10), (0, 10), (0, 0)], radians(degrees))
+    first, second = centers(split_strips([[ring]], ring, "crosswise", [1, 1]))
+    assert first[0] < second[0]
+    first, second = centers(split_strips([[ring]], ring, "lengthwise", [1, 1]))
+    assert first[1] < second[1]
