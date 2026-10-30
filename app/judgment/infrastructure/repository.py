@@ -29,3 +29,14 @@ def insert(
             "result": result_json,
         },
     )
+
+
+def recent(db: Session, zone_id: int, limit: int):
+    """구역의 판정을 최신순으로 limit건. 같은 시각이면 id가 큰 쪽이 먼저다."""
+    return db.execute(
+        text(
+            "SELECT id, zone_id, pest_id, pesticide_id, verdict, created_at FROM judgment "
+            "WHERE zone_id = :zone ORDER BY created_at DESC, id DESC LIMIT :n"
+        ),
+        {"zone": zone_id, "n": limit},
+    ).all()
