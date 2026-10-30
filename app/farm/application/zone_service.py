@@ -1,11 +1,13 @@
 from collections import defaultdict
+from datetime import date
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.catalog.presentation.schemas import pesticide_base
+from app.core.errors import AppError
 from app.farm.infrastructure.field_repository import geojson
-from app.farm.infrastructure.split_repository import piece_sql
+from app.farm.infrastructure.split_repository import existing_crop_ids, piece_sql
 from app.spraying.application import spray_service
 
 
@@ -99,3 +101,29 @@ def create_many(db: Session, field_id: int, user_id: int, parts: list[dict]) -> 
         for part in parts
     ]
     return get_zones(db, zone_ids)
+
+
+def check_values(
+    db: Session, entries: list[tuple[list, int | None, date | None]], today: date
+) -> None:
+    """(오류 위치 앞부분, crop_id, planted_at)마다 없는 작물·미래 정식일을 모아 422로 알린다.
+
+    정식일 이후 살포만 세므로 미래 정식일은 기록을 하나도 세지 않게 된다 (판정 ③).
+    """
+    known = existing_crop_ids(db, [crop for _, crop, _ in entries if crop is not None])
+    errors = []
+    for loc, crop_id, planted_at in entries:
+        if crop_id is not None and crop_id not in known:
+            errors.append(
+                {"loc": [*loc, "crop_id"], "msg": "없는 작물입니다", "type": "not_found"}
+            )
+        if planted_at is not None and planted_at > today:
+            errors.append(
+                {
+                    "loc": [*loc, "planted_at"],
+                    "msg": "정식일은 오늘 이후일 수 없습니다",
+                    "type": "value_error",
+                }
+            )
+    if errors:
+        raise AppError("VALIDATION_ERROR", 422, "요청 값이 올바르지 않습니다", {"errors": errors})

@@ -1,5 +1,8 @@
+from datetime import timedelta
+
 import pytest
 
+from app.core.time import today_kst
 from app.farm.infrastructure import field_repository
 from tests.farm_support import square
 
@@ -121,3 +124,11 @@ def test_get_fields_shows_zones(client, farm):
     [field] = client.get("/fields", headers=auth(uid)).json()
     assert [z["id"] for z in field["zones"]] == [z["id"] for z in zones]
     assert field["zones"][1]["crop"] == {"id": 2, "name": "배추"}
+
+
+def test_future_planted_at_api_is_422(client, farm):
+    tomorrow = (today_kst() + timedelta(days=1)).isoformat()
+    response = create(client, *farm, zones=[ZONES[0], {**ZONES[1], "planted_at": tomorrow}])
+    assert response.status_code == 422
+    [error] = response.json()["error"]["details"]["errors"]
+    assert error["loc"] == ["body", "zones", 1, "planted_at"]

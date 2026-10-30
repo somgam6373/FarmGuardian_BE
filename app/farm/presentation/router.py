@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import current_user, get_owned_field
 from app.core.db import get_db
+from app.core.time import today_kst
 from app.farm.application import field_service
 from app.farm.presentation.schemas import (
     AddressSearchResult,
@@ -86,6 +87,8 @@ def create_zones(
     db: Session = Depends(get_db),
 ):
     zones = [zone.model_dump() for zone in body.zones]
-    created = field_service.create_zones(db, field_id, user_id, body.direction, body.ratios, zones)
+    created = field_service.create_zones(
+        db, field_id, user_id, body.direction, body.ratios, zones, today_kst()
+    )
     db.commit()
     return created
