@@ -15,6 +15,10 @@ _FIELD_COLUMNS = (
 )
 
 
+# 팜맵 판독 도형은 자기 교차가 있을 수 있어 고친 뒤 폴리곤만 남긴다 (그대로면 ST_Union이 실패한다)
+_PARCEL_GEOM = "ST_Multi(ST_CollectionExtract(ST_MakeValid(ST_GeomFromText({}, 5179)), 3))"
+
+
 @dataclass(frozen=True)
 class FieldRow:
     id: int
@@ -58,7 +62,7 @@ def insert_field(db: Session, user_id: int, name: str, parcels: list[FarmmapParc
     field_id = db.scalar(
         text(
             "INSERT INTO field (user_id, name, geom) "
-            "SELECT :uid, :name, ST_Multi(ST_Union(ST_GeomFromText(w, 5179))) "
+            f"SELECT :uid, :name, ST_Multi(ST_Union({_PARCEL_GEOM.format('w')})) "
             "FROM unnest(CAST(:wkts AS text[])) AS w RETURNING id"
         ),
         {"uid": user_id, "name": name, "wkts": wkts},
@@ -68,7 +72,7 @@ def insert_field(db: Session, user_id: int, name: str, parcels: list[FarmmapParc
             "INSERT INTO field_parcel "
             "(field_id, user_id, farmmap_id, pnu, lnm, land_use, vdpt_yr, geom) "
             "VALUES (:fid, :uid, :farmmap_id, :pnu, :lnm, :land_use, :vdpt_yr, "
-            "ST_GeomFromText(:wkt, 5179))"
+            f"{_PARCEL_GEOM.format(':wkt')})"
         ),
         [
             {

@@ -3,6 +3,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from app.farm.infrastructure import field_repository as repo
+from app.farm.infrastructure.integrations.farmmap import FarmmapParcel
 from tests.farm_support import square
 
 
@@ -77,3 +78,19 @@ def test_bbox_rounded_to_one_decimal(db, make_user):
     uid = make_user("farmer")
     field = repo.get_field(db, repo.insert_field(db, uid, "f", [square("1", x0=0.04)]))
     assert field.bbox == [0.0, 0.0, 10.0, 10.0]
+
+
+def bowtie(farmmap_id: str) -> FarmmapParcel:
+    # 자기 교차 폴리곤. 팜맵 판독 도형에 섞일 수 있다
+    ring = [(0.0, 0.0), (10.0, 10.0), (10.0, 0.0), (0.0, 10.0), (0.0, 0.0)]
+    return FarmmapParcel(farmmap_id, "1" * 19, "1전", "밭", 2022, [[ring]])
+
+
+def test_invalid_parcel_geometry_is_repaired(db, make_user):
+    uid = make_user("farmer")
+    field_id = repo.insert_field(db, uid, "f", [bowtie("1"), square("2", 20)])
+    assert repo.get_field(db, field_id).area_m2 == 150.0
+    assert db.scalar(
+        text("SELECT bool_and(ST_IsValid(geom)) FROM field_parcel WHERE field_id = :f"),
+        {"f": field_id},
+    )
