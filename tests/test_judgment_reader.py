@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import text
+from sqlalchemy import event, text
 
 from app.catalog.application import catalog_service
 from app.core.time import KST
@@ -28,6 +28,12 @@ def zone(make_user, make_field, make_zone):
 @pytest.fixture
 def other_zone(make_user, make_field, make_zone):
     uid = make_user("neighbor")
+    return make_zone(make_field(uid), uid)
+
+
+@pytest.fixture
+def empty_zone(make_user, make_field, make_zone):
+    uid = make_user("idle")
     return make_zone(make_field(uid), uid)
 
 
@@ -105,3 +111,59 @@ def test_ids_that_left_the_catalog_are_skipped(db, zone):
     keep = add(db, zone, at=minute(1))
 
     assert ids(reader.recent_judgments(db, zone)) == [keep]
+
+
+def test_each_zone_gets_its_newest_judgment_and_empty_zones_are_absent(
+    db, zone, other_zone, empty_zone
+):
+    add(db, zone, at=minute(1))
+    newest = add(db, zone, at=minute(5))
+    add(db, zone, at=minute(3))
+    add(db, other_zone, at=minute(9))
+    other_newest = add(db, other_zone, at=minute(10))
+
+    found = reader.last_judgments(db, [zone, other_zone, empty_zone])
+
+    assert set(found) == {zone, other_zone}
+    assert found[zone]["judgment_id"] == newest
+    assert found[other_zone]["judgment_id"] == other_newest
+
+
+def test_equal_times_pick_the_higher_id(db, zone):
+    add(db, zone, at=minute(1))
+    higher = add(db, zone, at=minute(1))
+
+    assert reader.last_judgments(db, [zone])[zone]["judgment_id"] == higher
+
+
+def test_zones_not_asked_for_are_not_returned_and_empty_input_gives_empty_dict(
+    db, zone, other_zone
+):
+    add(db, zone)
+    add(db, other_zone)
+
+    assert set(reader.last_judgments(db, [zone])) == {zone}
+    assert reader.last_judgments(db, []) == {}
+
+
+def test_a_newest_row_with_a_stale_id_leaves_the_zone_out(db, zone):
+    add(db, zone, at=minute(1))
+    add(db, zone, pesticide_id=GONE, at=minute(2))
+
+    assert reader.last_judgments(db, [zone]) == {}
+
+
+def test_one_statement_for_many_zones(db, zone, other_zone, empty_zone):
+    statements = []
+
+    def count(conn, cursor, statement, *args):
+        statements.append(statement)
+
+    bind = db.get_bind()
+    event.listen(bind, "before_cursor_execute", count)
+    try:
+        reader.last_judgments(db, [zone, other_zone, empty_zone])
+    finally:
+        event.remove(bind, "before_cursor_execute", count)
+
+    assert len(statements) == 1

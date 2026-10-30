@@ -25,3 +25,9 @@ def recent_judgments(db: Session, zone_id: int, limit: int = 5) -> list[dict]:
     """구역의 최근 판정 (최신순). 호출하는 쪽이 구역 소유자를 확인한다."""
     briefs = (_brief(row) for row in repository.recent(db, zone_id, limit))
     return [brief for brief in briefs if brief is not None]
+
+
+def last_judgments(db: Session, zone_ids: list[int]) -> dict[int, dict]:
+    """구역 id → 가장 최근 판정. 판정이 없거나 그 행이 카탈로그에서 사라진 구역은 빠진다."""
+    briefs = {row.zone_id: _brief(row) for row in repository.latest_per_zone(db, zone_ids)}
+    return {zone_id: brief for zone_id, brief in briefs.items() if brief is not None}

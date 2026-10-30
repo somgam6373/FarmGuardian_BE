@@ -40,3 +40,16 @@ def recent(db: Session, zone_id: int, limit: int):
         ),
         {"zone": zone_id, "n": limit},
     ).all()
+
+
+def latest_per_zone(db: Session, zone_ids: list[int]):
+    """구역마다 가장 최근 판정 한 건 (쿼리 1번). 판정이 없는 구역은 빠진다."""
+    if not zone_ids:
+        return []
+    return db.execute(
+        text(
+            "SELECT DISTINCT ON (zone_id) id, zone_id, pest_id, pesticide_id, verdict, created_at "
+            "FROM judgment WHERE zone_id = ANY(:ids) ORDER BY zone_id, created_at DESC, id DESC"
+        ),
+        {"ids": zone_ids},
+    ).all()
