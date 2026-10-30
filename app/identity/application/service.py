@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
-from app.farm.application import zone_reader
+from app.farm.application import field_service, zone_reader
 from app.identity.domain.password import hash_password, verify_password
 from app.identity.infrastructure import repository
 
@@ -25,6 +25,22 @@ def _dummy_hash() -> str:
 def register_user(db: Session, username: str, password: str) -> int | None:
     """사용자를 만들고 id를 돌려준다. 아이디가 이미 있으면 None. 커밋하지 않는다."""
     return repository.insert_user(db, username, hash_password(password))
+
+
+def signup(
+    db: Session, username: str, password: str, field_name: str, farmmap_ids: list[str]
+) -> dict:
+    """사용자와 첫 밭을 한 트랜잭션으로 만든다. 밭 생성이 실패하면 사용자도 남지 않는다."""
+    user_id = register_user(db, username, password)
+    if user_id is None:
+        raise AppError("USERNAME_TAKEN", 409, "이미 사용 중인 아이디입니다")
+    try:
+        field = field_service.create_field(db, user_id, field_name, farmmap_ids)
+    except Exception:
+        db.rollback()  # 방금 만든 사용자도 함께 되돌린다
+        raise
+    db.commit()
+    return {"id": user_id, "username": username, "field": field}
 
 
 def login(db: Session, username: str, password: str) -> tuple[int, str] | None:
