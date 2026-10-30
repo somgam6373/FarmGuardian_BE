@@ -1,8 +1,13 @@
+from datetime import date
+
 from sqlalchemy.orm import Session
 
 from app.catalog.application import catalog_service
 from app.core.time import KST
+from app.judgment.application.service import spray_records
+from app.judgment.domain.rules import rotation_summary
 from app.judgment.infrastructure import repository
+from app.spraying.application import spray_service
 
 
 def _brief(row) -> dict | None:
@@ -31,3 +36,9 @@ def last_judgments(db: Session, zone_ids: list[int]) -> dict[int, dict]:
     """구역 id → 가장 최근 판정. 판정이 없거나 그 행이 카탈로그에서 사라진 구역은 빠진다."""
     briefs = {row.zone_id: _brief(row) for row in repository.latest_per_zone(db, zone_ids)}
     return {zone_id: brief for zone_id, brief in briefs.items() if brief is not None}
+
+
+def rotation(db: Session, zone_id: int, planted_at: date | None) -> dict:
+    """구역의 작용기작 편중도 (명세의 Rotation). 정식일이 없으면 전체 기록 기준이다."""
+    history = spray_records(spray_service.history(db, zone_id))
+    return rotation_summary(history, planted_at).model_dump()

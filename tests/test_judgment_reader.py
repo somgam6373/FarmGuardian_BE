@@ -1,4 +1,5 @@
-from datetime import UTC, datetime, timedelta
+import uuid
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from fastapi.encoders import jsonable_encoder
@@ -167,3 +168,57 @@ def test_one_statement_for_many_zones(db, zone, other_zone, empty_zone):
         event.remove(bind, "before_cursor_execute", count)
 
     assert len(statements) == 1
+
+
+def two_moa_drugs():
+    by_label = {}
+    for entry in catalog_service.list_pesticides(1):
+        moa = entry.pesticide.moa
+        if moa is not None:
+            by_label.setdefault(moa.label_kr, entry.pesticide)
+        if len(by_label) == 2:
+            return list(by_label.values())
+    raise LookupError("need two moa labels")
+
+
+def moa_dict(drug):
+    return {"label_kr": drug.moa.label_kr, "system": drug.moa.system, "code": drug.moa.code}
+
+
+def spray(db, zone_id, pesticide_id, day):
+    db.execute(
+        text(
+            "INSERT INTO spray_log (zone_id, pesticide_id, sprayed_on, source, request_id) "
+            "VALUES (:z, :p, :d, 'manual', :r)"
+        ),
+        {"z": zone_id, "p": pesticide_id, "d": day, "r": uuid.uuid4()},
+    )
+
+
+def test_no_sprays_gives_the_empty_rotation(db, zone):
+    assert reader.rotation(db, zone, None) == {"window_start": None, "total": 0, "items": []}
+
+
+def test_counts_sprays_per_moa_most_used_first(db, zone):
+    a, b = two_moa_drugs()
+    spray(db, zone, a.id, date(2026, 6, 1))
+    spray(db, zone, a.id, date(2026, 6, 8))
+    spray(db, zone, b.id, date(2026, 6, 15))
+
+    rotation = reader.rotation(db, zone, None)
+
+    assert rotation["window_start"] is None and rotation["total"] == 3
+    assert rotation["items"] == [{"moa": moa_dict(a), "count": 2}, {"moa": moa_dict(b), "count": 1}]
+
+
+def test_only_sprays_from_planting_on_count_and_the_planting_day_counts(db, zone):
+    a, _ = two_moa_drugs()
+    planted = date(2026, 4, 1)
+    spray(db, zone, a.id, date(2026, 3, 31))
+    spray(db, zone, a.id, planted)
+    spray(db, zone, a.id, date(2026, 4, 2))
+
+    rotation = reader.rotation(db, zone, planted)
+
+    assert rotation["window_start"] == planted
+    assert rotation["total"] == 2
