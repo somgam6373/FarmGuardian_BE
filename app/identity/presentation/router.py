@@ -7,11 +7,25 @@ from app.core.auth import current_user
 from app.core.db import get_db
 from app.core.errors import AppError
 from app.identity.application import service
-from app.identity.presentation.schemas import LoginIn, LoginOut, MeOut, OnboardingOut
+from app.identity.presentation.schemas import (
+    LoginIn,
+    LoginOut,
+    MeOut,
+    OnboardingOut,
+    SignupIn,
+    SignupOut,
+)
 
 router = APIRouter()
 
 UserId = Annotated[int, Depends(current_user)]
+
+
+@router.post("/auth/signup", response_model=SignupOut, status_code=201)
+def signup(body: SignupIn, db: Session = Depends(get_db)):
+    return service.signup(
+        db, body.username, body.password, body.field_name, body.parcel_farmmap_ids
+    )
 
 
 @router.post("/auth/login", response_model=LoginOut)
