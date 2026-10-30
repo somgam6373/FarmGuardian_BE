@@ -29,6 +29,7 @@
 | 도형 | `geometry` = GeoJSON `MultiPolygon`, EPSG:5179 미터 좌표, y축이 위쪽, 소수 1자리. `bbox` = `[minx, miny, maxx, maxy]`. 프론트가 y축을 뒤집어 SVG로 그린다 |
 | 목록 응답 | 배열을 그대로 돌려준다. 페이징이 있는 두 곳(`GET /addresses/search`, `GET /zones/{id}/sprays`)만 `{total, items}` **【결정】** |
 | 삭제 | 성공하면 본문 없이 204 |
+| 상태 확인 | `GET /health` → `{"status": "ok"}`. 인증 없음. 엔드포인트 24개에 세지 않는다 |
 
 ### 오류 응답
 
@@ -47,12 +48,13 @@
 | `VALIDATION_ERROR` | 422 | 요청 값 오류 | `{errors: [{loc, msg, type}]}`. 입력값은 돌려주지 않는다 |
 | `ONBOARDING_INCOMPLETE` | 422 | 구역이 없거나 「누락 없음」이 안 된 구역이 있음 | `{zone_count: int, unconfirmed_zone_ids: [int]}` **【결정】** |
 | `UPSTREAM_ERROR` | 502 | 외부 API 실패 | `{source: "vworld"\|"farmmap"\|"kma", upstream_code?: string}` |
+| `HTTP_ERROR` | 401·404 외 HTTP 상태 | 위 코드에 없는 HTTP 오류 (예: 허용되지 않는 메서드 405) | 없음 |
 
 ## 2. 공통 타입
 
 ```
 Moa           {label_kr: string, system: string|null, code: string|null}
-                  label_kr = 국내 계열 코드 (예 "라3"), system·code = 국제 코드 (예 "FRAC", "24"; 엑셀 `5_약계열`의 「FRAC 24」를 나눈 값)
+                  label_kr = 국내 계열 코드 (예 "라3"), system·code = 국제 코드 (예 "FRAC", "24"; `moa.json`의 `intl_code` 「FRAC 24」를 나눈 값)
 Crop          {id: int, name: string}
 Pesticide     {id: int, name: string, item_name: string, moa: Moa|null}
                   name = 상표명, item_name = 품목명
@@ -88,10 +90,10 @@ Weather       {issued_at: datetime, items: [{at: datetime, pty: int, pcp: string
 PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: string|null, photo_source: string|null,
                description: string|null, occurrence: string|null, occurrence_source: string|null,
                vectors: [{id, name, guide, source}]}
-                  이 작물의 도감 값 (엑셀 `2_병해충_도감`·`1_병해충_발생시기`, 없으면 null → 화면에 「없음」)
+                  이 작물의 도감 값 (정적 데이터 `pest`·`pest_photo`·`pest_season`, 없으면 null → 화면에 「없음」)
                   photo_source = 사진 출처 (작물명 "토마토", 대체 "양배추(대체)", 보충 "옥수수(보충)", 사진이 없으면 null)
                   description = 증상·피해. occurrence = 발생 시기 (발생 월·근거 문장), occurrence_source = 그 출처 (예 "NCPMS 설명", "PDF 경보")
-                  vectors = 바이러스의 매개충 (엑셀 `7_`). name = 연결된 도감 병해충 이름, guide = 앱 안내 문구 (예 "이 벌레를 잡는 약으로 안내"), source = 근거.
+                  vectors = 바이러스의 매개충 (`virus_vector.json`). name = 연결된 도감 병해충 이름, guide = 앱 안내 문구 (예 "이 벌레를 잡는 약으로 안내"), source = 근거.
                   자료가 없으면 빈 배열 → 「연결 자료 없음」
 ```
 
@@ -201,7 +203,7 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 
 ### `GET /crops/{id}/symptom-parts`
 
-- 응답 200: `[string]` — 이 작물에 병해충이 연결된 증상 부위 (`덩이, 뿌리, 잎, 줄기, 벌레, 열매` 중, 엑셀 `2_병해충_도감`의 부위 값). **【결정】** 문자열 배열
+- 응답 200: `[string]` — 이 작물에 병해충이 연결된 증상 부위 (`덩이, 뿌리, 잎, 줄기, 벌레, 열매` 중, `pest.json`의 `parts` 값). **【결정】** 문자열 배열
 - 오류: 404
 
 ### `GET /pests/candidates`
@@ -228,7 +230,7 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 ### `POST /zones/{id}/judgments`
 
 - 요청 본문: `{pesticide_id: int, pest_id?: int, apply_date?: date}` — `pest_id`가 없으면 병해충 미지목
-  - `apply_date` **【결정】**: 「이 날 살포한다면」의 날짜. 없으면 오늘(KST). 판정의 `today`로 쓰여 **수확 가능일(`harvest_from`)과 문구의 날짜**만 달라진다. 살포 이력은 날짜와 무관하게 구역의 전체 기록을 쓴다. 시연 날짜와 상관없이 같은 화면을 재현하려는 용도다 (판정만 하고 기록은 저장하지 않으므로 이력에 영향이 없다).
+  - `apply_date` **【결정】**: 「이 날 살포한다면」의 날짜. 없으면 오늘(KST). 판정의 `today`로 쓰여 **수확 가능일(`harvest_from`)과 문구의 날짜**만 달라진다. 살포 이력은 날짜와 무관하게 구역의 전체 기록을 쓴다. 시연 날짜와 상관없이 같은 화면을 재현하려는 용도다 (판정만 하고 기록은 저장하지 않으므로 이력에 영향이 없다). 2100-12-31보다 늦은 날짜는 422다 (수확 가능일이 날짜 범위를 넘지 않게).
 - 응답 201: `JudgeResponse` (판정을 저장한다). `apply_date`는 판정에 쓴 날짜(요청 값 또는 오늘)다.
   - `alternatives`는 병해충을 지목한 판정에만 계산한다 (같은 작물×병해충의 다른 약제 중 `OK`이고 작용기작이 다른 것). 지목하지 않았고 불가이면 `result.notices`에 안내 한 줄이 붙고 `alternatives`는 빈 배열.
   - `show_extension_office`: 「농업기술센터 문의」 안내를 보여줄지. 병해충을 지목했고 `verdict`가 `BLOCKED` 또는 `CAUTION`이며 대안이 0건일 때만 true (judge_rules §7)
@@ -307,6 +309,6 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 | `/addresses/search` | 브이월드 검색 API (`req/search`, `category=parcel`). 결과 `id`가 PNU |
 | `/parcels`, 밭 생성, 가입 | 팜맵 `getPnuBasedFarmmapInfo`, `getIdBasedFarmmapInfo` |
 | `/zones/{id}/weather` | 기상청 단기예보 `getVilageFcst` |
-| 병해충·약제·판정 | 요청 중 외부 호출 없음 (엑셀 7개를 JSON으로 바꿔 미리 적재한 DB) |
+| 병해충·약제·판정 | 요청 중 외부 호출 없음 (저장소의 정적 JSON `app/catalog/data`를 메모리로 읽음) |
 
 외부 요청·응답의 상세는 `팜가디언_아키텍처.md` §8.

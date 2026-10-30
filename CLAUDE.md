@@ -60,7 +60,7 @@ Design docs, specs, and plans live directly in `docs/dev/` (no subfolders). Chec
 ## Backend (this repo root)
 
 - Stack: Python 3.13, FastAPI, SQLAlchemy 2, psycopg 3, pydantic-settings.
-- Layout: `app/{core,ingest,integrations,judge}`, entrypoint `app/main.py`, schema in `schema.sql`, tests in `tests/`.
+- Layout: `app/{core,identity,farm,catalog,judgment,spraying}` (each context split into `domain/application/infrastructure/presentation`, see `docs/dev/팜가디언_아키텍처.md` §4), entrypoint `app/main.py`, schema in `schema.sql`, tests in `tests/`.
 - Config comes from env (see `.env.example`). Never commit `.env` or secrets.
 - Schema changes go in `schema.sql` only (no Alembic).
 
