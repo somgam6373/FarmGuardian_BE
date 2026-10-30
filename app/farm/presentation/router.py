@@ -12,6 +12,10 @@ from app.farm.presentation.schemas import (
     FieldOut,
     Keyword,
     Parcel,
+    SplitPiece,
+    SplitRequest,
+    ZoneOut,
+    ZonesCreate,
 )
 
 router = APIRouter()
@@ -63,3 +67,25 @@ def delete_field(
 ):
     field_service.delete_field(db, field_id)
     db.commit()
+
+
+@router.post("/fields/{field_id}/split-preview", response_model=list[SplitPiece])
+def split_preview(
+    body: SplitRequest,
+    field_id: Annotated[int, Depends(get_owned_field)],
+    db: Session = Depends(get_db),
+):
+    return field_service.split_preview(db, field_id, body.direction, body.ratios)
+
+
+@router.post("/fields/{field_id}/zones", response_model=list[ZoneOut], status_code=201)
+def create_zones(
+    body: ZonesCreate,
+    field_id: Annotated[int, Depends(get_owned_field)],
+    user_id: Annotated[int, Depends(current_user)],
+    db: Session = Depends(get_db),
+):
+    zones = [zone.model_dump() for zone in body.zones]
+    created = field_service.create_zones(db, field_id, user_id, body.direction, body.ratios, zones)
+    db.commit()
+    return created
