@@ -8,26 +8,14 @@ from app.core.errors import AppError
 from app.farm.application import field_service
 from app.farm.infrastructure import field_repository
 from app.farm.infrastructure.integrations import farmmap
-from tests.farm_support import square
+from tests.farm_support import install_fake_farmmap, square
 
 FIELD_KEYS = {"id", "name", "area_m2", "geometry", "bbox", "zones"}
 
 
 @pytest.fixture
 def fake_farmmap(monkeypatch):
-    """id → 정사각형 필지. missing에 있는 id는 None, failing에 있는 id는 502."""
-    calls, missing, failing = [], set(), set()
-
-    def fake(farmmap_id, *, client=None):
-        calls.append(farmmap_id)
-        if farmmap_id in failing:
-            raise AppError("UPSTREAM_ERROR", 502, "팜맵 조회에 실패했습니다", {"source": "farmmap"})
-        if farmmap_id in missing:
-            return None
-        return square(farmmap_id, x0=10 * (int(farmmap_id) - 1))
-
-    monkeypatch.setattr(farmmap, "parcel_by_id", fake)
-    return calls, missing, failing
+    return install_fake_farmmap(monkeypatch)
 
 
 def count(db, table):
