@@ -19,8 +19,8 @@ step once the farm side exists.
 ## Non-goals
 
 - **The `POST /auth/signup` route.** It creates a user and the first field in one transaction through
-  `farm.application.field_service` (spec §3), and that function does not exist yet (the farm side has
-  only `/parcels` and `/addresses/search`). It is a follow-up (below), not part of this task.
+  `farm.application.field_service` (spec §3), and that function did not exist yet when this was
+  written. It became a follow-up, designed in "Signup" at the end of this document.
 - Tokens, sessions, brute-force limits, password reset: the architecture says security stays minimal
   for the demo.
 
@@ -133,18 +133,25 @@ real hashes.
 - No limit on login attempts.
 - Withdrawal is irreversible and has no confirmation step (the frontend asks).
 
-## Coordination: signup is a follow-up
+## Signup (added 2026-10-30)
 
-`POST /auth/signup` needs, from 혜빈님's `field_service`, one function (name is mine to suggest):
+`field_service.create_field(db, user_id, name, farmmap_ids) -> dict` now exists (PR #22) with the
+contract asked for above: it runs in the caller's transaction, never commits, and raises `AppError`
+for 409 `PARCEL_ALREADY_USED`, 422 (`loc` `["body","parcel_farmmap_ids",i]`, `type` `not_found`) and
+502 `UPSTREAM_ERROR`. Approved in chat 2026-10-30; frame = API spec §3 `POST /auth/signup`.
 
-`create_field(db, user_id: int, name: str, farmmap_ids: list[str]) -> <the spec's Field>`
+### `POST /auth/signup` (no auth)
 
-with this contract: it runs inside the caller's transaction and **never commits** (so a 502, 409 or 422
-rolls the new user back too); it raises `AppError` for `PARCEL_ALREADY_USED` (409), a missing id
-(422, `loc` `["body","parcel_farmmap_ids",i]`, `type` `not_found`) and `UPSTREAM_ERROR` (502); it
-returns what `Field` needs (`id, name, area_m2, geometry, bbox, zones: []`). Her own `POST /fields`
-can call the same function and commit.
-
-Once it exists, signup is: validate the body (spec limits: username 3..30 of letters, digits and `_`;
-password 4..72; field name 1..30; 1..20 distinct ids), `register_user` (409), `create_field`, commit,
-201 `{id, username, field}`. I will do that as a separate small task when she confirms the signature.
+- Body `SignupIn`: `username` `^[A-Za-z0-9_]{3,30}$`; `password` 4..72 characters, untouched;
+  `field_name` 1..30 characters after stripping outer whitespace (same as `POST /fields`, my call);
+  `parcel_farmmap_ids` 1..20 distinct ASCII-digit strings, built from farm's `FarmmapId` and
+  `check_unique` so the rule lives in one place (my call; farm's file is not touched).
+- `service.signup(db, username, password, field_name, farmmap_ids) -> dict`: `register_user` (`None`
+  → 409 `USERNAME_TAKEN`, before any Farmmap call) → `create_field` → `db.commit()` → 201
+  `{id, username, field}`. `field` is farm's `FieldOut` (`zones: []`).
+- Any exception from `create_field` rolls the session back explicitly before it propagates, so the
+  new user disappears with it (spec: a 502 leaves no user). `get_db` would also roll back on close,
+  but the test client reuses one session, so the service does not rely on that (my call).
+- The user row is inserted before the Farmmap calls (spec order), so a concurrent signup with the same
+  name waits on the unique index until this one ends. Fine at demo scale.
+- Not done: login attempt limits, tokens or sessions (`X-User-Id` stays).
