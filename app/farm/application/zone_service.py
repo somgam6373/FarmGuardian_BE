@@ -127,3 +127,35 @@ def check_values(
             )
     if errors:
         raise AppError("VALIDATION_ERROR", 422, "요청 값이 올바르지 않습니다", {"errors": errors})
+
+
+def update_zone(db: Session, zone_id: int, changes: dict, today: date) -> dict:
+    """changes = 보낸 값만 (name, crop_id, planted_at, history_confirmed). 커밋하지 않는다."""
+    check_values(db, [(["body"], changes.get("crop_id"), changes.get("planted_at"))], today)
+    current = db.execute(
+        text("SELECT name, crop_id, planted_at, history_confirmed FROM zone WHERE id = :id"),
+        {"id": zone_id},
+    ).one()
+    crop_id = changes.get("crop_id", current.crop_id)
+    planted_at = current.planted_at
+    if crop_id != current.crop_id:
+        planted_at = None  # 작물이 바뀌면 새 작기다. 정식일은 보낸 값, 없으면 비운다
+    planted_at = changes.get("planted_at", planted_at)
+    confirmed = current.history_confirmed
+    if planted_at != current.planted_at:
+        confirmed = False  # 세는 기간이 바뀌어 「누락 없음」을 다시 확인받는다
+    confirmed = changes.get("history_confirmed", confirmed)
+    db.execute(
+        text(
+            "UPDATE zone SET name = :name, crop_id = :crop_id, planted_at = :planted_at, "
+            "history_confirmed = :confirmed WHERE id = :id"
+        ),
+        {
+            "id": zone_id,
+            "name": changes.get("name", current.name),
+            "crop_id": crop_id,
+            "planted_at": planted_at,
+            "confirmed": confirmed,
+        },
+    )
+    return get_zones(db, [zone_id])[0]
