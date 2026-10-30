@@ -413,6 +413,7 @@ function card(no, title, apis) {
 function showSection(id) {
   state.sectionId = id;
   for (const k of Object.keys(PICK)) PICK[k].views = {};
+  JUDGE.views = {};
   zoneWidgets.length = 0;
   const sec = SECTIONS.find((s) => s.id === id) || SECTIONS[0];
   $("rail").replaceChildren(...SECTIONS.map((s) => h("button", { class: s.id === sec.id ? "active" : "", type: "button", onclick: () => showSection(s.id) },
@@ -508,7 +509,7 @@ const ZONE_COLORS = ["#2f7d4f", "#b7791f", "#3b6ea5", "#a0457a", "#6b8e23", "#c0
 function judgmentCell(j) {
   return j ? [vBadge(j.verdict), ` ${j.pesticide.name}${j.pest ? " / " + j.pest.name : ""}`] : "기록 없음";
 }
-function renderField(box, field) {
+function renderField(box, field, { onZone } = {}) {
   const layers = [{ geometry: field.geometry, fill: "none", strokeWidth: "1.8" }];
   (field.zones || []).forEach((z, i) => layers.push({ geometry: z.geometry, fill: ZONE_COLORS[i % ZONE_COLORS.length], label: z.name }));
   const wrap = h("div", {},
@@ -516,12 +517,13 @@ function renderField(box, field) {
     geoSvg(layers));
   if ((field.zones || []).length) {
     wrap.append(h("table", {},
-      h("tr", {}, ["구역", "작물", "정식일", "누락 없음", "마지막 살포", "최근 판정"].map((t) => h("th", {}, t))),
+      h("tr", {}, ["구역", "작물", "정식일", "누락 없음", "마지막 살포", "최근 판정", onZone ? "" : null].map((t) => (t === null ? null : h("th", {}, t)))),
       field.zones.map((z) => h("tr", {},
         h("td", {}, `#${z.id} ${z.name}`), h("td", {}, z.crop.name), h("td", {}, z.planted_at || "-"),
         h("td", {}, z.history_confirmed ? "✔" : "–"),
         h("td", {}, z.last_spray ? `${z.last_spray.sprayed_on} ${z.last_spray.pesticide.name}` : "기록 없음"),
-        h("td", {}, judgmentCell(z.last_judgment))))));
+        h("td", {}, judgmentCell(z.last_judgment)),
+        onZone ? h("td", {}, h("button", { type: "button", onclick: () => onZone({ id: z.id, name: z.name, cropId: z.crop.id, cropName: z.crop.name }) }, "선택")) : null))));
   } else {
     note(wrap, "info", "아직 나누지 않은 밭입니다 (zones가 비어 있음).");
   }
@@ -979,6 +981,274 @@ defineStep(11, (box) => {
     } else note(out, "err", errorText(r));
   }));
   box.append(btn, out);
+});
+
+// ============================================================ C. 홈 (12–13)
+defineStep(12, (box) => {
+  const out = h("div");
+  const show = (fields) => {
+    out.replaceChildren();
+    if (fields === null) { note(out, "err", "밭 목록을 불러오지 못했습니다 (로그인했나요?)."); return; }
+    if (!fields.length) note(out, "info", "밭이 없습니다 ([]).");
+    for (const f of fields) renderField(out, f, { onZone: (z) => { setZone(z); note(out, "ok", `구역 #${z.id} ${z.name}을 선택했습니다.`); } });
+  };
+  const btn = h("button", { class: "primary", type: "button" }, "홈 새로고침");
+  btn.addEventListener("click", () => withLock(btn, async () => { invalidateFields(); show(await loadFields(true)); }));
+  box.append(btn, h("div", { class: "note info" }, "구역별로 마지막 살포와 최근 판정을 보여 줍니다. 기록이 없으면 「기록 없음」입니다. 구역 줄의 「선택」은 아래 단계들이 쓰는 구역을 정합니다."), out);
+  if (state.userId) loadFields().then(show);
+});
+
+const PTY = { 0: "없음", 1: "비", 2: "비/눈", 3: "눈", 4: "소나기" };
+function renderZoneDetail(box, d) {
+  box.append(h("div", {}, h("strong", {}, `#${d.id} ${d.name}`), ` · 밭 #${d.field_id} · 작물 ${d.crop.name} · 정식일 ${d.planted_at || "없음"} · 누락 없음 ${d.history_confirmed ? "✔" : "–"} · ${d.area_m2}㎡`));
+  const rot = d.rotation;
+  box.append(h("div", {}, h("strong", {}, "작용기작 편중도"), ` · ${rot.window_start ? `${rot.window_start} 이후` : "정식일이 없어 전체 기록 기준"} · 살포 ${rot.total}건`));
+  if (!rot.items.length) note(box, "info", "살포 기록이 없습니다.");
+  for (const it of rot.items) {
+    const pct = rot.total ? Math.round((it.count / rot.total) * 100) : 0;
+    box.append(h("div", { class: "row" }, h("span", { class: "mono", style: { width: "9em" } }, it.moa ? it.moa.label_kr : "작용기작 미상"),
+      h("span", { style: { display: "inline-block", height: "10px", width: `${pct * 2}px`, background: "var(--accent)", borderRadius: "3px" } }), `${it.count}건 (${pct}%)`));
+  }
+  box.append(h("div", {}, h("strong", {}, "최근 판정 (최대 5건, 최신순)")));
+  if (!d.recent_judgments.length) note(box, "info", "판정 기록이 없습니다.");
+  else box.append(h("table", {}, d.recent_judgments.map((j) => h("tr", {}, h("td", {}, j.created_at), h("td", {}, vBadge(j.verdict)),
+    h("td", {}, `${j.pesticide.name} (${j.pesticide.item_name})`), h("td", {}, j.pest ? j.pest.name : "병해충 지정 안 함")))));
+}
+defineStep(13, (box, c) => {
+  const out = h("div");
+  const btn = h("button", { class: "primary", type: "button" }, "구역 상세 불러오기");
+  btn.disabled = c.missing.length > 0;
+  pickZone(box, () => {});
+  btn.addEventListener("click", () => withLock(btn, async () => {
+    out.replaceChildren();
+    if (!state.zone) { note(out, "err", "구역을 먼저 고르세요."); return; }
+    const r = await api("GET", `/zones/${state.zone.id}`);
+    if (!r.ok) { note(out, "err", errorText(r)); return; }
+    renderZoneDetail(out, r.data);
+  }));
+  box.append(btn, out);
+});
+
+// ============================================================ D. 병해충·약제 판정 (14–20)
+// 14–20단계가 한 흐름이라 선택 상태를 JUDGE에 두고, 화면 조각(parts/candidates/search/chosen/drugs/result)만 다시 그린다.
+const JUDGE = { cropId: null, zoneId: null, parts: null, partsErr: null, part: null, candidates: null, candErr: null, searchRes: null, searchErr: null,
+  pest: null, noPest: false, drugs: null, drugsErr: null, drug: null, result: null, applyDate: "", views: {}, seq: { parts: 0, drugs: 0 } };
+function jview(role, box) { (JUDGE.views[role] ||= []).push(box); jdraw(role); }
+function jdraw(...roles) { for (const r of roles) for (const b of JUDGE.views[r] || []) JDRAW[r](b); }
+
+const pestLabel = () => (JUDGE.noPest ? "병해충 지정 안 함" : JUDGE.pest ? `${JUDGE.pest.name} (id ${JUDGE.pest.id})` : "아직 안 고름");
+async function judgeZoneChanged(z) {
+  if (!z) return;
+  if (JUDGE.zoneId !== z.id) { JUDGE.zoneId = z.id; JUDGE.result = null; }
+  if (JUDGE.cropId !== z.cropId) {
+    Object.assign(JUDGE, { cropId: z.cropId, parts: null, partsErr: null, part: null, candidates: null, searchRes: null, pest: null, noPest: false, drugs: null, drug: null, result: null });
+    jdraw("parts", "candidates", "search", "chosen", "drugs", "result");
+    const my = ++JUDGE.seq.parts;
+    const r = await api("GET", `/crops/${z.cropId}/symptom-parts`);
+    if (my !== JUDGE.seq.parts) return;
+    JUDGE.parts = r.ok ? r.data : null; JUDGE.partsErr = r.ok ? null : errorText(r);
+  }
+  jdraw("parts", "chosen", "result");
+}
+async function loadCandidates(part) {
+  JUDGE.part = part; JUDGE.candidates = null; JUDGE.candErr = null; jdraw("parts", "candidates");
+  const r = await api("GET", "/pests/candidates", { query: { crop_id: JUDGE.cropId, part } });
+  JUDGE.candidates = r.ok ? r.data : null; JUDGE.candErr = r.ok ? null : errorText(r);
+  jdraw("candidates");
+}
+async function loadJudgeDrugs() {
+  JUDGE.drug = null; JUDGE.drugs = null; JUDGE.drugsErr = null;
+  if (!JUDGE.cropId || (!JUDGE.pest && !JUDGE.noPest)) { jdraw("drugs", "chosen"); return; }
+  jdraw("drugs", "chosen");
+  const my = ++JUDGE.seq.drugs;
+  const r = await api("GET", "/pesticides", { query: { crop_id: JUDGE.cropId, pest_id: JUDGE.noPest ? undefined : JUDGE.pest.id } });
+  if (my !== JUDGE.seq.drugs) return;
+  JUDGE.drugs = r.ok ? r.data : null; JUDGE.drugsErr = r.ok ? null : errorText(r);
+  jdraw("drugs", "chosen");
+}
+function choosePest(p) { JUDGE.pest = { id: p.id, name: p.name }; JUDGE.noPest = false; jdraw("candidates", "search", "chosen"); loadJudgeDrugs(); }
+
+// 병해충 카드 (후보와 검색 결과가 같은 모양): 사진, 이름, 증상, 발생 시기, 매개충
+function pestCards(box, list) {
+  if (!list.length) { note(box, "info", "결과가 없습니다."); return; }
+  for (const p of list) {
+    const img = p.photo_url ? h("img", { src: p.photo_url, alt: p.name, width: "110", loading: "lazy", referrerpolicy: "no-referrer", style: { borderRadius: "6px" } }) : null;
+    if (img) img.addEventListener("error", () => img.replaceWith(h("span", { class: "note warn" }, "사진을 불러오지 못했습니다")));
+    const picked = JUDGE.pest && JUDGE.pest.id === p.id;
+    box.append(h("div", { class: "card", style: { margin: "6px 0" } }, h("div", { class: "row", style: { alignItems: "flex-start" } }, img,
+      h("div", { style: { flex: "1", minWidth: "220px" } },
+        h("div", {}, h("strong", {}, p.name), " ", p.kind ? h("span", { class: "badge" }, p.kind) : null, " ", h("span", { class: "mono" }, `id ${p.id}`),
+          p.photo_source ? h("small", {}, `  사진: ${p.photo_source}`) : null),
+        h("div", {}, `증상·피해: ${p.description || "없음"}`),
+        h("div", {}, `발생 시기: ${p.occurrence || "없음"}${p.occurrence_source ? ` (${p.occurrence_source})` : ""}`),
+        p.vectors.length ? h("div", {}, "매개충: ", p.vectors.map((v) => h("button", { type: "button", title: `${v.guide} / ${v.source}`,
+          onclick: () => choosePest(v) }, `${v.name} 선택`))) : null,
+        p.vectors.length ? h("small", {}, p.vectors.map((v) => `${v.name}: ${v.guide} (${v.source})`).join(" · ")) : null),
+      h("button", { class: picked ? "primary" : "", type: "button", onclick: () => choosePest(p) }, picked ? "고름 ✔" : "이 병해충 고르기"))));
+  }
+}
+
+const JDRAW = {
+  parts(box) {
+    box.replaceChildren();
+    if (!state.zone) { note(box, "info", "위에서 구역을 먼저 고르세요."); return; }
+    if (JUDGE.partsErr) { note(box, "err", JUDGE.partsErr); return; }
+    if (!JUDGE.parts) { note(box, "info", "증상 부위를 불러오는 중입니다."); return; }
+    box.append(h("div", { class: "row" }, "증상 부위: ", JUDGE.parts.map((p) => h("button", { class: JUDGE.part === p ? "primary" : "", type: "button", onclick: () => loadCandidates(p) }, p))));
+  },
+  candidates(box) {
+    box.replaceChildren();
+    if (JUDGE.candErr) { note(box, "err", JUDGE.candErr); return; }
+    if (!JUDGE.part) { note(box, "info", "증상 부위를 고르면 그 부위에 맞는 후보 카드가 나옵니다 (14단계)."); return; }
+    if (!JUDGE.candidates) { note(box, "info", "후보를 불러오는 중입니다."); return; }
+    pestCards(box, JUDGE.candidates);
+  },
+  search(box) {
+    box.replaceChildren();
+    const q = input("pest_q", { size: 16, placeholder: "예: 좀나방" });
+    const go = h("button", { class: "primary", type: "button" }, "검색");
+    const run = () => withLock(go, async () => {
+      if (!JUDGE.cropId) { JUDGE.searchErr = "구역을 먼저 고르세요 (14단계)."; JUDGE.searchRes = null; jdraw("search"); return; }
+      const r = await api("GET", "/pests", { query: { crop_id: JUDGE.cropId, q: (form.pest_q || "").trim() } });
+      JUDGE.searchRes = r.ok ? r.data : null; JUDGE.searchErr = r.ok ? null : errorText(r);
+      jdraw("search");
+    });
+    go.addEventListener("click", run);
+    q.addEventListener("keydown", (e) => { if (e.key === "Enter") run(); });
+    box.append(h("div", { class: "row" }, labeled("병해충 이름 ", q), go));
+    if (JUDGE.searchErr) note(box, "err", JUDGE.searchErr);
+    if (JUDGE.searchRes) { box.append(h("small", {}, `${JUDGE.searchRes.length}건 (이름순, 페이징 없음)`)); pestCards(box, JUDGE.searchRes.slice(0, 40)); }
+  },
+  chosen(box) {
+    const z = state.zone;
+    box.textContent = `구역: ${z ? `#${z.id} ${z.name || ""} (작물 ${z.cropName || z.cropId})` : "없음"} · 병해충: ${pestLabel()} · 약제: ${JUDGE.drug ? `${JUDGE.drug.name} (${JUDGE.drug.item_name})` : "아직 안 고름"}`;
+    box.className = "mono";
+  },
+  drugs(box) {
+    box.replaceChildren();
+    const none = h("input", { type: "checkbox" });
+    none.checked = JUDGE.noPest;
+    none.addEventListener("change", () => { JUDGE.noPest = none.checked; if (none.checked) JUDGE.pest = null; jdraw("candidates", "search", "chosen"); loadJudgeDrugs(); });
+    box.append(h("label", { class: "row" }, none, "병해충 지정 안 함 (이 작물에 등록된 약제 전체)"));
+    if (JUDGE.drugsErr) { note(box, "err", JUDGE.drugsErr); return; }
+    if (!state.zone) { note(box, "info", "구역을 먼저 고르세요 (14단계)."); return; }
+    if (!JUDGE.pest && !JUDGE.noPest) { note(box, "info", "병해충을 고르거나 「지정 안 함」을 체크하면 약제 목록이 나옵니다."); return; }
+    if (!JUDGE.drugs) { note(box, "info", "약제 목록을 불러오는 중입니다."); return; }
+    // 이름으로 거르는 입력칸은 목록 바깥에 둔다 (목록만 다시 그려야 입력 중에 포커스가 유지된다)
+    const q = input("dj_q", { size: 16, placeholder: "예: 알칸타" });
+    const listBox = h("div");
+    const draw = () => {
+      listBox.replaceChildren();
+      const t = q.value.trim().toLowerCase();
+      const match = (d) => !t || d.name.toLowerCase().includes(t) || d.item_name.toLowerCase().includes(t);
+      const group = (title, list) => {
+        const hits = list.filter(match);
+        listBox.append(h("div", {}, h("strong", {}, `${title} (${hits.length}/${list.length})`)));
+        if (!hits.length) { note(listBox, "info", "없음"); return; }
+        listBox.append(h("div", { class: "row" }, hits.slice(0, 60).map((d) => h("button", { class: JUDGE.drug && JUDGE.drug.id === d.id ? "primary" : "", type: "button",
+          onclick: () => { JUDGE.drug = d; JUDGE.result = null; jdraw("drugs", "chosen", "result"); } }, `${d.name} (${d.item_name})${d.moa ? " · " + d.moa.label_kr : ""}`))));
+        if (hits.length > 60) listBox.append(h("small", {}, `앞 60개만 표시 (일치 ${hits.length}개). 이름으로 더 거르세요.`));
+      };
+      group("일반 약제", JUDGE.drugs.filter((d) => !d.at_planting_only));
+      group("심을 때 쓰는 약 (판정에서 ②가 확인 필요)", JUDGE.drugs.filter((d) => d.at_planting_only));
+    };
+    q.addEventListener("input", draw);
+    box.append(h("div", { class: "row" }, labeled("약제 이름으로 거르기 ", q)), listBox);
+    draw();
+  },
+  result(box) {
+    box.replaceChildren();
+    const r = JUDGE.result;
+    if (!r) return;
+    if (!r.ok) { note(box, "err", errorText(r)); return; }
+    renderJudgment(box, r.data);
+  },
+};
+
+const CHECK_TITLE = { registration: "① 등록", timing: "② 시기", count: "③ 횟수", moa: "④ 작용기작" };
+function renderJudgment(box, d) {
+  const res = d.result;
+  box.append(h("div", { class: "row" }, h("strong", {}, "판정 결과"), vBadge(res.verdict), `판정 #${d.judgment_id} · 기준 날짜 ${d.apply_date} · 데이터 조회일 ${res.data_asof}`));
+  note(box, "info", "이 호출은 판정만 합니다. 살포 기록은 저장되지 않습니다 (20단계에서 따로 저장).");
+  for (const c of res.checks) {
+    box.append(h("div", { class: "card", style: { margin: "6px 0" } },
+      h("div", { class: "row" }, h("strong", {}, CHECK_TITLE[c.key] || c.key), vBadge(c.status)),
+      h("div", {}, c.message),
+      Object.keys(c.facts || {}).length ? h("table", {}, Object.entries(c.facts).map(([k, v]) => h("tr", {}, h("td", { class: "mono" }, k), h("td", { class: "mono" }, typeof v === "object" ? JSON.stringify(v) : String(v)))))
+        : h("small", {}, "facts 없음"),
+      h("div", { class: "note info" }, `근거 원문: ${c.evidence.source_text}\n데이터 조회일: ${c.evidence.data_asof}`)));
+  }
+  for (const n of res.notices) note(box, "warn", n);
+  if (res.moa) box.append(h("div", { class: "mono" }, `이 약의 작용기작: ${res.moa.label_kr}${res.moa.system ? ` (${res.moa.system} ${res.moa.code})` : ""}`));
+  if (d.show_extension_office) note(box, "warn", "농업기술센터에 문의하세요. 병해충을 지목했고 불가·주의인데 대안 약제가 없습니다.");
+  box.append(h("div", {}, h("strong", {}, `대안 약제 (${d.alternatives.length})`)));
+  if (!d.alternatives.length) note(box, "info", "대안이 없습니다 (병해충을 지정했을 때만 계산합니다).");
+  else {
+    box.append(h("div", { class: "row" }, d.alternatives.slice(0, 30).map((a) => h("button", { type: "button", onclick: () => { JUDGE.drug = a; jdraw("drugs", "chosen"); runJudgment(); } },
+      `${a.name} (${a.item_name}) · ${a.moa ? a.moa.label_kr : "-"} — 이 약으로 판정`))));
+    if (d.alternatives.length > 30) box.append(h("small", {}, `앞 30개만 표시 (전체 ${d.alternatives.length}개, 서버가 준 순서: 작용기작 → 품목명 → 상표명)`));
+  }
+}
+function renderWeather(box, w) {
+  box.append(h("div", {}, `발표 시각 ${w.issued_at} · 앞으로 24시간`));
+  box.append(h("table", {}, h("tr", {}, ["시각", "강수형태", "1시간 강수량", "강수확률"].map((t) => h("th", {}, t))),
+    w.items.map((i) => h("tr", {}, h("td", {}, i.at.slice(5, 16).replace("T", " ")), h("td", {}, PTY[i.pty] ?? `코드 ${i.pty}`), h("td", {}, i.pcp), h("td", {}, i.pop == null ? "-" : `${i.pop}%`)))));
+}
+
+async function runJudgment() {
+  const z = state.zone, d = JUDGE.drug;
+  JUDGE.result = null;
+  if (!z) JUDGE.result = { ok: false, status: 0, error: { code: "CLIENT", message: "구역을 먼저 고르세요 (14단계)." } };
+  else if (!d) JUDGE.result = { ok: false, status: 0, error: { code: "CLIENT", message: "약제를 먼저 고르세요 (17단계)." } };
+  else {
+    const body = { pesticide_id: d.id };
+    if (JUDGE.pest && !JUDGE.noPest) body.pest_id = JUDGE.pest.id;
+    if (form.apply_date) body.apply_date = form.apply_date;
+    JUDGE.result = await api("POST", `/zones/${z.id}/judgments`, { body });
+  }
+  jdraw("result");
+}
+
+defineStep(14, (box) => {
+  const parts = h("div");
+  pickZone(box, (z) => judgeZoneChanged(z));
+  box.append(parts);
+  jview("parts", parts);
+});
+defineStep(15, (box) => { const b = h("div"); box.append(b); jview("candidates", b); });
+defineStep(16, (box) => { const b = h("div"); box.append(b); jview("search", b); });
+defineStep(17, (box) => {
+  const chosen = h("div"), b = h("div");
+  box.append(chosen, b);
+  jview("chosen", chosen); jview("drugs", b);
+});
+defineStep(18, (box) => {
+  const chosen = h("div"), res = h("div");
+  const btn = h("button", { class: "primary", type: "button" }, "판정");
+  btn.addEventListener("click", () => withLock(btn, runJudgment));
+  box.append(chosen, h("div", { class: "row" }, labeled("apply_date(선택) ", input("apply_date", { type: "date" })),
+    h("small", {}, "시연용: 「이 날 살포한다면」의 날짜. 수확 가능일과 문구의 날짜만 달라집니다.")), btn, res);
+  jview("chosen", chosen); jview("result", res);
+});
+defineStep(19, (box, c) => {
+  const out = h("div");
+  pickZone(box, () => {});
+  const btn = h("button", { class: "primary", type: "button" }, "날씨 불러오기");
+  btn.disabled = c.missing.length > 0;
+  btn.addEventListener("click", () => withLock(btn, async () => {
+    out.replaceChildren();
+    if (!state.zone) { note(out, "err", "구역을 먼저 고르세요."); return; }
+    const r = await api("GET", `/zones/${state.zone.id}/weather`);
+    if (!r.ok) { note(out, "err", `날씨 조회 실패 — ${errorText(r)}\n판정 화면에는 영향이 없습니다.`); return; }
+    renderWeather(out, r.data);
+  }));
+  box.append(h("div", { class: "note info" }, "날씨는 판정과 따로입니다. 실패(502)해도 위 판정 결과는 그대로 둡니다."), btn, out);
+});
+defineStep(20, (box) => {
+  const chosen = h("div");
+  box.append(chosen, h("div", { class: "row" }, labeled("살포일 ", input("sp20_date", { type: "date", value: todayStr() }))));
+  saveSprayUI(box, { getDrug: () => JUDGE.drug, getDate: () => form.sp20_date, getZone: () => state.zone, doubleDemo: true });
+  jview("chosen", chosen);
 });
 
 // ============================================================ 시작
