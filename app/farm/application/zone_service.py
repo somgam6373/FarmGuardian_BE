@@ -9,6 +9,7 @@ from app.catalog.presentation.schemas import pesticide_base
 from app.core.errors import AppError
 from app.farm.infrastructure.field_repository import geojson
 from app.farm.infrastructure.split_repository import existing_crop_ids, piece_sql
+from app.judgment.application import reader
 from app.spraying.application import spray_service
 
 
@@ -37,6 +38,7 @@ def summaries(db: Session, field_ids: list[int]) -> dict[int, list[dict]]:
         ),
         {"ids": field_ids},
     ).all()
+    last_judgments = reader.last_judgments(db, [row.id for row in rows])  # 한 번에 조회
     result = defaultdict(list)
     for row in rows:
         result[row.field_id].append(
@@ -49,8 +51,7 @@ def summaries(db: Session, field_ids: list[int]) -> dict[int, list[dict]]:
                 "area_m2": float(row.area_m2),
                 "geometry": geojson(row.geojson),
                 "last_spray": _last_spray(db, row.id),
-                # 판정 컨텍스트에 최근 판정을 읽는 서비스가 생기면 채운다
-                "last_judgment": None,
+                "last_judgment": last_judgments.get(row.id),
             }
         )
     return dict(result)

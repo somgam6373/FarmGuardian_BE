@@ -1,5 +1,5 @@
 import re
-from datetime import date
+from datetime import date, datetime
 from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, Field, StringConstraints, model_validator
@@ -73,6 +73,25 @@ class LastSpray(BaseModel):
     source: Literal["manual", "app"]
 
 
+class PesticideBrief(BaseModel):
+    id: int
+    name: str
+    item_name: str
+
+
+class PestBrief(BaseModel):
+    id: int
+    name: str
+
+
+class JudgmentBrief(BaseModel):
+    judgment_id: int
+    created_at: datetime  # KST (+09:00)
+    pesticide: PesticideBrief
+    pest: PestBrief | None
+    verdict: Literal["OK", "CAUTION", "BLOCKED", "NEEDS_CHECK"]
+
+
 class ZoneSummary(BaseModel):
     id: int
     name: str
@@ -82,7 +101,7 @@ class ZoneSummary(BaseModel):
     area_m2: float
     geometry: dict
     last_spray: LastSpray | None
-    last_judgment: dict | None  # 판정 조회 서비스가 생길 때까지 항상 null
+    last_judgment: JudgmentBrief | None
 
 
 class FieldOut(BaseModel):

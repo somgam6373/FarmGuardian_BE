@@ -1,6 +1,7 @@
 import pytest
 
-from tests.farm_support import install_fake_farmmap
+from app.catalog.application import catalog_service
+from tests.farm_support import install_fake_farmmap, judge
 
 FIELD_KEYS = {"id", "name", "area_m2", "geometry", "bbox", "zones"}
 
@@ -130,3 +131,14 @@ def test_list_shows_zone_summary(client, make_user, make_zone, fake_farmmap):
     assert zone["id"] == zone_id
     assert zone["crop"] == {"id": 1, "name": "감자"}
     assert zone["last_spray"] is None and zone["last_judgment"] is None
+
+
+def test_list_shows_last_judgment(client, db, make_user, make_zone, fake_farmmap):
+    uid = make_user("farmer")
+    field_id = create(client, uid, ["1", "2"]).json()["id"]
+    judged, stale = make_zone(field_id, uid), make_zone(field_id, uid)
+    judge(db, judged, catalog_service.list_pesticides(1)[0].pesticide.id, "OK")
+    judge(db, stale, 99999999, "OK")  # 카탈로그에 없는 약제는 건너뛴다
+    zones = client.get("/fields", headers=auth(uid)).json()[0]["zones"]
+    assert zones[0]["last_judgment"]["created_at"].endswith("+09:00")
+    assert zones[1]["last_judgment"] is None

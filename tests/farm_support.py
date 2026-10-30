@@ -1,3 +1,5 @@
+from sqlalchemy import text
+
 from app.core.errors import AppError
 from app.farm.infrastructure.integrations import farmmap
 from app.farm.infrastructure.integrations.farmmap import FarmmapParcel
@@ -23,3 +25,15 @@ def install_fake_farmmap(monkeypatch):
 
     monkeypatch.setattr(farmmap, "parcel_by_id", fake)
     return calls, missing, failing
+
+
+def judge(db, zone_id: int, pesticide_id: int, verdict: str = "OK", at: str | None = None) -> int:
+    """판정 한 건을 직접 넣는다 (테스트용). at이 없으면 now()."""
+    return db.scalar(
+        text(
+            "INSERT INTO judgment (zone_id, pest_id, pesticide_id, apply_date, verdict, result, "
+            "created_at) VALUES (:z, NULL, :drug, '2026-10-29', :v, '{}'::jsonb, "
+            "COALESCE(CAST(:at AS timestamptz), now())) RETURNING id"
+        ),
+        {"z": zone_id, "drug": pesticide_id, "v": verdict, "at": at},
+    )
