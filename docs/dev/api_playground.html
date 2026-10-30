@@ -1006,7 +1006,7 @@ defineStep(12, (box) => {
   const btn = h("button", { class: "primary", type: "button" }, "홈 새로고침");
   btn.addEventListener("click", () => withLock(btn, async () => { invalidateFields(); show(await loadFields(true)); }));
   box.append(btn, h("div", { class: "note info" }, "구역별로 마지막 살포와 최근 판정을 보여 줍니다. 기록이 없으면 「기록 없음」입니다. 구역 줄의 「선택」은 아래 단계들이 쓰는 구역을 정합니다."), out);
-  if (state.userId) loadFields().then(show);
+  if (state.userId) loadFields(true).then(show);
 });
 
 const PTY = { 0: "없음", 1: "비", 2: "비/눈", 3: "눈", 4: "소나기" };
