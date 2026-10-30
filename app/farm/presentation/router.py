@@ -15,6 +15,7 @@ from app.farm.presentation.schemas import (
     Parcel,
     SplitPiece,
     SplitRequest,
+    ZoneDetail,
     ZoneOut,
     ZonePatch,
     ZonesCreate,
@@ -93,6 +94,13 @@ def create_zones(
     )
     db.commit()
     return created
+
+
+@router.get("/zones/{zone_id}", response_model=ZoneDetail)
+def zone_detail(
+    zone_id: Annotated[int, Depends(get_owned_zone)], db: Session = Depends(get_db)
+):
+    return zone_service.zone_detail(db, zone_id)
 
 
 @router.patch("/zones/{zone_id}", response_model=ZoneOut)

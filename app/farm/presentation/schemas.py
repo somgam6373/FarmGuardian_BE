@@ -4,7 +4,7 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, Field, StringConstraints, model_validator
 
-from app.catalog.presentation.schemas import CropOut, PesticideBase
+from app.catalog.presentation.schemas import CropOut, MoaOut, PesticideBase
 
 # 브이월드 방화벽이 따옴표·<> 등을 막으므로 지번 입력에 필요한 글자만 받는다
 KEYWORD_PATTERN = re.compile(r"[가-힣0-9 \-]{2,80}")
@@ -162,3 +162,19 @@ class ZonePatch(BaseModel):
     crop_id: int = None
     planted_at: date | None = None
     history_confirmed: bool = None
+
+
+class RotationItem(BaseModel):
+    moa: MoaOut | None  # None = 작용기작 미상
+    count: int
+
+
+class Rotation(BaseModel):
+    window_start: date | None  # None = 정식일이 없어 전체 기록 기준
+    total: int
+    items: list[RotationItem]
+
+
+class ZoneDetail(ZoneOut):
+    rotation: Rotation
+    recent_judgments: list[JudgmentBrief]

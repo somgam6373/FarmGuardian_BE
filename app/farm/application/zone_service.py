@@ -185,3 +185,13 @@ def centroid_wgs84(db: Session, zone_id: int) -> WgsPoint:
     if row is None:
         raise AppError("NOT_FOUND", 404, "찾을 수 없습니다")
     return WgsPoint(row.lon, row.lat)
+
+
+def zone_detail(db: Session, zone_id: int) -> dict:
+    """구역 상세: Zone + 편중도 + 최근 판정 5건. 소유자 확인은 라우트가 한다."""
+    zone = get_zones(db, [zone_id])[0]
+    return {
+        **zone,
+        "rotation": reader.rotation(db, zone_id, zone["planted_at"]),
+        "recent_judgments": reader.recent_judgments(db, zone_id),
+    }
