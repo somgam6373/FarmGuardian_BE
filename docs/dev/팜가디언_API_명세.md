@@ -173,7 +173,7 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 
 ### `POST /fields/{id}/zones` — 구역 생성
 
-- 요청 본문: `{direction, ratios, zones: [ZoneSpec]}` — `zones` 길이는 `ratios`와 같아야 한다. `name` 1~30자.
+- 요청 본문: `{direction, ratios, zones: [ZoneSpec]}` — `zones` 길이는 `ratios`와 같아야 한다. `name` 1~30자. `planted_at`은 오늘(KST) 이후 날짜 불가 (미래 정식일이면 ③ 횟수가 기록을 하나도 세지 않는다).
 - 응답 201: `[Zone]` (분할 순서)
 - 오류: 404, 409 `FIELD_ALREADY_SPLIT`, 422 (길이 불일치 등)
 - 서버가 같은 입력으로 분할을 다시 계산한다 (결정적).
@@ -186,7 +186,7 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 ### `PATCH /zones/{id}`
 
 - 요청 본문 (모두 선택): `{name?: string, crop_id?: int, planted_at?: date|null, history_confirmed?: bool}`
-  - `planted_at: null`로 정식일을 비울 수 있다.
+  - `planted_at: null`로 정식일을 비울 수 있다. 오늘(KST) 이후 날짜는 422.
   - `crop_id`가 바뀌면 `planted_at`은 요청 값, 없으면 null이 된다 (새 작기).
   - `planted_at` 값이 바뀌면 `history_confirmed`는 false가 된다 (같은 요청에서 명시하면 그 값).
 - 응답 200: `Zone`

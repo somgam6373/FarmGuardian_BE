@@ -3,10 +3,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, Query
 from sqlalchemy.orm import Session
 
-from app.core.auth import current_user, get_owned_field
+from app.core.auth import current_user, get_owned_field, get_owned_zone
 from app.core.db import get_db
 from app.core.time import today_kst
-from app.farm.application import field_service
+from app.farm.application import field_service, zone_service
 from app.farm.presentation.schemas import (
     AddressSearchResult,
     FieldCreate,
@@ -16,6 +16,7 @@ from app.farm.presentation.schemas import (
     SplitPiece,
     SplitRequest,
     ZoneOut,
+    ZonePatch,
     ZonesCreate,
 )
 
@@ -92,3 +93,14 @@ def create_zones(
     )
     db.commit()
     return created
+
+
+@router.patch("/zones/{zone_id}", response_model=ZoneOut)
+def update_zone(
+    body: ZonePatch,
+    zone_id: Annotated[int, Depends(get_owned_zone)],
+    db: Session = Depends(get_db),
+):
+    zone = zone_service.update_zone(db, zone_id, body.model_dump(exclude_unset=True), today_kst())
+    db.commit()
+    return zone

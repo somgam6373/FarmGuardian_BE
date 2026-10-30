@@ -134,3 +134,18 @@ class ZoneOut(BaseModel):
     area_m2: float
     geometry: dict
     bbox: list[float]
+
+
+class ZonePatch(BaseModel):
+    name: Name | None = None
+    crop_id: int | None = None
+    planted_at: date | None = None  # null을 보내면 정식일을 비운다
+    history_confirmed: bool | None = None
+
+    @model_validator(mode="after")
+    def reject_nulls(self):
+        # 정식일만 비울 수 있다. 나머지는 보냈다면 값이 있어야 한다
+        for name in ("name", "crop_id", "history_confirmed"):
+            if name in self.model_fields_set and getattr(self, name) is None:
+                raise ValueError(f"{name}은(는) 비울 수 없습니다")
+        return self
