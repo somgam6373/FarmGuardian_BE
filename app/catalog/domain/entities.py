@@ -63,3 +63,18 @@ class PestCard:
     occurrence: str | None  # 발생 시기 (월 + 근거)
     occurrence_source: str | None
     vectors: tuple[PestVector, ...]
+
+
+@dataclass(frozen=True)
+class LabelRead:
+    # 포장지에서 모델이 읽은 내용. 읽지 못한 칸은 None, text는 빈 문자열
+    brand: str | None
+    product: str | None
+    company: str | None
+    text: str
+
+
+@dataclass(frozen=True)
+class LabelCandidate:
+    pesticide: Pesticide
+    score: float  # 0~1. 후보 정렬용
