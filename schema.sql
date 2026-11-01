@@ -92,6 +92,16 @@ CREATE TABLE judgment (
 CREATE INDEX judgment_zone_created_idx ON judgment (zone_id, created_at DESC);
 
 -- ============================================================
+-- 창고 (사용자가 가진 약제)
+-- ============================================================
+CREATE TABLE inventory (
+    user_id      bigint NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    pesticide_id int    NOT NULL,                       -- 정적 데이터의 약제 id (FK 없음)
+    created_at   timestamptz NOT NULL DEFAULT clock_timestamp(),  -- now()는 한 트랜잭션 안에서 같은 값이라 담은 순서를 못 가린다
+    PRIMARY KEY (user_id, pesticide_id)
+);
+
+-- ============================================================
 -- 고정 데이터: 지원 작물 3종
 -- ============================================================
 INSERT INTO crop (name) VALUES ('감자'), ('배추'), ('토마토');

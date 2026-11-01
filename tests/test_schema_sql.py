@@ -1,6 +1,8 @@
 import re
 from pathlib import Path
 
+from sqlalchemy import text
+
 SCHEMA = (Path(__file__).resolve().parents[1] / "schema.sql").read_text(encoding="utf-8")
 
 
@@ -13,8 +15,49 @@ def test_only_user_data_tables_and_crop_remain():
         "zone",
         "spray_log",
         "judgment",
+        "inventory",
     }
 
 
 def test_no_foreign_key_points_into_static_data():
     assert not re.search(r"REFERENCES\s+(pesticide|pest|moa|registration)\b", SCHEMA)
+
+
+def test_inventory_table_matches_the_schema_file(db):
+    columns = set(
+        db.scalars(
+            text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND table_name = 'inventory'"
+            )
+        )
+    )
+    assert columns == {"user_id", "pesticide_id", "created_at"}
+
+    key = list(
+        db.scalars(
+            text(
+                "SELECT a.attname FROM pg_index i "
+                "JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey) "
+                "WHERE i.indrelid = 'inventory'::regclass AND i.indisprimary "
+                "ORDER BY array_position(i.indkey::int2[], a.attnum)"
+            )
+        )
+    )
+    assert key == ["user_id", "pesticide_id"]
+
+    foreign_keys = db.execute(
+        text(
+            "SELECT confrelid::regclass::text, confdeltype FROM pg_constraint "
+            "WHERE conrelid = 'inventory'::regclass AND contype = 'f'"
+        )
+    ).all()
+    assert [tuple(row) for row in foreign_keys] == [("users", "c")]  # c = ON DELETE CASCADE
+
+    default = db.scalar(
+        text(
+            "SELECT column_default FROM information_schema.columns "
+            "WHERE table_name = 'inventory' AND column_name = 'created_at'"
+        )
+    )
+    assert "clock_timestamp" in default  # now()는 한 트랜잭션 안에서 같은 값이다
