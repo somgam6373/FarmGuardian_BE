@@ -1,14 +1,21 @@
-from fastapi import APIRouter, Depends
+from dataclasses import asdict
+from typing import Annotated
 
-from app.catalog.application import catalog_service
+from fastapi import APIRouter, Depends, File, UploadFile
+
+from app.catalog.application import catalog_service, label_service
 from app.catalog.domain.entities import PestCard, PesticideEntry
 from app.catalog.presentation.schemas import (
     CropOut,
+    LabelCandidateOut,
+    LabelReadOut,
+    LabelScanOut,
     PestCardOut,
     PesticideOut,
     VectorOut,
     pesticide_base,
 )
+from app.catalog.presentation.upload import read_image
 from app.core.auth import current_user
 
 # 참고 데이터라도 로그인한 사용자만 쓴다 (명세 §1)
@@ -60,3 +67,16 @@ def list_pest_candidates(crop_id: int, part: str):
 @router.get("/pests", response_model=list[PestCardOut])
 def list_pests(crop_id: int, q: str | None = None):
     return [_card_out(c) for c in catalog_service.list_pests(crop_id, q)]
+
+
+@router.post("/ocr/pesticide-labels", response_model=LabelScanOut)
+def scan_pesticide_label(image: Annotated[UploadFile, File()]):
+    data, media_type = read_image(image)
+    scan = label_service.scan_label(data, media_type)
+    return LabelScanOut(
+        candidates=[
+            LabelCandidateOut(pesticide=pesticide_base(c.pesticide), score=c.score)
+            for c in scan.candidates
+        ],
+        read=LabelReadOut(**asdict(scan.read)),
+    )
