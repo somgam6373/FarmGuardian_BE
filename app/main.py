@@ -6,6 +6,7 @@ from app.core.config import settings
 from app.core.errors import install_error_handlers
 from app.farm.presentation.router import router as farm_router
 from app.identity.presentation.router import router as identity_router
+from app.inventory.presentation.router import router as inventory_router
 from app.judgment.presentation.router import router as judgment_router
 from app.spraying.presentation.router import router as spraying_router
 
@@ -22,6 +23,7 @@ app.include_router(identity_router)
 app.include_router(catalog_router)
 app.include_router(judgment_router)
 app.include_router(spraying_router)
+app.include_router(inventory_router)
 
 
 @app.get("/health")
