@@ -1,7 +1,7 @@
 # 팜가디언 백엔드 API 명세
 
 - 작성일: 2026-10-28
-- 이 문서는 **프론트와 맺는 API 계약**이다. 엔드포인트 25개의 요청·응답·오류를 한곳에 모았다.
+- 이 문서는 **프론트와 맺는 API 계약**이다. 엔드포인트 28개의 요청·응답·오류를 한곳에 모았다.
 - 근거: `팜가디언_아키텍처.md` §7(API 표·동작 규칙)·§8(외부 연동), `팜가디언_판정_규칙.md` §2(판정 타입). 판정 규칙의 세부는 judge_rules가 우선한다.
 - 구현 후에는 FastAPI가 만든 `openapi.json`이 기준이 되고, 이 문서와 어긋나면 이 문서를 고친다.
 - **【결정】** 표시는 이 문서를 쓰면서 새로 정한 값이다 (설계 문서에 없던 것). 프론트와 합의 때 확인한다.
@@ -13,7 +13,7 @@
 | 담당 | API |
 |---|---|
 | 혜빈 (9) | `GET /addresses/search`, `GET /parcels`, `POST /fields`, `GET /fields`, `DELETE /fields/{id}`, `POST /fields/{id}/split-preview`, `POST /fields/{id}/zones`, `GET /zones/{id}`, `PATCH /zones/{id}` |
-| 준혁 (16) | `POST /auth/signup`, `POST /auth/login`, `GET /me`, `POST /me/onboarding`, `DELETE /me`, `GET /crops`, `GET /zones/{id}/weather`, `GET /crops/{id}/symptom-parts`, `GET /pests/candidates`, `GET /pests`, `GET /pesticides`, `POST /zones/{id}/judgments`, `POST /zones/{id}/sprays`, `GET /zones/{id}/sprays`, `DELETE /zones/{id}/sprays/{sid}`, `POST /ocr/pesticide-labels` |
+| 준혁 (19) | `POST /auth/signup`, `POST /auth/login`, `GET /me`, `POST /me/onboarding`, `DELETE /me`, `GET /crops`, `GET /zones/{id}/weather`, `GET /crops/{id}/symptom-parts`, `GET /pests/candidates`, `GET /pests`, `GET /pesticides`, `POST /zones/{id}/judgments`, `POST /zones/{id}/sprays`, `GET /zones/{id}/sprays`, `DELETE /zones/{id}/sprays/{sid}`, `POST /ocr/pesticide-labels`, `POST /inventory`, `GET /inventory`, `DELETE /inventory/{drug_id}` |
 
 `POST /auth/signup`은 준혁의 `identity`가 혜빈의 `field_service`를 호출해 첫 밭을 만든다.
 
@@ -29,7 +29,7 @@
 | 도형 | `geometry` = GeoJSON `MultiPolygon`, EPSG:5179 미터 좌표, y축이 위쪽, 소수 1자리. `bbox` = `[minx, miny, maxx, maxy]`. 프론트가 y축을 뒤집어 SVG로 그린다 |
 | 목록 응답 | 배열을 그대로 돌려준다. 페이징이 있는 두 곳(`GET /addresses/search`, `GET /zones/{id}/sprays`)만 `{total, items}` **【결정】** |
 | 삭제 | 성공하면 본문 없이 204 |
-| 상태 확인 | `GET /health` → `{"status": "ok"}`. 인증 없음. 엔드포인트 25개에 세지 않는다 |
+| 상태 확인 | `GET /health` → `{"status": "ok"}`. 인증 없음. 엔드포인트 28개에 세지 않는다 |
 
 ### 오류 응답
 
@@ -128,7 +128,7 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 
 ### `DELETE /me`
 
-- 사용자와 밭·구역·기록·판정을 모두 지운다. 응답 204. 이후 같은 `X-User-Id`는 401.
+- 사용자와 밭·구역·기록·판정·창고를 모두 지운다. 응답 204. 이후 같은 `X-User-Id`는 401.
 
 ## 4. 참고 데이터
 
@@ -281,6 +281,25 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 ### `DELETE /zones/{id}/sprays/{sid}`
 
 - 기록 취소(삭제). 응답 204. 404.
+
+### 창고 (내가 가진 약제)
+
+판정이 「가능」이어도 그 약이 없으면 오늘 뿌릴 수 없다. 프론트는 창고에 있는 약에 배지를 달고 같은 판정 안에서 먼저 보여준다. 세 API 모두 `X-User-Id`가 필요하고 사용자마다 따로다. `drug_id`는 `Pesticide.id`(`pesticide_id`)와 같은 값이다. **【결정】** 요청은 `POST /inventory {drug_id}`, `DELETE /inventory/{drug_id}`, `GET /inventory → [drug_id, ...]`까지만 정했고, 응답 모양·순서·오류는 백엔드가 정했다 (2026-11-01).
+
+#### `POST /inventory` — 창고에 담기
+
+- 요청 본문: `{drug_id: int}`
+- 응답: 처음 담으면 **201**, 이미 있으면 **200**. 본문은 같다 `{drug_id: int}` (재시도해도 안전하다).
+- 오류: 401, 422 `VALIDATION_ERROR` (`loc ["body", "drug_id"]`: 누락·정수 아님·카탈로그에 없는 약제)
+
+#### `GET /inventory`
+
+- 응답 200: `[int]` — 약제 id를 담은 순서(오래된 것 먼저)로. 비어 있으면 `[]`. 약제 이름 등은 프론트가 이미 받은 약제 정보(`GET /pesticides`, 판정 대안, 포장지 OCR 후보)에 id로 연결한다.
+- 오류: 401
+
+#### `DELETE /inventory/{drug_id}` — 창고에서 빼기
+
+- 응답 204. 오류: 401, 404 `NOT_FOUND` (창고에 없는 약제. 카탈로그에 없는 id도 404), 422 (`drug_id`가 정수가 아님)
 
 ## 9. 화면 흐름 (프론트 참고)
 
