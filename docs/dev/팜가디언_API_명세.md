@@ -1,7 +1,7 @@
 # 팜가디언 백엔드 API 명세
 
 - 작성일: 2026-10-28
-- 이 문서는 **프론트와 맺는 API 계약**이다. 엔드포인트 24개의 요청·응답·오류를 한곳에 모았다.
+- 이 문서는 **프론트와 맺는 API 계약**이다. 엔드포인트 25개의 요청·응답·오류를 한곳에 모았다.
 - 근거: `팜가디언_아키텍처.md` §7(API 표·동작 규칙)·§8(외부 연동), `팜가디언_판정_규칙.md` §2(판정 타입). 판정 규칙의 세부는 judge_rules가 우선한다.
 - 구현 후에는 FastAPI가 만든 `openapi.json`이 기준이 되고, 이 문서와 어긋나면 이 문서를 고친다.
 - **【결정】** 표시는 이 문서를 쓰면서 새로 정한 값이다 (설계 문서에 없던 것). 프론트와 합의 때 확인한다.
@@ -13,7 +13,7 @@
 | 담당 | API |
 |---|---|
 | 혜빈 (9) | `GET /addresses/search`, `GET /parcels`, `POST /fields`, `GET /fields`, `DELETE /fields/{id}`, `POST /fields/{id}/split-preview`, `POST /fields/{id}/zones`, `GET /zones/{id}`, `PATCH /zones/{id}` |
-| 준혁 (15) | `POST /auth/signup`, `POST /auth/login`, `GET /me`, `POST /me/onboarding`, `DELETE /me`, `GET /crops`, `GET /zones/{id}/weather`, `GET /crops/{id}/symptom-parts`, `GET /pests/candidates`, `GET /pests`, `GET /pesticides`, `POST /zones/{id}/judgments`, `POST /zones/{id}/sprays`, `GET /zones/{id}/sprays`, `DELETE /zones/{id}/sprays/{sid}` |
+| 준혁 (16) | `POST /auth/signup`, `POST /auth/login`, `GET /me`, `POST /me/onboarding`, `DELETE /me`, `GET /crops`, `GET /zones/{id}/weather`, `GET /crops/{id}/symptom-parts`, `GET /pests/candidates`, `GET /pests`, `GET /pesticides`, `POST /zones/{id}/judgments`, `POST /zones/{id}/sprays`, `GET /zones/{id}/sprays`, `DELETE /zones/{id}/sprays/{sid}`, `POST /ocr/pesticide-labels` |
 
 `POST /auth/signup`은 준혁의 `identity`가 혜빈의 `field_service`를 호출해 첫 밭을 만든다.
 
@@ -29,7 +29,7 @@
 | 도형 | `geometry` = GeoJSON `MultiPolygon`, EPSG:5179 미터 좌표, y축이 위쪽, 소수 1자리. `bbox` = `[minx, miny, maxx, maxy]`. 프론트가 y축을 뒤집어 SVG로 그린다 |
 | 목록 응답 | 배열을 그대로 돌려준다. 페이징이 있는 두 곳(`GET /addresses/search`, `GET /zones/{id}/sprays`)만 `{total, items}` **【결정】** |
 | 삭제 | 성공하면 본문 없이 204 |
-| 상태 확인 | `GET /health` → `{"status": "ok"}`. 인증 없음. 엔드포인트 24개에 세지 않는다 |
+| 상태 확인 | `GET /health` → `{"status": "ok"}`. 인증 없음. 엔드포인트 25개에 세지 않는다 |
 
 ### 오류 응답
 
@@ -47,7 +47,7 @@
 | `DUPLICATE_SPRAY` | 409 | 같은 구역·약제·날짜 기록 존재 | `{existing: Spray}` |
 | `VALIDATION_ERROR` | 422 | 요청 값 오류 | `{errors: [{loc, msg, type}]}`. 입력값은 돌려주지 않는다 |
 | `ONBOARDING_INCOMPLETE` | 422 | 구역이 없거나 「누락 없음」이 안 된 구역이 있음 | `{zone_count: int, unconfirmed_zone_ids: [int]}` **【결정】** |
-| `UPSTREAM_ERROR` | 502 | 외부 API 실패 | `{source: "vworld"\|"farmmap"\|"kma", upstream_code?: string}` |
+| `UPSTREAM_ERROR` | 502 | 외부 API 실패 | `{source: "vworld"\|"farmmap"\|"kma"\|"anthropic", upstream_code?: string}` |
 | `HTTP_ERROR` | 401·404 외 HTTP 상태 | 위 코드에 없는 HTTP 오류 (예: 허용되지 않는 메서드 405) | 없음 |
 
 ## 2. 공통 타입
@@ -150,6 +150,17 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 - 쿼리: `pnu` (필수, 19자리 숫자)
 - 응답 200: `[Parcel]` — 그 지번과 **겹치는** 팜맵 필지 전체 (이웃 지번 필지 포함, 0건이면 빈 배열)
 - 오류: 422 `VALIDATION_ERROR`, 502 `UPSTREAM_ERROR` (`source: "farmmap"`)
+
+### `POST /ocr/pesticide-labels` — 포장지 OCR
+
+- 포장지 사진에서 약제 후보를 찾는다. 판정 입구와 이력 입력 두 화면에서 부르며 날짜는 보내지 않는다. 아무것도 저장하지 않는다. 고르는 것은 사용자이고, 고른 `pesticide.id`를 `POST /zones/{id}/judgments`나 `POST /zones/{id}/sprays`의 `pesticide_id`에 그대로 쓴다.
+- 요청: `multipart/form-data`, 필드 `image` (파일, 필수). jpeg·png·webp, 5MB(5 × 1024 × 1024바이트) 이하. 형식은 파일 내용으로 판단하고 `Content-Type` 값은 보지 않는다.
+- 응답 200: `{candidates: [{pesticide: Pesticide, score: number}], read: {brand: string|null, product: string|null, company: string|null, text: string}}`
+  - `candidates`: 0~5개, 점수가 높은 순. `pesticide`는 `GET /pesticides`와 같은 모양이고 `id`도 같다. `score`는 0~1(소수 2자리)이며 정렬용이라 화면에 퍼센트로 보이지 않는다.
+  - `read`: 모델이 포장지에서 읽은 내용 (`brand` 상표명, `product` 품목명, `company` 제조사). `text`는 읽은 글자 전체로 최대 2,000자이고, 읽지 못했으면 빈 문자열이다.
+  - 읽지 못했거나 비슷한 약제가 없는 경우도 오류가 아니라 200이다 (`candidates: []`, `brand`·`product`·`company`는 null, `text`는 ""). 이때 프론트는 직접 검색으로 전환한다.
+- 오류: 401, 422 `VALIDATION_ERROR` (`loc ["body", "image"]`: 파일 없음, 5MB 초과, 형식이 아님), 502 `UPSTREAM_ERROR` (`source: "anthropic"`: 인식 서비스 장애·시간 초과, 서버에 키가 없을 때)
+- **【결정】** 요청·응답 모양 전체. 원 문서(`팜가디언_OCR_변경관련.md`)는 "이미지 파일 → 후보 목록 + 읽은 원문"까지만 정했고, 필드 이름·타입·오류는 백엔드가 정했다 (2026-11-01).
 
 ## 5. 밭과 구역
 
@@ -309,6 +320,7 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 | `/addresses/search` | 브이월드 검색 API (`req/search`, `category=parcel`). 결과 `id`가 PNU |
 | `/parcels`, 밭 생성, 가입 | 팜맵 `getPnuBasedFarmmapInfo`, `getIdBasedFarmmapInfo` |
 | `/zones/{id}/weather` | 기상청 단기예보 `getVilageFcst` |
+| `/ocr/pesticide-labels` | Anthropic Messages API (`claude-haiku-5-5`). 모델은 글자만 읽고 약제 후보는 서버가 정적 JSON에서 고른다 |
 | 병해충·약제·판정 | 요청 중 외부 호출 없음 (저장소의 정적 JSON `app/catalog/data`를 메모리로 읽음) |
 
 외부 요청·응답의 상세는 `팜가디언_아키텍처.md` §8.

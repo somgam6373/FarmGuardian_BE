@@ -28,6 +28,7 @@ copy .env.example .env              # macOS·Linux는 cp. 아래 값을 채운�
 - `DATABASE_URL`, `TEST_DATABASE_URL`: 개발 DB와 테스트 DB. 테스트 DB 이름은 `_test`로 끝나야 한다 (없으면 DB 테스트는 skip된다).
 - `CORS_ORIGINS`: 프론트 주소. 쉼표로 여러 개 (기본 `http://localhost:3000`).
 - `FARMMAP_API_KEY`(공공데이터포털 팜맵), `VWORLD_API_KEY`(브이월드): 인증키. 커밋하지 않는다.
+- `ANTHROPIC_API_KEY`(포장지 OCR): 선택. 없어도 앱은 뜨고 `/ocr/pesticide-labels`만 502다. 서버에서만 쓴다.
 
 DB 만들기 (두 DB 모두, 빈 DB에서 한 번)
 
