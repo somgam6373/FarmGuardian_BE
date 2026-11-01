@@ -71,6 +71,11 @@ def get_pesticide(pesticide_id: int) -> Pesticide | None:
     return _pesticides_by_id().get(pesticide_id)
 
 
+def all_pesticides() -> list[Pesticide]:
+    """모든 약제 (각 한 번씩). 작물·병해충과 무관하다."""
+    return [pesticide for pesticide, _ in _drugs()]
+
+
 def list_pesticides(crop_id: int, pest_id: int | None = None) -> list[PesticideEntry]:
     if crop_id not in _crops():
         raise AppError("NOT_FOUND", 404, "작물을 찾을 수 없습니다")

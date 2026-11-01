@@ -47,3 +47,20 @@ class PestCardOut(BaseModel):
     occurrence: str | None
     occurrence_source: str | None
     vectors: list[VectorOut]
+
+
+class LabelReadOut(BaseModel):
+    brand: str | None
+    product: str | None
+    company: str | None
+    text: str
+
+
+class LabelCandidateOut(BaseModel):
+    pesticide: PesticideBase
+    score: float
+
+
+class LabelScanOut(BaseModel):
+    candidates: list[LabelCandidateOut]
+    read: LabelReadOut
