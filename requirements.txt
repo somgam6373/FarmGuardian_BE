@@ -4,3 +4,5 @@ sqlalchemy>=2
 psycopg[binary]>=3.3
 pydantic-settings>=2.15
 httpx2>=2.13
+anthropic>=2.3
+python-multipart>=0.0.33
