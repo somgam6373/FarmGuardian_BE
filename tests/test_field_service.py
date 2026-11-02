@@ -10,7 +10,7 @@ from app.farm.infrastructure import field_repository
 from app.farm.infrastructure.integrations import farmmap
 from tests.farm_support import install_fake_farmmap, square
 
-FIELD_KEYS = {"id", "name", "area_m2", "geometry", "bbox", "zones"}
+FIELD_KEYS = {"id", "name", "address", "area_m2", "geometry", "bbox", "zones"}
 
 
 @pytest.fixture
@@ -29,6 +29,12 @@ def test_create_returns_field(db, make_user, fake_farmmap):
     assert field["area_m2"] == 200.0
     assert field["bbox"] == [0, 0, 20, 10]
     assert field["zones"] == []
+
+
+def test_create_stores_the_address(db, make_user, fake_farmmap):
+    field = field_service.create_field(db, make_user("farmer"), "앞밭", ["1"], address="평창군 1")
+    assert field["address"] == "평창군 1"
+    assert field_service.create_field(db, make_user("other"), "뒷밭", ["1"])["address"] is None
 
 
 def test_already_used_is_409_before_farmmap(db, make_user, fake_farmmap):

@@ -94,3 +94,10 @@ def test_invalid_parcel_geometry_is_repaired(db, make_user):
         text("SELECT bool_and(ST_IsValid(geom)) FROM field_parcel WHERE field_id = :f"),
         {"f": field_id},
     )
+
+
+def test_insert_field_saves_the_address(db, make_user):
+    uid = make_user("farmer")
+    saved = repo.get_field(db, repo.insert_field(db, uid, "f", [square("1")], "평창군 1"))
+    unsaved = repo.get_field(db, repo.insert_field(db, uid, "g", [square("2", 10)]))
+    assert (saved.address, unsaved.address) == ("평창군 1", None)

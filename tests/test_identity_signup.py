@@ -92,8 +92,9 @@ def test_signup_creates_the_user_and_the_first_field(client, fake_farmmap):
     assert set(data) == {"id", "username", "field"}
     assert data["username"] == "farmer_1"
     field = data["field"]
-    assert set(field) == {"id", "name", "area_m2", "geometry", "bbox", "zones"}
+    assert set(field) == {"id", "name", "address", "area_m2", "geometry", "bbox", "zones"}
     assert (field["name"], field["area_m2"], field["zones"]) == ("앞밭", 200.0, [])
+    assert field["address"] is None
     fields = client.get("/fields", headers={"X-User-Id": str(data["id"])})
     assert fields.json() == [field]
     login = client.post("/auth/login", json={"username": "farmer_1", "password": "pw1234"})

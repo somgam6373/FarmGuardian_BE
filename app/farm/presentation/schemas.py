@@ -57,6 +57,7 @@ def check_unique(ids: list[str]) -> list[str]:
 
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=30)]
+Address = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 
 
 class FieldCreate(BaseModel):
@@ -64,6 +65,7 @@ class FieldCreate(BaseModel):
     parcel_farmmap_ids: Annotated[
         list[FarmmapId], Field(min_length=1, max_length=20), AfterValidator(check_unique)
     ]
+    address: Address | None = None
 
 
 class LastSpray(BaseModel):
@@ -108,6 +110,7 @@ class ZoneSummary(BaseModel):
 class FieldOut(BaseModel):
     id: int
     name: str
+    address: str | None
     area_m2: float
     geometry: dict
     bbox: list[float]

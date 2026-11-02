@@ -54,7 +54,9 @@ def create_field(
     user_id: Annotated[int, Depends(current_user)],
     db: Session = Depends(get_db),
 ):
-    field = field_service.create_field(db, user_id, body.name, body.parcel_farmmap_ids)
+    field = field_service.create_field(
+        db, user_id, body.name, body.parcel_farmmap_ids, body.address
+    )
     db.commit()
     return field
 

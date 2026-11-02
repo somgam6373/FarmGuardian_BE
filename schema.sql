@@ -33,6 +33,7 @@ CREATE TABLE field (
     id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id    bigint NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     name       text   NOT NULL,
+    address    text,                                    -- 고른 주소(지번). NULL이면 모른다
     geom       geometry(MultiPolygon, 5179) NOT NULL,   -- 고른 필지 도형의 합집합
     created_at timestamptz NOT NULL DEFAULT now(),
     UNIQUE (id, user_id)                                -- 아래 복합 FK가 user_id 복사본을 일치시킨다
