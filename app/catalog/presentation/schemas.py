@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel
 
 from app.catalog.domain.entities import Pesticide
@@ -21,7 +23,14 @@ class PesticideBase(BaseModel):
     moa: MoaOut | None
 
 
-class PesticideOut(PesticideBase):
+class PesticideDetail(PesticideBase):
+    company: str | None
+    form: str | None
+    ingredients: list[str]
+    kind: Literal["insecticide", "fungicide", "both"] | None
+
+
+class PesticideOut(PesticideDetail):
     at_planting_only: bool
 
 
@@ -30,11 +39,30 @@ def pesticide_base(p: Pesticide) -> PesticideBase:
     return PesticideBase(id=p.id, name=p.name, item_name=p.item_name, moa=moa)
 
 
+def pesticide_detail(p: Pesticide) -> PesticideDetail:
+    return PesticideDetail(
+        **pesticide_base(p).model_dump(),
+        company=p.company,
+        form=p.form,
+        ingredients=list(p.ingredients),
+        kind=p.kind,
+    )
+
+
+def pesticide_out(p: Pesticide, at_planting_only: bool) -> PesticideOut:
+    return PesticideOut(**pesticide_detail(p).model_dump(), at_planting_only=at_planting_only)
+
+
 class VectorOut(BaseModel):
     id: int
     name: str
     guide: str
     source: str
+
+
+class PestRefOut(BaseModel):
+    id: int
+    name: str
 
 
 class PestCardOut(BaseModel):
@@ -47,6 +75,10 @@ class PestCardOut(BaseModel):
     occurrence: str | None
     occurrence_source: str | None
     vectors: list[VectorOut]
+    months: list[int]  # 발생 월. 자료가 없으면 빈 배열
+    pesticide_count: int
+    is_virus: bool
+    carries: list[PestRefOut]  # 이 벌레가 옮기는 바이러스
 
 
 class LabelReadOut(BaseModel):
@@ -57,8 +89,9 @@ class LabelReadOut(BaseModel):
 
 
 class LabelCandidateOut(BaseModel):
-    pesticide: PesticideBase
+    pesticide: PesticideDetail
     score: float
+    matched: list[str]  # 읽은 값과 맞는 칸: brand, product, company 순
 
 
 class LabelScanOut(BaseModel):

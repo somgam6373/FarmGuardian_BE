@@ -92,3 +92,74 @@ def test_update_locks_zone_row_before_reading(db, zone):
     event.remove(connection, "before_cursor_execute", record)
     read = next(s for s in statements if s.lstrip().startswith("SELECT name, crop_id"))
     assert "FOR UPDATE" in read
+
+
+SEPT = date(2026, 9, 1)
+
+
+def test_harvest_at_is_stored_and_can_be_cleared(db, zone):
+    zone_id = zone()
+    assert zone_service.update_zone(db, zone_id, {"harvest_at": SEPT}, TODAY)["harvest_at"] == SEPT
+    assert zone_service.update_zone(db, zone_id, {"harvest_at": None}, TODAY)["harvest_at"] is None
+
+
+def test_harvest_at_may_equal_planted_at_but_not_precede_it(db, zone):
+    zone_id = zone()
+    assert zone_service.update_zone(db, zone_id, {"harvest_at": MAY}, TODAY)["harvest_at"] == MAY
+    with pytest.raises(AppError) as error:
+        zone_service.update_zone(db, zone_id, {"harvest_at": MAY - timedelta(days=1)}, TODAY)
+    assert error.value.status == 422
+    [err] = error.value.details["errors"]
+    assert err["loc"] == ["body", "harvest_at"]
+    assert zone_service.get_zones(db, [zone_id])[0]["harvest_at"] == MAY  # 실패하면 그대로
+
+
+def test_a_past_harvest_date_is_allowed(db, zone):
+    updated = zone_service.update_zone(db, zone(), {"harvest_at": MAY + timedelta(days=1)}, TODAY)
+    assert updated["harvest_at"] == MAY + timedelta(days=1)
+
+
+def test_harvest_at_without_planted_at_is_not_compared(db, zone):
+    updated = zone_service.update_zone(db, zone(planted_at=None), {"harvest_at": MAY}, TODAY)
+    assert updated["harvest_at"] == MAY
+
+
+def test_crop_change_clears_harvest_at(db, zone):
+    zone_id = zone()
+    zone_service.update_zone(db, zone_id, {"harvest_at": SEPT}, TODAY)
+    assert zone_service.update_zone(db, zone_id, {"crop_id": 2}, TODAY)["harvest_at"] is None
+
+
+def test_crop_change_keeps_a_harvest_at_sent_in_the_same_request(db, zone):
+    zone_id = zone()
+    zone_service.update_zone(db, zone_id, {"harvest_at": SEPT}, TODAY)
+    changes = {"crop_id": 2, "harvest_at": date(2026, 10, 1)}
+    assert zone_service.update_zone(db, zone_id, changes, TODAY)["harvest_at"] == date(2026, 10, 1)
+
+
+def test_same_crop_keeps_harvest_at(db, zone):
+    zone_id = zone()
+    zone_service.update_zone(db, zone_id, {"harvest_at": SEPT}, TODAY)
+    assert zone_service.update_zone(db, zone_id, {"crop_id": 1}, TODAY)["harvest_at"] == SEPT
+
+
+def test_planted_at_alone_keeps_harvest_at(db, zone):
+    zone_id = zone()
+    zone_service.update_zone(db, zone_id, {"harvest_at": SEPT}, TODAY)
+    updated = zone_service.update_zone(db, zone_id, {"planted_at": date(2026, 6, 1)}, TODAY)
+    assert updated["harvest_at"] == SEPT
+
+
+def test_a_planted_at_after_harvest_at_is_422_on_planted_at(db, zone):
+    zone_id = zone()
+    zone_service.update_zone(db, zone_id, {"harvest_at": SEPT}, TODAY)
+    with pytest.raises(AppError) as error:
+        zone_service.update_zone(db, zone_id, {"planted_at": date(2026, 9, 2)}, TODAY)
+    [err] = error.value.details["errors"]
+    assert err["loc"] == ["body", "planted_at"]
+    assert zone_service.get_zones(db, [zone_id])[0]["planted_at"] == MAY
+
+
+def test_harvest_at_does_not_reset_the_confirmation(db, zone):
+    updated = zone_service.update_zone(db, zone(), {"harvest_at": SEPT}, TODAY)
+    assert updated["history_confirmed"] is True

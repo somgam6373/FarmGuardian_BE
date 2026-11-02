@@ -65,13 +65,16 @@ def test_the_user_scenario_end_to_end(client, db, monkeypatch):
     def history(zone):
         return expect(client.get(f"/zones/{zone}/sprays", headers=auth), 200, "history")
 
+    def active(zone):  # 취소한 기록도 목록에 남으므로 취소 안 된 것만 센다
+        return sum(not item["cancelled"] for item in history(zone)["items"])
+
     first = spray(zone_a, history_drugs[0].id, "2026-10-01", step="past spray 1")
     spray(zone_a, history_drugs[1].id, "2026-10-05", step="past spray 2")
     assert history(zone_a)["total"] == 2
     expect(client.delete(f"/zones/{zone_a}/sprays/{first['id']}", headers=auth), 204, "cancel")
-    assert history(zone_a)["total"] == 1
+    assert active(zone_a) == 1
     spray(zone_a, history_drugs[0].id, "2026-10-01", step="past spray again")
-    assert history(zone_a)["total"] == 2
+    assert active(zone_a) == 2
 
     # 4. 온보딩: 확인 전에는 422, 모든 구역을 확인하면 200
     incomplete = expect(client.post("/me/onboarding", headers=auth), 422, "onboarding before")

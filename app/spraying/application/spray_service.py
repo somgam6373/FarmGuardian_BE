@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.catalog.application import catalog_service
-from app.catalog.domain.entities import Pesticide
+from app.catalog.domain.entities import Pesticide, PestRef
 from app.core.errors import AppError
 from app.spraying.domain.entities import Spray
 from app.spraying.infrastructure import repository
@@ -15,6 +15,7 @@ from app.spraying.infrastructure import repository
 class SprayView:
     spray: Spray
     pesticide: Pesticide
+    pest: PestRef | None = None
 
 
 class DuplicateSpray(Exception):
@@ -30,7 +31,8 @@ def _invalid(field: str, message: str) -> AppError:
 
 
 def _view(spray: Spray) -> SprayView:
-    return SprayView(spray, catalog_service.get_pesticide(spray.pesticide_id))
+    pest = catalog_service.get_pest_ref(spray.pest_id) if spray.pest_id is not None else None
+    return SprayView(spray, catalog_service.get_pesticide(spray.pesticide_id), pest)
 
 
 def _replay(db: Session, zone_id: int, request_id: UUID) -> SprayView | None:
@@ -53,10 +55,14 @@ def record_spray(
     request_id: UUID,
     allow_duplicate: bool,
     today: date,
+    pest_id: int | None = None,
 ) -> tuple[SprayView, bool]:
     """저장한 기록과 새로 저장했는지 여부. 재시도면 (원본, False)."""
     if catalog_service.get_pesticide(pesticide_id) is None:
         raise _invalid("pesticide_id", "알 수 없는 약제입니다")
+    # 병해충은 있는지만 본다: 이 약이 그 병해충에 등록됐는지는 판정의 몫이다
+    if pest_id is not None and catalog_service.get_pest_ref(pest_id) is None:
+        raise _invalid("pest_id", "알 수 없는 병해충입니다")
     sprayed_on = sprayed_on or today
     if sprayed_on > today:
         raise _invalid("sprayed_on", "미래 날짜는 기록할 수 없습니다")
@@ -71,7 +77,7 @@ def record_spray(
             if replayed:
                 return replayed, False
             raise DuplicateSpray(_view(existing))
-    saved = repository.insert(db, zone_id, pesticide_id, sprayed_on, source, request_id)
+    saved = repository.insert(db, zone_id, pesticide_id, sprayed_on, source, request_id, pest_id)
     if saved is None:  # 같은 request_id가 그 사이에 저장됐다
         return _replay(db, zone_id, request_id), False
     db.commit()
@@ -79,18 +85,27 @@ def record_spray(
 
 
 def list_sprays(
-    db: Session, zone_id: int, limit: int = 20, offset: int = 0
+    db: Session, zone_id: int, limit: int = 20, offset: int = 0, *, include_cancelled: bool = False
 ) -> tuple[int, list[SprayView]]:
-    total, sprays = repository.page(db, zone_id, limit, offset)
+    total, sprays = repository.page(db, zone_id, limit, offset, include_cancelled)
     return total, [_view(spray) for spray in sprays]
 
 
 def history(db: Session, zone_id: int) -> list[SprayView]:
-    """판정 입력용: 구역의 살포 기록 전체, 최근순."""
+    """판정 입력용: 구역의 취소되지 않은 살포 기록 전체, 최근순."""
     return [_view(spray) for spray in repository.all_for_zone(db, zone_id)]
 
 
 def cancel_spray(db: Session, zone_id: int, spray_id: int) -> None:
-    if not repository.delete(db, zone_id, spray_id):
+    """기록은 지우지 않고 취소로 표시한다. 이미 취소했어도 그대로 성공이다."""
+    if not repository.cancel(db, zone_id, spray_id):
         raise AppError("NOT_FOUND", 404, "찾을 수 없습니다")
     db.commit()
+
+
+def restore_spray(db: Session, zone_id: int, spray_id: int) -> SprayView:
+    restored = repository.restore(db, zone_id, spray_id)
+    if restored is None:
+        raise AppError("NOT_FOUND", 404, "찾을 수 없습니다")
+    db.commit()
+    return _view(restored)

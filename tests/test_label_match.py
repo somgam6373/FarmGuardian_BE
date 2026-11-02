@@ -73,3 +73,36 @@ def test_cutoff_and_limit():
     assert len(rank_candidates("보스", None, drugs, limit=5)) == 5
     strict = rank_candidates("보스", None, drugs, cutoff=0.99)
     assert [c.pesticide.id for c in strict] == [0]
+
+
+TARGET = Pesticide(1, "카브리오", "피라클로스트로빈 유제", None, "(주)경농")
+
+
+def test_matched_lists_the_agreeing_fields_in_a_fixed_order():
+    r = rank_candidates("카브리오", "피라클로스트로빈 유제", [TARGET], company="(주)경농")
+
+    assert r[0].matched == ("brand", "product", "company")
+
+
+def test_company_matches_by_containment_and_unread_fields_never_match():
+    contained = rank_candidates("카브리오", None, [TARGET], company="경농")
+
+    assert contained[0].matched == ("brand", "company")
+    assert rank_candidates("카브리오", None, [TARGET])[0].matched == ("brand",)
+
+
+def test_a_different_brand_with_the_same_product_matches_only_the_product():
+    r = rank_candidates("카브리", "피라클로스트로빈 유제", [TARGET])  # 상표 유사도 < 0.9
+
+    assert r[0].matched == ("product",)
+
+
+def test_company_does_not_change_the_score():
+    a = rank_candidates("카브리오", "피라클로스트로빈 유제", [TARGET])[0].score
+    b = rank_candidates("카브리오", "피라클로스트로빈 유제", [TARGET], company="없는회사")[0].score
+
+    assert a == b
+
+
+def test_nothing_read_gives_no_candidates():
+    assert rank_candidates(None, None, [TARGET], company="(주)경농") == []

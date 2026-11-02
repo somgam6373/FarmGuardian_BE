@@ -10,6 +10,10 @@ CARD_KEYS = {
     "occurrence",
     "occurrence_source",
     "vectors",
+    "months",
+    "pesticide_count",
+    "is_virus",
+    "carries",
 }
 
 
@@ -59,7 +63,7 @@ def test_pests_list_and_filter(client, make_user):
     everything = client.get("/pests", params={"crop_id": 2}, headers=headers).json()
     filtered = client.get("/pests", params={"crop_id": 2, "q": "나방"}, headers=headers).json()
 
-    assert len(everything) == 43
+    assert len(everything) == 45
     assert 0 < len(filtered) < len(everything)
     assert all("나방" in c["name"] for c in filtered)
 
@@ -84,9 +88,24 @@ def test_vectors_shape(client, make_user):
     cards = {}
     for part in ("뿌리", "잎", "줄기", "벌레", "열매"):
         cards |= candidates(client, headers, 3, part)
-    virus = next(c for c in cards.values() if c["vectors"])
+    virus = next(c for c in cards.values() if c["vectors"])  # 매개충이 없는 바이러스(64)는 건너뛴다
 
+    assert virus["is_virus"] is True
     assert all(set(v) == {"id", "name", "guide", "source"} for v in virus["vectors"])
+
+
+def test_extra_card_fields_shape(client, make_user):
+    headers = auth(make_user("farmer"))
+    cards = {}
+    for part in ("뿌리", "잎", "줄기", "벌레", "열매"):
+        cards |= candidates(client, headers, 3, part)
+    carrier = next(c for c in cards.values() if c["carries"])
+
+    assert all(isinstance(c["months"], list) for c in cards.values())
+    assert all(isinstance(c["pesticide_count"], int) for c in cards.values())
+    assert all(isinstance(c["is_virus"], bool) for c in cards.values())
+    assert all(set(v) == {"id", "name"} for v in carrier["carries"])
+    assert carrier["is_virus"] is False
 
 
 @pytest.mark.parametrize(

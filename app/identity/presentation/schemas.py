@@ -2,7 +2,7 @@ from typing import Annotated
 
 from pydantic import AfterValidator, BaseModel, Field, StringConstraints
 
-from app.farm.presentation.schemas import FarmmapId, FieldOut, check_unique
+from app.farm.presentation.schemas import Address, FarmmapId, FieldOut, check_unique
 
 
 class LoginIn(BaseModel):
@@ -20,6 +20,7 @@ class SignupIn(BaseModel):
     parcel_farmmap_ids: Annotated[
         list[FarmmapId], Field(min_length=1, max_length=20), AfterValidator(check_unique)
     ]
+    field_address: Address | None = None
 
 
 class SignupOut(BaseModel):

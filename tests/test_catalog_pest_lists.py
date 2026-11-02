@@ -67,14 +67,19 @@ def test_candidates_are_sorted_by_name_without_duplicates():
         assert len({c.id for c in cards}) == len(names)
 
 
-@pytest.mark.parametrize("crop_id,count", [(1, 25), (2, 43), (3, 23)])
-def test_registered_pest_counts(crop_id, count):
+def virus_ids():
+    return {v["virus_pest_id"] for v in load("virus_vector")}
+
+
+@pytest.mark.parametrize("crop_id,count", [(1, 25), (2, 45), (3, 27)])
+def test_listed_pest_counts(crop_id, count):
     assert len(svc.list_pests(crop_id)) == count
 
 
-def test_listed_pests_are_exactly_the_registered_pests_of_the_crop():
+def test_listed_pests_are_the_registered_and_the_virus_pests_of_the_crop():
     for crop_id in (1, 2, 3):
-        expected = {p["pest_id"] for p in pests_of(crop_id) if p["pest_id"] in registered_ids()}
+        listed = registered_ids() | virus_ids()
+        expected = {p["pest_id"] for p in pests_of(crop_id) if p["pest_id"] in listed}
         cards = svc.list_pests(crop_id)
         names = [c.name for c in cards]
 
@@ -95,8 +100,20 @@ def test_candidates_are_not_limited_to_registered_pests():
     candidates = {c.id for part in PARTS[3] for c in svc.list_candidates(3, part)}
     listed = {c.id for c in svc.list_pests(3)}
 
-    assert len(candidates) == 43 and len(listed) == 23
+    assert len(candidates) == 43 and len(listed) == 27
     assert candidates - listed
+
+
+def test_virus_pests_are_listed_although_no_drug_is_registered_for_them():
+    for crop_id in (1, 2, 3):
+        mine = {p["pest_id"] for p in pests_of(crop_id)} & virus_ids()
+
+        assert mine <= {c.id for c in svc.list_pests(crop_id)}
+    assert not virus_ids() & registered_ids()
+
+
+def test_q_finds_a_virus_by_name():
+    assert "모자이크병" in [c.name for c in svc.list_pests(2, "모자이크")]
 
 
 def test_q_matches_a_name_substring():

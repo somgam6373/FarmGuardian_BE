@@ -5,8 +5,8 @@ import pytest
 from app.core.time import today_kst
 
 ZONE_KEYS = {
-    "id", "field_id", "name", "crop", "planted_at", "history_confirmed", "area_m2", "geometry",
-    "bbox",
+    "id", "field_id", "name", "crop", "planted_at", "harvest_at", "history_confirmed", "area_m2",
+    "geometry", "bbox",
 }
 
 
@@ -76,3 +76,27 @@ def test_null_points_at_the_field(client, zone, field):
     response = patch(client, *zone, {field: None})
     [error] = response.json()["error"]["details"]["errors"]
     assert error["loc"] == ["body", field]
+
+
+def test_harvest_at_is_set_and_cleared(client, zone):
+    assert patch(client, *zone, {"harvest_at": "2026-09-01"}).json()["harvest_at"] == "2026-09-01"
+    assert patch(client, *zone, {"harvest_at": None}).json()["harvest_at"] is None
+
+
+def test_new_zone_has_no_harvest_at(client, zone):
+    assert patch(client, *zone, {}).json()["harvest_at"] is None
+
+
+def test_harvest_at_must_be_a_date(client, zone):
+    response = patch(client, *zone, {"harvest_at": "soon"})
+    assert response.status_code == 422
+    assert response.json()["error"]["details"]["errors"][0]["loc"] == ["body", "harvest_at"]
+
+
+def test_harvest_at_before_planted_at_is_422(client, zone):
+    day = today_kst().isoformat()
+    assert patch(client, *zone, {"planted_at": day}).status_code == 200
+    earlier = (today_kst() - timedelta(days=1)).isoformat()
+    response = patch(client, *zone, {"harvest_at": earlier})
+    assert response.status_code == 422
+    assert response.json()["error"]["details"]["errors"][0]["loc"] == ["body", "harvest_at"]

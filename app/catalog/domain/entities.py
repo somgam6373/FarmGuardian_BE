@@ -21,6 +21,10 @@ class Pesticide:
     name: str  # 상표명
     item_name: str  # 품목명
     moa: Moa | None
+    company: str | None = None  # 가장 작은 use_id 행의 회사
+    form: str | None = None  # 제형 (품목명의 마지막 단어)
+    ingredients: tuple[str, ...] = ()  # 성분 이름 (use_ingredient의 seq 순)
+    kind: str | None = None  # 'insecticide' | 'fungicide' | 'both'
 
 
 @dataclass(frozen=True)
@@ -53,6 +57,12 @@ class PestVector:
 
 
 @dataclass(frozen=True)
+class PestRef:
+    id: int
+    name: str
+
+
+@dataclass(frozen=True)
 class PestCard:
     id: int
     name: str
@@ -63,6 +73,10 @@ class PestCard:
     occurrence: str | None  # 발생 시기 (월 + 근거)
     occurrence_source: str | None
     vectors: tuple[PestVector, ...]
+    months: tuple[int, ...] = ()  # 고른 발생 시기 행의 월. 자료가 없으면 빈 튜플
+    pesticide_count: int = 0  # 이 작물·병해충에 등록된 약제 수
+    is_virus: bool = False
+    carries: tuple[PestRef, ...] = ()  # 이 벌레가 옮기는 바이러스 (이름순)
 
 
 @dataclass(frozen=True)
@@ -78,3 +92,4 @@ class LabelRead:
 class LabelCandidate:
     pesticide: Pesticide
     score: float  # 0~1. 후보 정렬용
+    matched: tuple[str, ...] = ()  # 읽은 값과 맞는 칸: 'brand'·'product'·'company' 순

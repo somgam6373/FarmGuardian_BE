@@ -4,10 +4,11 @@ import pytest
 
 from app.judgment.domain.rules import check_registration, check_timing
 from app.judgment.domain.schemas import Verdict
-from tests.judge_support import make_input, reg
+from tests.judge_support import TODAY, make_input, reg
 
 OTHER = dict(pest_id=2, pest_name="역병")
 OK, NEEDS_CHECK = Verdict.OK, Verdict.NEEDS_CHECK
+BLOCKED, CAUTION = Verdict.BLOCKED, Verdict.CAUTION
 NO_LIMIT_MESSAGE = "수확 전 사용 일수 제한이 없는 약제입니다. 라벨의 사용 방법을 확인해 주세요"
 
 
@@ -189,3 +190,79 @@ def test_blocked_registration_makes_timing_needs_check(kw):  # R2, R3의 ② 부
     assert r.facts == facts(rows=0)
     assert r.evidence.source_text == "없음"
     assert r.evidence.data_asof == date(2026, 10, 3)
+
+
+@pytest.mark.parametrize(
+    "harvest_at,status,margin",
+    [
+        (date(2026, 10, 10), BLOCKED, -1),
+        (date(2026, 10, 11), CAUTION, 0),
+        (date(2026, 10, 13), CAUTION, 2),
+        (date(2026, 10, 14), OK, 3),
+    ],
+)
+def test_margin_boundaries(harvest_at, status, margin):
+    r = timing(harvest_at=harvest_at)
+
+    assert (r.status, r.facts["margin_days"], r.facts["harvest_at"]) == (
+        status,
+        margin,
+        harvest_at.isoformat(),
+    )
+    assert r.facts["phi_days"] == 7 and r.facts["harvest_from"] == "2026-10-11"
+
+
+def test_margin_messages():
+    assert timing(harvest_at=date(2026, 10, 10)).message == (
+        "수확 예정일(10월 10일)까지 6일 남아 수확 7일 전까지 사용하는 기준을 지킬 수 없습니다"
+    )
+    assert timing(harvest_at=date(2026, 10, 11)).message == (
+        "수확 예정일(10월 11일)까지 여유가 0일입니다 (수확 7일 전까지 사용)"
+    )
+    ok = timing(harvest_at=date(2026, 10, 14))
+    assert ok.message == "오늘 살포하면 10월 11일부터 수확할 수 있습니다 (수확 7일 전까지 사용)"
+
+
+def test_a_harvest_date_in_the_past_is_blocked_with_its_own_message():
+    r = timing(harvest_at=date(2026, 10, 1))
+
+    assert (r.status, r.message) == (BLOCKED, "수확 예정일(10월 1일)이 지났습니다")
+    assert r.facts["margin_days"] == -10
+
+
+def test_phi_zero_on_the_harvest_day_is_caution():
+    r = timing(registrations=[reg(phi_days=0)], harvest_at=TODAY)
+
+    assert (r.status, r.facts["margin_days"]) == (CAUTION, 0)
+
+
+def test_the_method_suffix_follows_the_margin_message():
+    rows = [reg(phi_days=14), reg(phi_days=21, use_method="무인항공")]
+    r = timing(registrations=rows, harvest_at=date(2026, 10, 22))
+
+    assert r.status is BLOCKED
+    assert r.message.endswith("기준을 지킬 수 없습니다 (무인항공 기준)")
+
+
+def test_no_harvest_date_changes_nothing():
+    r = timing()
+
+    assert r.facts == facts(7, "2026-10-11", 1, "발생 초부터 경엽처리")
+    assert r.status is OK
+
+
+@pytest.mark.parametrize(
+    "kw,status",
+    [
+        (dict(registrations=[reg(phi_days=None, usage_type="NO_LIMIT")]), OK),
+        (dict(registrations=[reg(phi_days=None, usage_type="AT_PLANTING")]), NEEDS_CHECK),
+        (dict(registrations=[reg(phi_days=None, use_suittime_raw="수확 직전")]), NEEDS_CHECK),
+        (dict(registrations=[reg(**OTHER)]), NEEDS_CHECK),  # ① BLOCKED
+    ],
+    ids=["no-limit", "at-planting", "unreadable", "not-registered"],
+)
+def test_other_paths_ignore_the_harvest_date(kw, status):
+    r = timing(harvest_at=date(2026, 10, 5), **kw)
+
+    assert r.status is status
+    assert "margin_days" not in r.facts and "harvest_at" not in r.facts

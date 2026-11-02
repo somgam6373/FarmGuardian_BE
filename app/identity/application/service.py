@@ -28,14 +28,19 @@ def register_user(db: Session, username: str, password: str) -> int | None:
 
 
 def signup(
-    db: Session, username: str, password: str, field_name: str, farmmap_ids: list[str]
+    db: Session,
+    username: str,
+    password: str,
+    field_name: str,
+    farmmap_ids: list[str],
+    address: str | None = None,
 ) -> dict:
     """사용자와 첫 밭을 한 트랜잭션으로 만든다. 밭 생성이 실패하면 사용자도 남지 않는다."""
     user_id = register_user(db, username, password)
     if user_id is None:
         raise AppError("USERNAME_TAKEN", 409, "이미 사용 중인 아이디입니다")
     try:
-        field = field_service.create_field(db, user_id, field_name, farmmap_ids)
+        field = field_service.create_field(db, user_id, field_name, farmmap_ids, address)
     except Exception:
         db.rollback()  # 방금 만든 사용자도 함께 되돌린다
         raise

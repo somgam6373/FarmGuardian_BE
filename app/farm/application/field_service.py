@@ -62,6 +62,7 @@ def _field(row: FieldRow, zones: list[dict]) -> dict:
     return {
         "id": row.id,
         "name": row.name,
+        "address": row.address,
         "area_m2": row.area_m2,
         "geometry": row.geometry,
         "bbox": row.bbox,
@@ -90,7 +91,9 @@ def _fetch_parcels(farmmap_ids: list[str]) -> list[FarmmapParcel | None]:
         return list(executor.map(lambda i: farmmap.parcel_by_id(i, client=client), farmmap_ids))
 
 
-def create_field(db: Session, user_id: int, name: str, farmmap_ids: list[str]) -> dict:
+def create_field(
+    db: Session, user_id: int, name: str, farmmap_ids: list[str], address: str | None = None
+) -> dict:
     """필지로 밭을 만들고 Field를 돌려준다. 커밋은 호출한 쪽이 한다 (가입도 이 함수를 쓴다)."""
     _check_unused(db, user_id, farmmap_ids)  # 팜맵 호출 전에 막는다
     parcels = _fetch_parcels(farmmap_ids)
@@ -105,7 +108,7 @@ def create_field(db: Session, user_id: int, name: str, farmmap_ids: list[str]) -
     try:
         # 동시 요청이 같은 필지를 먼저 저장했으면 이 저장만 되돌리고 409로 답한다
         with db.begin_nested():
-            field_id = field_repository.insert_field(db, user_id, name, parcels)
+            field_id = field_repository.insert_field(db, user_id, name, parcels, address)
     except IntegrityError:
         _check_unused(db, user_id, farmmap_ids)
         raise

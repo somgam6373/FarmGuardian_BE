@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, UploadFile
 
 from app.catalog.application import catalog_service, label_service
-from app.catalog.domain.entities import PestCard, PesticideEntry
+from app.catalog.domain.entities import PestCard
 from app.catalog.presentation.schemas import (
     CropOut,
     LabelCandidateOut,
@@ -12,19 +12,16 @@ from app.catalog.presentation.schemas import (
     LabelScanOut,
     PestCardOut,
     PesticideOut,
+    PestRefOut,
     VectorOut,
-    pesticide_base,
+    pesticide_detail,
+    pesticide_out,
 )
 from app.catalog.presentation.upload import read_image
 from app.core.auth import current_user
 
 # 참고 데이터라도 로그인한 사용자만 쓴다 (명세 §1)
 router = APIRouter(dependencies=[Depends(current_user)])
-
-
-def _pesticide_out(entry: PesticideEntry) -> PesticideOut:
-    base = pesticide_base(entry.pesticide)
-    return PesticideOut(**base.model_dump(), at_planting_only=entry.at_planting_only)
 
 
 @router.get("/crops", response_model=list[CropOut])
@@ -34,7 +31,8 @@ def list_crops():
 
 @router.get("/pesticides", response_model=list[PesticideOut])
 def list_pesticides(crop_id: int, pest_id: int | None = None):
-    return [_pesticide_out(e) for e in catalog_service.list_pesticides(crop_id, pest_id)]
+    entries = catalog_service.list_pesticides(crop_id, pest_id)
+    return [pesticide_out(e.pesticide, e.at_planting_only) for e in entries]
 
 
 def _card_out(card: PestCard) -> PestCardOut:
@@ -51,6 +49,10 @@ def _card_out(card: PestCard) -> PestCardOut:
         occurrence=card.occurrence,
         occurrence_source=card.occurrence_source,
         vectors=vectors,
+        months=list(card.months),
+        pesticide_count=card.pesticide_count,
+        is_virus=card.is_virus,
+        carries=[PestRefOut(id=ref.id, name=ref.name) for ref in card.carries],
     )
 
 
@@ -75,7 +77,9 @@ def scan_pesticide_label(image: Annotated[UploadFile, File()]):
     scan = label_service.scan_label(data, media_type)
     return LabelScanOut(
         candidates=[
-            LabelCandidateOut(pesticide=pesticide_base(c.pesticide), score=c.score)
+            LabelCandidateOut(
+                pesticide=pesticide_detail(c.pesticide), score=c.score, matched=list(c.matched)
+            )
             for c in scan.candidates
         ],
         read=LabelReadOut(**asdict(scan.read)),

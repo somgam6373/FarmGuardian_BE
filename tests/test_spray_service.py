@@ -221,21 +221,18 @@ def test_list_excludes_other_zones_and_resolves_the_pesticide(db, zones):
     assert items[0].pesticide == catalog.get_pesticide(A)
 
 
-def test_cancel_removes_the_record(db, zones):
+def test_cancelled_record_leaves_the_default_listing(db, zones):
     view, _ = record(db, zones[0])
     svc.cancel_spray(db, zones[0], view.spray.id)
 
     assert total(db, zones[0]) == 0
 
 
-def test_cancel_twice_or_unknown_is_404(db, zones):
-    view, _ = record(db, zones[0])
-    svc.cancel_spray(db, zones[0], view.spray.id)
-    for spray_id in (view.spray.id, 999999):
-        with pytest.raises(AppError) as info:
-            svc.cancel_spray(db, zones[0], spray_id)
+def test_cancel_of_an_unknown_id_is_404(db, zones):
+    with pytest.raises(AppError) as info:
+        svc.cancel_spray(db, zones[0], 999999)
 
-        assert (info.value.status, info.value.code) == (404, "NOT_FOUND")
+    assert (info.value.status, info.value.code) == (404, "NOT_FOUND")
 
 
 def test_cancel_of_another_zones_record_is_404_and_keeps_it(db, zones):

@@ -24,6 +24,7 @@ UNCONFIRMED_MESSAGE = (
 )
 NO_PLANTING_MESSAGE = "정식일이 없어 이번 작기 사용 횟수를 셀 수 없습니다. 정식일을 입력해 주세요"
 NO_PEST_NOTICE = "병해충을 지정하지 않아 가장 엄격한 기준을 적용했습니다"
+CAUTION_MARGIN_DAYS = 2  # 수확 예정일까지 여유가 이 일수 이하면 주의 (프로토타입의 기준)
 
 
 def considered_rows(inp: JudgeInput) -> list[Registration]:
@@ -84,7 +85,7 @@ def check_registration(inp: JudgeInput) -> CheckResult:
     return result(
         Verdict.OK,
         "이 병해충에 등록된 약제입니다",
-        {"pest_specified": True, "rows": len(rows)},
+        {"pest_specified": True, "rows": len(rows), "dilution": first.dilut_raw},
         " · ".join(parts) or NONE_TEXT,
     )
 
@@ -111,7 +112,11 @@ def _phi(row: Registration) -> int | None:
 
 
 def check_timing(inp: JudgeInput, registration: CheckResult) -> CheckResult:
-    """② 시기: 오늘 살포하면 언제부터 수확할 수 있는가. BLOCKED는 내지 않는다."""
+    """② 시기: 오늘 살포하면 언제부터 수확할 수 있는가.
+
+    구역에 수확 예정일이 있고 수확 전 일수를 읽었을 때만 여유(예정일까지 남은 일수 − 수확 전 일수)로
+    BLOCKED·CAUTION을 낸다. 예정일이 없으면 BLOCKED는 내지 않는다.
+    """
     rows = considered_rows(inp)
     data_asof = rows_data_asof(inp)
 
@@ -163,13 +168,34 @@ def check_timing(inp: JudgeInput, registration: CheckResult) -> CheckResult:
             f"오늘 살포하면 {format_date_kr(harvest_from, inp.today)}부터 수확할 수 있습니다 "
             f"(수확 {phi}일 전까지 사용)" + suffix
         )
+    status, margin_facts = Verdict.OK, {}
+    if inp.harvest_at is not None:
+        left = (inp.harvest_at - inp.today).days
+        margin = left - phi
+        due = format_date_kr(inp.harvest_at, inp.today)
+        margin_facts = {"harvest_at": inp.harvest_at.isoformat(), "margin_days": margin}
+        if margin < 0:
+            status = Verdict.BLOCKED
+            message = (
+                f"수확 예정일({due})이 지났습니다"
+                if left < 0
+                else f"수확 예정일({due})까지 {left}일 남아 수확 {phi}일 전까지 사용하는 "
+                f"기준을 지킬 수 없습니다{suffix}"
+            )
+        elif margin <= CAUTION_MARGIN_DAYS:
+            status = Verdict.CAUTION
+            message = (
+                f"수확 예정일({due})까지 여유가 {margin}일입니다 "
+                f"(수확 {phi}일 전까지 사용)" + suffix
+            )
     return result(
-        Verdict.OK,
+        status,
         message,
         strict.use_suittime_raw,
         phi_days=phi,
         harvest_from=harvest_from.isoformat(),
         strict_use_method=strict.use_method,
+        **margin_facts,
     )
 
 

@@ -33,6 +33,7 @@ CREATE TABLE field (
     id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id    bigint NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     name       text   NOT NULL,
+    address    text,                                    -- 고른 주소(지번). NULL이면 모른다
     geom       geometry(MultiPolygon, 5179) NOT NULL,   -- 고른 필지 도형의 합집합
     created_at timestamptz NOT NULL DEFAULT now(),
     UNIQUE (id, user_id)                                -- 아래 복합 FK가 user_id 복사본을 일치시킨다
@@ -62,6 +63,7 @@ CREATE TABLE zone (
     name              text   NOT NULL,
     crop_id           int    NOT NULL REFERENCES crop (id),
     planted_at        date,                             -- 정식일. NULL이면 ③ 횟수는 확인 필요
+    harvest_at        date,                             -- 수확 예정일. NULL이면 ②는 수확 가능일만 보여 준다
     history_confirmed boolean NOT NULL DEFAULT false,   -- 「누락 없음」 확인
     geom              geometry(MultiPolygon, 5179) NOT NULL,
     FOREIGN KEY (field_id, user_id) REFERENCES field (id, user_id) ON DELETE CASCADE
@@ -75,7 +77,9 @@ CREATE TABLE spray_log (
     sprayed_on   date   NOT NULL,
     source       text   NOT NULL CHECK (source IN ('manual', 'app')),
     request_id   uuid   NOT NULL UNIQUE,                -- 재시도를 한 번만 반영
-    created_at   timestamptz NOT NULL DEFAULT now()
+    created_at   timestamptz NOT NULL DEFAULT now(),
+    pest_id      int,                                   -- 정적 데이터의 병해충 id (FK 없음)
+    cancelled_at timestamptz                            -- 취소하면 시각이 찍힌다 (행은 남는다)
 );
 CREATE INDEX spray_log_zone_date_idx ON spray_log (zone_id, sprayed_on DESC);
 

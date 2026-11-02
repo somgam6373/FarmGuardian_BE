@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app.catalog.presentation.router import router as catalog_router
 from app.core.config import settings
@@ -17,6 +18,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# 일괄 프리뷰는 약마다 판정 한 벌이 붙어 크다 (약 274개까지)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 install_error_handlers(app)
 app.include_router(farm_router)
 app.include_router(identity_router)

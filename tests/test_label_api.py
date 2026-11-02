@@ -10,6 +10,7 @@ JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 64
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
 WEBP = b"RIFF\x00\x00\x00\x00WEBP" + b"\x00" * 64
 MAX_BYTES = 5 * 1024 * 1024
+DETAIL_KEYS = {"id", "name", "item_name", "moa", "company", "form", "ingredients", "kind"}
 
 
 def auth(uid):
@@ -40,7 +41,7 @@ def test_requires_authentication(client):
 
 def test_response_shape(client, make_user, monkeypatch):
     drug = catalog_service.all_pesticides()[0]
-    fake_reader(monkeypatch, LabelRead(drug.name, drug.item_name, "회사", "원문"))
+    fake_reader(monkeypatch, LabelRead(drug.name, drug.item_name, drug.company, "원문"))
 
     r = post(client, auth(make_user("farmer")), JPEG)
 
@@ -50,13 +51,14 @@ def test_response_shape(client, make_user, monkeypatch):
     assert body["read"] == {
         "brand": drug.name,
         "product": drug.item_name,
-        "company": "회사",
+        "company": drug.company,
         "text": "원문",
     }
     first = body["candidates"][0]
-    assert set(first) == {"pesticide", "score"}
-    assert set(first["pesticide"]) == {"id", "name", "item_name", "moa"}
+    assert set(first) == {"pesticide", "score", "matched"}
+    assert set(first["pesticide"]) == DETAIL_KEYS
     assert (first["pesticide"]["id"], first["score"]) == (drug.id, 1.0)
+    assert first["matched"] == ["brand", "product", "company"]
 
 
 def test_candidate_id_works_in_a_judgment(client, make_user, make_field, make_zone, monkeypatch):

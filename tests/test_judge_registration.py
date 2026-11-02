@@ -16,9 +16,13 @@ def test_r1_registered_for_the_pest():
 
     assert (r.key, r.status) == ("registration", Verdict.OK)
     assert r.message == "이 병해충에 등록된 약제입니다"
-    assert r.facts == {"pest_specified": True, "rows": 1}
+    assert r.facts == {"pest_specified": True, "rows": 1, "dilution": "1000배"}
     assert r.evidence.source_text == "발생 초부터 경엽처리 · 1000배"
     assert r.evidence.data_asof == date(2026, 10, 1)
+
+
+def test_dilution_is_none_when_the_first_row_has_none():
+    assert run(registrations=[reg(dilut_raw=None)]).facts["dilution"] is None
 
 
 def test_r2_only_other_pests_registered():
@@ -94,6 +98,6 @@ def test_rows_counts_considered_rows_and_data_asof_ignores_other_pests():
     ]
     r = run(registrations=rows)
 
-    assert r.facts == {"pest_specified": True, "rows": 2}
+    assert r.facts == {"pest_specified": True, "rows": 2, "dilution": "1000배"}
     assert r.evidence.data_asof == date(2026, 9, 20)
     assert r.evidence.source_text == "발생 초부터 경엽처리 · 1000배"  # 입력 순서의 첫 행

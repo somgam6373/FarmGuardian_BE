@@ -8,7 +8,7 @@ from app.farm.application import zone_service
 from tests.farm_support import judge
 
 SUMMARY_KEYS = {
-    "id", "name", "crop", "planted_at", "history_confirmed", "area_m2", "geometry",
+    "id", "name", "crop", "planted_at", "harvest_at", "history_confirmed", "area_m2", "geometry",
     "last_spray", "last_judgment",
 }
 PESTICIDE_ID = catalog_service.list_pesticides(1)[0].pesticide.id
@@ -33,6 +33,7 @@ def test_summary_shape(db, make_user, make_field, make_zone):
     assert summary["id"] == zone_id
     assert summary["crop"] == {"id": 1, "name": "감자"}
     assert summary["planted_at"] is None
+    assert summary["harvest_at"] is None
     assert summary["history_confirmed"] is False
     assert summary["area_m2"] == 100.0
     assert summary["geometry"]["type"] == "MultiPolygon" and "crs" not in summary["geometry"]

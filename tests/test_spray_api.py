@@ -1,16 +1,26 @@
 import uuid
-from datetime import timedelta
+from dataclasses import replace
+from datetime import date, timedelta
 
 import pytest
+from fastapi.testclient import TestClient
 
 from app.catalog.application import catalog_service as catalog
+from app.core.auth import current_user, get_owned_zone
+from app.core.db import get_db
 from app.core.time import today_kst
+from app.main import app
+from app.spraying.application import spray_service
+from app.spraying.application.spray_service import SprayView
+from app.spraying.domain.entities import Spray
+from tests.judgment_scenarios import pests_with_drugs
 
-SPRAY_KEYS = {"id", "pesticide", "sprayed_on", "source"}
-PESTICIDE_KEYS = {"id", "name", "item_name", "moa"}
+SPRAY_KEYS = {"id", "pesticide", "pest", "sprayed_on", "source", "cancelled"}
+PESTICIDE_KEYS = {"id", "name", "item_name", "moa", "company", "form", "ingredients", "kind"}
 DRUGS = [e.pesticide for e in catalog.list_pesticides(1)]
 WITH_MOA = next(d for d in DRUGS if d.moa)
 WITHOUT_MOA = next(d for d in DRUGS if d.moa is None)
+PEST = pests_with_drugs(1)[0]
 
 
 def auth(uid):
@@ -32,9 +42,23 @@ def listing(client, uid, zone, **params):
     return client.get(f"/zones/{zone}/sprays", params=params, headers=auth(uid))
 
 
+@pytest.fixture
+def no_db():
+    overrides = {current_user: lambda: 1, get_owned_zone: lambda: 1, get_db: lambda: None}
+    app.dependency_overrides.update(overrides)
+    yield TestClient(app)
+    for dependency in overrides:
+        app.dependency_overrides.pop(dependency, None)
+
+
 @pytest.mark.parametrize(
     "method,path",
-    [("post", "/zones/1/sprays"), ("get", "/zones/1/sprays"), ("delete", "/zones/1/sprays/1")],
+    [
+        ("post", "/zones/1/sprays"),
+        ("get", "/zones/1/sprays"),
+        ("delete", "/zones/1/sprays/1"),
+        ("post", "/zones/1/sprays/1/restore"),
+    ],
 )
 def test_requires_authentication(client, method, path):
     r = client.request(method, path, json={} if method == "post" else None)
@@ -51,11 +75,12 @@ def test_foreign_and_unknown_zones_are_404(client, make_user, make_field, make_z
             client.post(f"/zones/{zone}/sprays", json={}, headers=auth(uid)),  # 404 beats 422
             listing(client, uid, zone),
             client.delete(f"/zones/{zone}/sprays/1", headers=auth(uid)),
+            client.post(f"/zones/{zone}/sprays/1/restore", headers=auth(uid)),
         ]
 
         assert [(r.status_code, r.json()["error"]["code"]) for r in responses] == [
             (404, "NOT_FOUND")
-        ] * 3
+        ] * 4
 
 
 def test_post_creates_and_returns_the_spray(client, farm):
@@ -106,6 +131,8 @@ def test_future_date_is_422_and_today_is_accepted(client, farm):
     [
         ({"pesticide_id": 999999}, "pesticide_id"),
         ({"pesticide_id": "abc"}, "pesticide_id"),
+        ({"pest_id": 999999}, "pest_id"),
+        ({"pest_id": "abc"}, "pest_id"),
         ({"source": "robot"}, "source"),
         ({"request_id": "not-a-uuid"}, "request_id"),
         ({"sprayed_on": "2026-13-45"}, "sprayed_on"),
@@ -213,15 +240,86 @@ def test_limit_100_is_accepted(client, farm):
     assert listing(client, uid, zone, limit=100).status_code == 200
 
 
-def test_cancel_returns_204_and_removes_the_spray(client, farm):
+def test_delete_keeps_the_row_marked_cancelled_and_restore_undoes_it(client, farm):
     uid, zone = farm
-    spray = save(client, uid, zone).json()
-    r = client.delete(f"/zones/{zone}/sprays/{spray['id']}", headers=auth(uid))
+    sid = save(client, uid, zone).json()["id"]
+    path = f"/zones/{zone}/sprays/{sid}"
+    r = client.delete(path, headers=auth(uid))
 
     assert (r.status_code, r.content) == (204, b"")
-    assert listing(client, uid, zone).json()["total"] == 0
-    again = client.delete(f"/zones/{zone}/sprays/{spray['id']}", headers=auth(uid))
-    assert (again.status_code, again.json()["error"]["code"]) == (404, "NOT_FOUND")
+    assert client.delete(path, headers=auth(uid)).status_code == 204
+    page = listing(client, uid, zone).json()
+    assert (page["total"], page["items"][0]["cancelled"]) == (1, True)
+    restored = client.post(f"{path}/restore", headers=auth(uid))
+    assert (restored.status_code, restored.json()["cancelled"]) == (200, False)
+    assert listing(client, uid, zone).json()["items"][0]["cancelled"] is False
+
+
+def test_post_with_pest_id_echoes_the_pest(client, farm):
+    uid, zone = farm
+    body = save(client, uid, zone, pest_id=PEST).json()
+
+    assert body["pest"] == {"id": PEST, "name": catalog.get_pest_ref(PEST).name}
+    assert body["cancelled"] is False
+
+
+def test_pest_is_null_when_not_sent(client, farm):
+    uid, zone = farm
+
+    assert save(client, uid, zone).json()["pest"] is None
+
+
+def test_restore_of_a_missing_spray_is_404(client, farm):
+    uid, zone = farm
+    r = client.post(f"/zones/{zone}/sprays/999999/restore", headers=auth(uid))
+
+    assert (r.status_code, r.json()["error"]["code"]) == (404, "NOT_FOUND")
+
+
+def test_restore_of_another_zones_spray_is_404_and_keeps_it_cancelled(
+    client, make_field, make_zone, farm
+):
+    uid, zone = farm
+    zone2 = make_zone(make_field(uid), uid)
+    sid = save(client, uid, zone2).json()["id"]
+    client.delete(f"/zones/{zone2}/sprays/{sid}", headers=auth(uid))
+    r = client.post(f"/zones/{zone}/sprays/{sid}/restore", headers=auth(uid))
+
+    assert (r.status_code, r.json()["error"]["code"]) == (404, "NOT_FOUND")
+    assert listing(client, uid, zone2).json()["items"][0]["cancelled"] is True
+
+
+def test_routes_shape_and_flags_without_a_database(no_db, monkeypatch):
+    spray = Spray(7, WITH_MOA.id, date(2026, 1, 5), "manual", PEST, True)
+    gone = SprayView(spray, WITH_MOA, catalog.get_pest_ref(PEST))
+    seen = {}
+
+    def fake_list(db, zone_id, limit, offset, include_cancelled):
+        seen["include_cancelled"] = include_cancelled
+        return 1, [gone]
+
+    monkeypatch.setattr(spray_service, "list_sprays", fake_list)
+    monkeypatch.setattr(
+        spray_service,
+        "restore_spray",
+        lambda db, zone_id, spray_id: SprayView(replace(spray, cancelled=False), WITH_MOA),
+    )
+    monkeypatch.setattr(spray_service, "cancel_spray", lambda db, zone_id, spray_id: None)
+
+    page = no_db.get("/zones/1/sprays").json()
+    restored = no_db.post("/zones/1/sprays/7/restore")
+
+    assert seen == {"include_cancelled": True} and page["total"] == 1
+    assert set(page["items"][0]) == SPRAY_KEYS
+    assert set(page["items"][0]["pesticide"]) == PESTICIDE_KEYS
+    assert page["items"][0]["pest"] == {"id": PEST, "name": catalog.get_pest_ref(PEST).name}
+    assert page["items"][0]["cancelled"] is True
+    assert (restored.status_code, restored.json()["cancelled"], restored.json()["pest"]) == (
+        200,
+        False,
+        None,
+    )
+    assert no_db.delete("/zones/1/sprays/7").status_code == 204
 
 
 def test_cancel_of_another_zones_spray_is_404(client, make_field, make_zone, farm):

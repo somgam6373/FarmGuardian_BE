@@ -3,7 +3,7 @@ import pytest
 from app.catalog.application import catalog_service
 from tests.farm_support import install_fake_farmmap, judge
 
-FIELD_KEYS = {"id", "name", "area_m2", "geometry", "bbox", "zones"}
+FIELD_KEYS = {"id", "name", "address", "area_m2", "geometry", "bbox", "zones"}
 
 
 @pytest.fixture
@@ -15,9 +15,9 @@ def auth(uid):
     return {"X-User-Id": str(uid)}
 
 
-def create(client, uid, ids, name="앞밭"):
+def create(client, uid, ids, name="앞밭", **extra):
     return client.post(
-        "/fields", json={"name": name, "parcel_farmmap_ids": ids}, headers=auth(uid)
+        "/fields", json={"name": name, "parcel_farmmap_ids": ids, **extra}, headers=auth(uid)
     )
 
 
@@ -142,3 +142,31 @@ def test_list_shows_last_judgment(client, db, make_user, make_zone, fake_farmmap
     zones = client.get("/fields", headers=auth(uid)).json()[0]["zones"]
     assert zones[0]["last_judgment"]["created_at"].endswith("+09:00")
     assert zones[1]["last_judgment"] is None
+
+
+def test_address_is_saved_stripped_and_listed(client, make_user, fake_farmmap):
+    uid = make_user("farmer")
+    created = create(client, uid, ["1"], address="  강원 평창군 대관령면 횡계리 1  ").json()
+    assert created["address"] == "강원 평창군 대관령면 횡계리 1"
+    assert [f["address"] for f in client.get("/fields", headers=auth(uid)).json()] == [
+        created["address"]
+    ]
+
+
+def test_address_is_optional_and_null_by_default(client, make_user, fake_farmmap):
+    assert create(client, make_user("farmer"), ["1"]).json()["address"] is None
+
+
+def test_null_address_is_the_same_as_none_given(client, make_user, fake_farmmap):
+    assert create(client, make_user("farmer"), ["1"], address=None).json()["address"] is None
+
+
+@pytest.mark.parametrize("value", ["", "   ", "가" * 201])
+def test_blank_or_too_long_address_is_422(client, make_user, fake_farmmap, value):
+    response = create(client, make_user("farmer"), ["1"], address=value)
+    assert response.status_code == 422
+    assert response.json()["error"]["details"]["errors"][0]["loc"] == ["body", "address"]
+
+
+def test_address_of_200_characters_is_accepted(client, make_user, fake_farmmap):
+    assert create(client, make_user("farmer"), ["1"], address="가" * 200).status_code == 201

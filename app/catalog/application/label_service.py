@@ -15,5 +15,6 @@ class LabelScan:
 def scan_label(image: bytes, media_type: str) -> LabelScan:
     """포장지 사진 → 읽은 내용과 후보 약제. 저장하지 않고, 약제는 사용자가 고른다."""
     read = label_reader.read_label(image, media_type)
-    candidates = rank_candidates(read.brand, read.product, catalog_service.all_pesticides())
+    drugs = catalog_service.all_pesticides()
+    candidates = rank_candidates(read.brand, read.product, drugs, company=read.company)
     return LabelScan(candidates, read)

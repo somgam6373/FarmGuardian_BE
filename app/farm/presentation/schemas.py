@@ -57,6 +57,7 @@ def check_unique(ids: list[str]) -> list[str]:
 
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=30)]
+Address = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 
 
 class FieldCreate(BaseModel):
@@ -64,6 +65,7 @@ class FieldCreate(BaseModel):
     parcel_farmmap_ids: Annotated[
         list[FarmmapId], Field(min_length=1, max_length=20), AfterValidator(check_unique)
     ]
+    address: Address | None = None
 
 
 class LastSpray(BaseModel):
@@ -97,6 +99,7 @@ class ZoneSummary(BaseModel):
     name: str
     crop: CropOut
     planted_at: date | None
+    harvest_at: date | None
     history_confirmed: bool
     area_m2: float
     geometry: dict
@@ -107,6 +110,7 @@ class ZoneSummary(BaseModel):
 class FieldOut(BaseModel):
     id: int
     name: str
+    address: str | None
     area_m2: float
     geometry: dict
     bbox: list[float]
@@ -149,6 +153,7 @@ class ZoneOut(BaseModel):
     name: str
     crop: CropOut
     planted_at: date | None
+    harvest_at: date | None
     history_confirmed: bool
     area_m2: float
     geometry: dict
@@ -157,10 +162,11 @@ class ZoneOut(BaseModel):
 
 class ZonePatch(BaseModel):
     # 기본값 None은 검증하지 않는다. 안 보내면 그대로 두고, null을 보내면 그 필드 위치로 422다.
-    # 정식일만 null로 비울 수 있다
+    # 정식일·수확 예정일만 null로 비울 수 있다
     name: Name = None
     crop_id: int = None
     planted_at: date | None = None
+    harvest_at: date | None = None
     history_confirmed: bool = None
 
 

@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
-from app.catalog.presentation.schemas import pesticide_base
+from app.catalog.presentation.schemas import PestRefOut, pesticide_detail
 from app.core.auth import current_user, get_owned_zone
 from app.core.db import get_db
 from app.core.errors import AppError
@@ -21,9 +21,11 @@ def _spray_out(view: SprayView) -> SprayOut:
     spray = view.spray
     return SprayOut(
         id=spray.id,
-        pesticide=pesticide_base(view.pesticide),
+        pesticide=pesticide_detail(view.pesticide),
+        pest=PestRefOut(id=view.pest.id, name=view.pest.name) if view.pest else None,
         sprayed_on=spray.sprayed_on,
         source=spray.source,
+        cancelled=spray.cancelled,
     )
 
 
@@ -41,6 +43,7 @@ def create_spray(
             request_id=body.request_id,
             allow_duplicate=body.allow_duplicate,
             today=today_kst(),
+            pest_id=body.pest_id,
         )
     except DuplicateSpray as duplicate:
         existing = _spray_out(duplicate.existing).model_dump(mode="json")
@@ -58,10 +61,15 @@ def list_sprays(
     offset: Annotated[int, Query(ge=0)] = 0,
     db: Session = Depends(get_db),
 ):
-    total, views = spray_service.list_sprays(db, zone_id, limit, offset)
+    total, views = spray_service.list_sprays(db, zone_id, limit, offset, include_cancelled=True)
     return SprayPage(total=total, items=[_spray_out(v) for v in views])
 
 
 @router.delete("/zones/{zone_id}/sprays/{spray_id}", status_code=204)
 def cancel_spray(zone_id: OwnedZone, spray_id: int, db: Session = Depends(get_db)):
     spray_service.cancel_spray(db, zone_id, spray_id)
+
+
+@router.post("/zones/{zone_id}/sprays/{spray_id}/restore", response_model=SprayOut)
+def restore_spray(zone_id: OwnedZone, spray_id: int, db: Session = Depends(get_db)):
+    return _spray_out(spray_service.restore_spray(db, zone_id, spray_id))

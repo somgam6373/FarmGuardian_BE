@@ -18,11 +18,12 @@ def test_reads_crop_planting_date_and_confirmation(db, make_user, make_field, ma
         None,
         False,
     )
+    assert context.harvest_at is None
 
     db.execute(
         text(
             "UPDATE zone SET crop_id = 3, planted_at = '2026-04-01', "
-            "history_confirmed = true WHERE id = :id"
+            "harvest_at = '2026-09-01', history_confirmed = true WHERE id = :id"
         ),
         {"id": zone},
     )
@@ -33,6 +34,7 @@ def test_reads_crop_planting_date_and_confirmation(db, make_user, make_field, ma
         date(2026, 4, 1),
         True,
     )
+    assert context.harvest_at == date(2026, 9, 1)
 
 
 def test_unknown_zone_is_404(db):

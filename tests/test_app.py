@@ -94,3 +94,9 @@ def test_cors_does_not_allow_unlisted_origin():
     r = client.get("/health", headers={"Origin": "http://evil.example"})
 
     assert "access-control-allow-origin" not in r.headers
+
+
+def test_small_responses_are_not_gzipped():
+    r = client.get("/health", headers={"Accept-Encoding": "gzip"})
+
+    assert r.status_code == 200 and "content-encoding" not in r.headers
