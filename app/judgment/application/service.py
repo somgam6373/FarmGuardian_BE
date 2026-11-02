@@ -209,6 +209,7 @@ def preview(
                 pest_id=pest_id,
                 today=day,
                 asof=asof,
+                harvest_at=zone.harvest_at,
             ),
         )
         for entry in pool
@@ -235,6 +236,7 @@ def run_judgment(
         pesticide_id=pesticide_id,
         pest_id=pest_id,
         today=day,
+        harvest_at=zone.harvest_at,
     )
     result = assessment.result
     judgment_id = repository.insert(

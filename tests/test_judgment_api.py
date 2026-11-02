@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 
 import pytest
 from sqlalchemy import text
@@ -284,3 +285,47 @@ def test_unregistered_drug_is_blocked_not_an_error(client, farm):
 
     assert r.status_code == 201 and r.json()["result"]["verdict"] == "BLOCKED"
     assert (first_check["status"], first_check["facts"]) == ("BLOCKED", {"crop_registered": False})
+
+
+def timing_of(body):
+    return next(c for c in body["result"]["checks"] if c["key"] == "timing")
+
+
+def set_harvest_at(db, zone, day):
+    db.execute(text("UPDATE zone SET harvest_at = :d WHERE id = :id"), {"d": day, "id": zone})
+
+
+def test_zone_harvest_at_feeds_the_timing_margin(client, db, farm):
+    uid, zone = farm
+    confirm(db, zone)
+    pest_id, drug = counting_selection()
+    harvest_at = today_kst() + timedelta(days=400)
+    set_harvest_at(db, zone, harvest_at)
+
+    check = timing_of(judge(client, uid, zone, pesticide_id=drug.id, pest_id=pest_id).json())
+
+    assert check["facts"]["harvest_at"] == harvest_at.isoformat()
+    assert check["facts"]["margin_days"] == 400 - check["facts"]["phi_days"]
+    assert check["status"] == "OK"
+
+
+def test_a_past_harvest_at_blocks_the_timing_check(client, db, farm):
+    uid, zone = farm
+    confirm(db, zone)
+    pest_id, drug = counting_selection()
+    set_harvest_at(db, zone, today_kst() - timedelta(days=1))
+
+    check = timing_of(judge(client, uid, zone, pesticide_id=drug.id, pest_id=pest_id).json())
+
+    assert check["status"] == "BLOCKED"
+    assert check["facts"]["margin_days"] < 0
+
+
+def test_without_harvest_at_the_timing_check_has_no_margin(client, db, farm):
+    uid, zone = farm
+    confirm(db, zone)
+    pest_id, drug = counting_selection()
+
+    check = timing_of(judge(client, uid, zone, pesticide_id=drug.id, pest_id=pest_id).json())
+
+    assert "margin_days" not in check["facts"] and "harvest_at" not in check["facts"]

@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -8,12 +8,20 @@ from app.catalog.application import catalog_service
 from app.core.auth import current_user, get_owned_zone
 from app.core.db import get_db
 from app.core.errors import AppError
+from app.core.time import today_kst
 from app.farm.application import zone_reader
 from app.farm.application.zone_reader import ZoneContext
 from app.judgment.application import service
 from app.main import app
 from app.spraying.application import spray_service
-from tests.judgment_scenarios import PLANTED, TODAY, assess, pests_with_drugs, pool
+from tests.judgment_scenarios import (
+    PLANTED,
+    TODAY,
+    assess,
+    counting_selection,
+    pests_with_drugs,
+    pool,
+)
 
 PEST = pests_with_drugs(1)[0]
 DETAIL_KEYS = {"id", "name", "item_name", "moa", "company", "form", "ingredients", "kind"}
@@ -170,3 +178,23 @@ def test_preview_stores_nothing(client, db, farm):
 
     assert preview(client, uid, zone, pest_id=PEST).status_code == 200
     assert db.scalar(count, {"z": zone}) == before
+
+
+def test_zone_harvest_at_feeds_the_preview_items(client, db, farm):
+    uid, zone = farm
+    pest_id, drug = counting_selection()
+    db.execute(
+        text("UPDATE zone SET planted_at = :p, history_confirmed = true WHERE id = :id"),
+        {"p": PLANTED, "id": zone},
+    )
+    harvest_at = today_kst() + timedelta(days=400)
+    db.execute(
+        text("UPDATE zone SET harvest_at = :d WHERE id = :id"), {"d": harvest_at, "id": zone}
+    )
+
+    body = preview(client, uid, zone, pest_id=pest_id).json()
+
+    item = next(i for i in body if i["pesticide"]["id"] == drug.id)
+    check = next(c for c in item["result"]["checks"] if c["key"] == "timing")
+    assert check["facts"]["harvest_at"] == harvest_at.isoformat()
+    assert check["facts"]["margin_days"] == 400 - check["facts"]["phi_days"]
