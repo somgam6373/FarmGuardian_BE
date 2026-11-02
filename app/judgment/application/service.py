@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.catalog.application import catalog_service
 from app.catalog.domain.entities import Moa as CatalogMoa
-from app.catalog.domain.entities import Pesticide, UseRow
+from app.catalog.domain.entities import Pesticide, PesticideEntry, UseRow
 from app.core.errors import AppError
 from app.farm.application import zone_reader
 from app.judgment.domain.rules import judge, pick_alternatives
@@ -77,6 +77,38 @@ def show_extension_office(pest_given: bool, verdict: Verdict, alternative_count:
     return pest_given and verdict in (Verdict.BLOCKED, Verdict.CAUTION) and alternative_count == 0
 
 
+def judge_drug(
+    drug: Pesticide,
+    *,
+    crop_id: int,
+    planted_at: date | None,
+    history_confirmed: bool,
+    records: list[SprayRecord],
+    pest_id: int | None,
+    today: date,
+    asof: date,
+    harvest_at: date | None = None,
+) -> JudgeResult:
+    """약제 하나를 판정한다 (DB 없음). 단건 판정과 대안, 일괄 프리뷰가 함께 쓴다."""
+    return judge(
+        JudgeInput(
+            today=today,
+            planted_at=planted_at,
+            history_confirmed=history_confirmed,
+            pest_id=pest_id,
+            pesticide_id=drug.id,
+            item_name=drug.item_name,
+            moa=_moa(drug.moa),
+            registrations=[
+                _registration(r) for r in catalog_service.get_registrations(drug.id, crop_id)
+            ],
+            history=records,
+            psis_asof=asof,
+            harvest_at=harvest_at,
+        )
+    )
+
+
 def assess(
     *,
     crop_id: int,
@@ -98,22 +130,16 @@ def assess(
     asof = catalog_service.data_asof()
 
     def judged(drug: Pesticide) -> JudgeResult:
-        return judge(
-            JudgeInput(
-                today=today,
-                planted_at=planted_at,
-                history_confirmed=history_confirmed,
-                pest_id=pest_id,
-                pesticide_id=drug.id,
-                item_name=drug.item_name,
-                moa=_moa(drug.moa),
-                registrations=[
-                    _registration(r) for r in catalog_service.get_registrations(drug.id, crop_id)
-                ],
-                history=records,
-                psis_asof=asof,
-                harvest_at=harvest_at,
-            )
+        return judge_drug(
+            drug,
+            crop_id=crop_id,
+            planted_at=planted_at,
+            history_confirmed=history_confirmed,
+            records=records,
+            pest_id=pest_id,
+            today=today,
+            asof=asof,
+            harvest_at=harvest_at,
         )
 
     result = judged(chosen)
@@ -139,11 +165,54 @@ def assess(
     )
 
 
+def _day(apply_date: date | None, today: date, where: str) -> date:
+    """판정에 쓸 날짜. 상한을 넘으면 where(body·query)의 apply_date 오류로 422."""
+    if apply_date is not None and apply_date > MAX_APPLY_DATE:
+        message = f"apply_date는 {MAX_APPLY_DATE.isoformat()} 이전이어야 합니다"
+        error = {"loc": [where, "apply_date"], "msg": message, "type": "value_error"}
+        raise AppError("VALIDATION_ERROR", 422, message, {"errors": [error]})
+    return apply_date or today
+
+
 @dataclass(frozen=True)
 class Judgment:
     id: int
     apply_date: date
     assessment: Assessment
+
+
+@dataclass(frozen=True)
+class PreviewItem:
+    entry: PesticideEntry
+    result: JudgeResult
+
+
+def preview(
+    db: Session, zone_id: int, *, pest_id: int, apply_date: date | None, today: date
+) -> list[PreviewItem]:
+    """구역·병해충의 약제 풀 전체를 저장 없이 판정한다. 구역과 이력은 한 번만 읽는다."""
+    day = _day(apply_date, today, "query")
+    zone = zone_reader.get_zone_context(db, zone_id)
+    # 모르는 병해충·다른 작물의 병해충은 404
+    pool = catalog_service.list_pesticides(zone.crop_id, pest_id)
+    records = spray_records(spray_service.history(db, zone_id))
+    asof = catalog_service.data_asof()
+    return [
+        PreviewItem(
+            entry,
+            judge_drug(
+                entry.pesticide,
+                crop_id=zone.crop_id,
+                planted_at=zone.planted_at,
+                history_confirmed=zone.history_confirmed,
+                records=records,
+                pest_id=pest_id,
+                today=day,
+                asof=asof,
+            ),
+        )
+        for entry in pool
+    ]
 
 
 def run_judgment(
@@ -156,11 +225,7 @@ def run_judgment(
     today: date,
 ) -> Judgment:
     """구역의 정보와 이력을 읽어 판정하고 저장한다. 오류면 아무것도 저장하지 않는다."""
-    if apply_date is not None and apply_date > MAX_APPLY_DATE:
-        message = f"apply_date는 {MAX_APPLY_DATE.isoformat()} 이전이어야 합니다"
-        error = {"loc": ["body", "apply_date"], "msg": message, "type": "value_error"}
-        raise AppError("VALIDATION_ERROR", 422, message, {"errors": [error]})
-    day = apply_date or today
+    day = _day(apply_date, today, "body")
     zone = zone_reader.get_zone_context(db, zone_id)
     assessment = assess(
         crop_id=zone.crop_id,

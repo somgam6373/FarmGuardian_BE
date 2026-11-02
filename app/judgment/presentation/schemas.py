@@ -12,6 +12,12 @@ class JudgmentIn(BaseModel):
     apply_date: date | None = None
 
 
+class PreviewItemOut(BaseModel):
+    pesticide: PesticideDetail
+    at_planting_only: bool
+    result: JudgeResult
+
+
 class JudgeResponse(BaseModel):
     judgment_id: int
     apply_date: date
