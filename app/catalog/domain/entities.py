@@ -92,3 +92,4 @@ class LabelRead:
 class LabelCandidate:
     pesticide: Pesticide
     score: float  # 0~1. 후보 정렬용
+    matched: tuple[str, ...] = ()  # 읽은 값과 맞는 칸: 'brand'·'product'·'company' 순

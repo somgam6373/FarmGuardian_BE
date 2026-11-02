@@ -77,7 +77,9 @@ def scan_pesticide_label(image: Annotated[UploadFile, File()]):
     scan = label_service.scan_label(data, media_type)
     return LabelScanOut(
         candidates=[
-            LabelCandidateOut(pesticide=pesticide_detail(c.pesticide), score=c.score)
+            LabelCandidateOut(
+                pesticide=pesticide_detail(c.pesticide), score=c.score, matched=list(c.matched)
+            )
             for c in scan.candidates
         ],
         read=LabelReadOut(**asdict(scan.read)),

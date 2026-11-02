@@ -91,6 +91,7 @@ class LabelReadOut(BaseModel):
 class LabelCandidateOut(BaseModel):
     pesticide: PesticideDetail
     score: float
+    matched: list[str]  # 읽은 값과 맞는 칸: brand, product, company 순
 
 
 class LabelScanOut(BaseModel):
