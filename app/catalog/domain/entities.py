@@ -57,6 +57,12 @@ class PestVector:
 
 
 @dataclass(frozen=True)
+class PestRef:
+    id: int
+    name: str
+
+
+@dataclass(frozen=True)
 class PestCard:
     id: int
     name: str
@@ -67,6 +73,10 @@ class PestCard:
     occurrence: str | None  # 발생 시기 (월 + 근거)
     occurrence_source: str | None
     vectors: tuple[PestVector, ...]
+    months: tuple[int, ...] = ()  # 고른 발생 시기 행의 월. 자료가 없으면 빈 튜플
+    pesticide_count: int = 0  # 이 작물·병해충에 등록된 약제 수
+    is_virus: bool = False
+    carries: tuple[PestRef, ...] = ()  # 이 벌레가 옮기는 바이러스 (이름순)
 
 
 @dataclass(frozen=True)

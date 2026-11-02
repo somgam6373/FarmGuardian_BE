@@ -7,6 +7,7 @@ from app.catalog.domain.entities import (
     PestCard,
     Pesticide,
     PesticideEntry,
+    PestRef,
     PestVector,
     UseRow,
 )
@@ -176,6 +177,34 @@ def _by_pest(name: str, key: str = "pest_id") -> dict[int, tuple[dict, ...]]:
     return {pest_id: tuple(rows) for pest_id, rows in grouped.items()}
 
 
+@functools.cache
+def _virus_ids() -> frozenset[int]:
+    return frozenset(v["virus_pest_id"] for v in load("virus_vector"))
+
+
+@functools.cache
+def _carries() -> dict[int, tuple[PestRef, ...]]:
+    """매개충 id -> 그 벌레가 옮기는 바이러스 (이름순). 매개충이 없는 행은 건너뛴다."""
+    found: dict[int, list[PestRef]] = {}
+    for v in load("virus_vector"):
+        if v["vector_pest_id"] is not None:
+            virus = PestRef(v["virus_pest_id"], _pests()[v["virus_pest_id"]]["name"])
+            found.setdefault(v["vector_pest_id"], []).append(virus)
+    return {
+        pest_id: tuple(sorted(refs, key=lambda ref: ref.name)) for pest_id, refs in found.items()
+    }
+
+
+@functools.cache
+def _pesticide_counts() -> dict[tuple[int, int], int]:
+    """(작물, 병해충) -> 등록된 약제 수. 카드마다 훑지 않도록 한 번만 센다."""
+    counts: dict[tuple[int, int], int] = {}
+    for _, rows in _drugs():
+        for key in {(crop, pest) for crop, pest, _ in rows}:
+            counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
 def get_pest_card(pest_id: int) -> PestCard | None:
     pest = _pests().get(pest_id)
     if pest is None:
@@ -205,6 +234,10 @@ def get_pest_card(pest_id: int) -> PestCard | None:
         occurrence=occurrence_text(season) if season else None,
         occurrence_source=OCCURRENCE_SOURCES[season["source"]] if season else None,
         vectors=tuple(vectors),
+        months=tuple(season["months"]) if season else (),
+        pesticide_count=_pesticide_counts().get((pest["crop_id"], pest_id), 0),
+        is_virus=pest_id in _virus_ids(),
+        carries=_carries().get(pest_id, ()),
     )
 
 
@@ -250,5 +283,6 @@ def list_pests(crop_id: int, q: str | None = None) -> list[PestCard]:
     return _cards(
         p["pest_id"]
         for p in _pests_of(crop_id)
-        if p["pest_id"] in _registered_pest_ids() and needle in p["name"].casefold()
+        if (p["pest_id"] in _registered_pest_ids() or p["pest_id"] in _virus_ids())
+        and needle in p["name"].casefold()
     )

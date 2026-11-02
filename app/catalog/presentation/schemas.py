@@ -60,6 +60,11 @@ class VectorOut(BaseModel):
     source: str
 
 
+class PestRefOut(BaseModel):
+    id: int
+    name: str
+
+
 class PestCardOut(BaseModel):
     id: int
     name: str
@@ -70,6 +75,10 @@ class PestCardOut(BaseModel):
     occurrence: str | None
     occurrence_source: str | None
     vectors: list[VectorOut]
+    months: list[int]  # 발생 월. 자료가 없으면 빈 배열
+    pesticide_count: int
+    is_virus: bool
+    carries: list[PestRefOut]  # 이 벌레가 옮기는 바이러스
 
 
 class LabelReadOut(BaseModel):

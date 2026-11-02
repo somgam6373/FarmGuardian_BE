@@ -12,6 +12,7 @@ from app.catalog.presentation.schemas import (
     LabelScanOut,
     PestCardOut,
     PesticideOut,
+    PestRefOut,
     VectorOut,
     pesticide_detail,
     pesticide_out,
@@ -48,6 +49,10 @@ def _card_out(card: PestCard) -> PestCardOut:
         occurrence=card.occurrence,
         occurrence_source=card.occurrence_source,
         vectors=vectors,
+        months=list(card.months),
+        pesticide_count=card.pesticide_count,
+        is_virus=card.is_virus,
+        carries=[PestRefOut(id=ref.id, name=ref.name) for ref in card.carries],
     )
 
 
