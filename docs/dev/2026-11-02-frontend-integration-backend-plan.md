@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task in this session (CLAUDE.md: no subagent-driven execution). Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add the backend pieces (B1–B7) that let the frontend prototype run on the real API.
+**Goal:** Add the backend pieces (B1–B11) that let the frontend prototype run on the real API.
 
-**Architecture:** All changes are additive to the existing contexts (`catalog`, `judgment`, `spraying`). Catalog gets richer pesticide and pest data from the static JSON. Spraying gains `pest_id` and soft cancel/restore, and every consumer that decides (judgment input, rotation, duplicate check, `last_spray`) keeps seeing only active rows. Judgment gains a read-only batch preview and an optional harvest-date margin in ②.
+**Architecture:** All changes are additive to the existing contexts (`catalog`, `judgment`, `spraying`). Catalog gets richer pesticide and pest data from the static JSON. Spraying gains `pest_id` and soft cancel/restore, and every consumer that decides (judgment input, rotation, duplicate check, `last_spray`) keeps seeing only active rows. Judgment gains a read-only batch preview, an optional harvest-date margin in ②, and returns the chosen drug in its response. `GET /pests` also lists virus pests, responses are gzipped, and identity forwards a field address once Hyebin's item #3 lands.
 
 **Tech Stack:** Python 3.13, FastAPI, SQLAlchemy 2 (raw `text()` SQL like `spraying`), psycopg 3, pydantic, pytest, ruff.
 
-**Spec:** `docs/dev/2026-11-02-frontend-integration-design.md` (B1–B7, C1). The frontend wiring is a separate plan, written after this one lands. Hyebin's items are in `docs/dev/팜가디언_혜빈님_요청_프론트연동.md`.
+**Spec:** `docs/dev/2026-11-02-frontend-integration-design.md` (B1–B11, C1 approved 2026-11-02). The frontend wiring is a separate plan, written after this one lands. Hyebin's items are in `docs/dev/팜가디언_혜빈님_요청_프론트연동.md`.
 
 ## Global Constraints
 
@@ -19,7 +19,9 @@
 - Judgment messages must not contain `추천 예측 예상 가능성 위험 확률 안전 문제없`; `tests/test_judgment_wording.py` scans the string literals in `rules.py`.
 - Code, identifiers, commit messages in English; comments follow the surrounding code (Korean, sparse).
 - Commit trailer: `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`. Commit steps run only with the user's go-ahead.
-- Facts pinned by the data (checked 2026-11-02): 1363 drugs; `kind` counts insecticide 763 / fungicide 583 / both 17; every drug has a company, a form, a kind and ≥1 ingredient; 83 drugs have 2+ companies; 49 of 129 pests have a season row; `virus_vector` has 5 distinct virus ids.
+- Facts pinned by the data (checked 2026-11-02): 1363 drugs; `kind` counts insecticide 763 / fungicide 583 / both 17; every drug has a company, a form, a kind and ≥1 ingredient (rows of one drug never disagree on ingredients); 83 drugs have 2+ companies; 49 of 129 pests have a season row; `virus_vector` has 6 distinct virus ids (5 with a vector, id 64 has none) and none of the 6 has a registered drug; `GET /pests` lists 25 / 43 / 23 pests for 감자 / 배추 / 토마토 before Task 4; drug pools per (crop, pest): 91 pairs, median 18, max 274, 9 above 100; the `dilution` text starts with `N배` in 3665 of 4133 rows and with `-` in 467.
+- Hyebin-dependent tasks are 11 (`harvest_at`) and 11b (`address`). Both stop and report instead of editing `app/farm`.
+- `docs/dev/팜가디언_PRD_수정_제안.md` is in `.gitignore`: Task 12 edits it on disk, but the commit does not contain it. Say so when reporting.
 
 ## Review Focus
 
@@ -28,6 +30,8 @@
 3. **Preview misuse**: missing `pest_id`, a pest of another crop, a foreign zone, `apply_date` after 2100-12-31, and "must store nothing" → Task 9.
 4. **Catalog edge data**: drug with several companies, unknown `usage` value, item name without a space, OCR read with every field empty → Tasks 1 and 5.
 5. **Harvest margin boundaries**: margin −1 / 0 / 2 / 3, harvest date already past, `phi = 0`, no harvest date, NO_LIMIT and NEEDS_CHECK paths ignoring it → Task 10.
+6. **Existing tests that assume "cancel = delete"** (`test_spray_api.py`, `test_spray_service.py`, `test_e2e_scenario.py`) and the three `/pests` count tests that assume "registered only" are rewritten in Tasks 4, 6 and 7, not left to fail.
+7. **`at_planting_only` in the judgment response** must agree with `GET /pesticides` for the same drug, crop and pest → Task 2.
 
 ## Preflight (before Task 1)
 
@@ -81,16 +85,17 @@ def test_ingredients_follow_the_use_ingredient_order():
 - [ ] **Step 4: Run** `pytest tests/test_catalog_pesticide_fields.py tests/test_catalog_pesticide_shape.py tests/test_catalog_service.py -v` → PASS.
 - [ ] **Step 5: Commit** `feat(catalog): derive company, form, ingredients and kind for every pesticide`.
 
-### Task 2: `PesticideDetail` on the catalog, OCR and alternatives responses (B2)
+### Task 2: `PesticideDetail` on the catalog, OCR, alternatives and judgment responses (B2, B8)
 
 **Files:**
-- Modify: `app/catalog/presentation/schemas.py`, `app/catalog/presentation/router.py`, `app/judgment/presentation/schemas.py`, `app/judgment/presentation/router.py`
-- Test: update `tests/test_catalog_pesticide_shape.py`, `tests/test_catalog_api.py:37`, `tests/test_label_api.py:58`, `tests/test_judgment_api.py:20` (`ALT_KEYS`)
+- Modify: `app/catalog/presentation/schemas.py`, `app/catalog/presentation/router.py`, `app/judgment/application/service.py`, `app/judgment/presentation/schemas.py`, `app/judgment/presentation/router.py`
+- Test: update `tests/test_catalog_pesticide_shape.py`, `tests/test_catalog_api.py:37`, `tests/test_label_api.py:58`, `tests/test_judgment_api.py:17` (`RESPONSE_KEYS`) and `:20` (`ALT_KEYS`)
 
 **Interfaces:**
 - Consumes: `Pesticide` with the new fields (Task 1).
 - Produces: `PesticideDetail(PesticideBase)` with `company: str | None`, `form: str | None`, `ingredients: list[str]`, `kind: Literal["insecticide", "fungicide", "both"] | None`; `pesticide_detail(p: Pesticide) -> PesticideDetail`; `PesticideOut(PesticideDetail)` adding `at_planting_only: bool`. `PesticideBase` / `pesticide_base()` unchanged.
 - Used by: `GET /pesticides`, `LabelCandidateOut.pesticide`, `JudgeResponse.alternatives` (later Tasks 7 and 9 reuse it).
+- Produces (B8): `Assessment` gains `pesticide: Pesticide` (the chosen drug) and `at_planting_only: bool`. The flag is true iff the chosen drug has at least one registration row for the crop (narrowed to `pest_id` when given) and every such row has `parse_status == "stage"`, the same source `list_pesticides` uses. `JudgeResponse` gains `pesticide: PesticideOut`. `RESPONSE_KEYS` = the old keys + `pesticide`.
 
 - [ ] **Step 1: Write the failing tests** (edit the existing shape test, add a converter test):
 
@@ -108,11 +113,22 @@ def test_pesticide_detail_converter():
         "moa": {"label_kr": "라3", "system": "FRAC", "code": "24"},
         "company": "Co", "form": "액제", "ingredients": ["A", "B"], "kind": "both"}
 ```
-  Change the three API key-set assertions (`test_catalog_api`, `test_label_api`, `ALT_KEYS`) to the detail key set.
+  Change the three API key-set assertions (`test_catalog_api`, `test_label_api`, `ALT_KEYS`) to the detail key set. Add `"pesticide"` to `RESPONSE_KEYS` and two cases (B8):
+
+```python
+def test_response_carries_the_chosen_drug(client, farm):
+    body = judge(client, farm, pesticide_id=DRUG.id, pest_id=PEST).json()      # helpers as in this file
+    listed = {d["id"]: d for d in pesticide_list(client, farm, crop=CROP, pest_id=PEST)}
+    assert body["pesticide"] == listed[DRUG.id]                                  # same shape and flag as GET /pesticides
+
+def test_at_planting_only_agrees_with_the_pesticide_list():
+    # for every drug of one pest: assess(...).at_planting_only == the flag from catalog_service.list_pesticides(crop, pest)
+    # a drug not registered for the pest, and a judgment without pest_id, give False unless every crop row is `stage`
+```
 - [ ] **Step 2: Run** `pytest tests/test_catalog_pesticide_shape.py tests/test_catalog_api.py tests/test_label_api.py tests/test_judgment_api.py -v` → FAIL on the new keys.
-- [ ] **Step 3: Implement** `PesticideDetail`, `pesticide_detail()`, and switch `_pesticide_out`, the OCR candidate mapping, `JudgeResponse.alternatives` and the judgment router to them.
+- [ ] **Step 3: Implement** `PesticideDetail`, `pesticide_detail()`, and switch `_pesticide_out`, the OCR candidate mapping, `JudgeResponse.alternatives` and the judgment router to them. Then add the B8 fields: `assess()` fills `Assessment.pesticide` from `chosen` and `at_planting_only` from `catalog_service.get_registrations`; the router builds `JudgeResponse.pesticide` with the same helper `GET /pesticides` uses (`pesticide_detail()` + the flag).
 - [ ] **Step 4: Run** the same files plus `tests/test_zone_summaries.py` (must still pass: `last_spray.pesticide` keeps four keys) → PASS.
-- [ ] **Step 5: Commit** `feat(catalog): return PesticideDetail from pesticides, OCR candidates and alternatives`.
+- [ ] **Step 5: Commit** `feat(catalog): return PesticideDetail from pesticides, OCR candidates, alternatives and the judgment response`.
 
 ### Task 3: Dilution fact on the ① registration check (B3)
 
@@ -134,15 +150,16 @@ def test_dilution_is_none_when_the_first_row_has_none():
 - [ ] **Step 4: Run** `pytest tests/test_judge_registration.py tests/test_judgment_wording.py tests/test_judge_result.py -v` → PASS.
 - [ ] **Step 5: Commit** `feat(judgment): expose the dilution on the registration check`.
 
-### Task 4: Pest card fields (B5)
+### Task 4: Pest card fields and virus pests in the pest list (B5, B10)
 
 **Files:**
 - Modify: `app/catalog/domain/entities.py`, `app/catalog/application/catalog_service.py` (`get_pest_card`), `app/catalog/presentation/schemas.py`, `app/catalog/presentation/router.py` (`_card_out`)
-- Test: `tests/test_catalog_pest_extras.py` (new); update `CARD_KEYS` in `tests/test_catalog_pest_api.py`
+- Test: `tests/test_catalog_pest_extras.py` (new); update `CARD_KEYS` in `tests/test_catalog_pest_api.py` and the count tests in `tests/test_catalog_pest_lists.py`
 
 **Interfaces:**
 - Produces: `PestRef(id: int, name: str)` (frozen dataclass); `PestCard` gains `months: tuple[int, ...] = ()`, `pesticide_count: int = 0`, `is_virus: bool = False`, `carries: tuple[PestRef, ...] = ()`.
 - Produces: `PestRefOut(id: int, name: str)` in catalog schemas (Task 7 reuses it); `PestCardOut` gains `months: list[int]`, `pesticide_count: int`, `is_virus: bool`, `carries: list[PestRefOut]`.
+- Produces (B10): `_virus_ids()` (cached `frozenset` of `virus_vector.virus_pest_id`), shared by `is_virus` and the list. `list_pests` returns the crop's pests that have a registered drug **or** are in `_virus_ids()`; order and the `q` filter are unchanged; virus cards have `pesticide_count == 0`. Counts become 감자 25 (same), 배추 43 → 45, 토마토 23 → 27.
 
 - [ ] **Step 1: Write the failing tests** in `tests/test_catalog_pest_extras.py`:
 
@@ -164,11 +181,24 @@ def test_pesticide_count_equals_the_pool_size():
     for p in load("pest"):
         assert svc.get_pest_card(p["pest_id"]).pesticide_count == len(svc.list_pesticides(p["crop_id"], p["pest_id"]))
 ```
-  Add the four keys to `CARD_KEYS`; one API assertion that a virus card has `is_virus is True` and a non-empty `vectors`.
+  Add the four keys to `CARD_KEYS`; one API assertion that a virus card (pick one with a vector; id 64 has none) has `is_virus is True` and a non-empty `vectors`. Add the B10 cases and update the tests that assume "registered only":
+
+```python
+def test_virus_pests_are_listed_although_no_drug_is_registered_for_them():
+    virus_ids = {v["virus_pest_id"] for v in load("virus_vector")}
+    for crop_id in (1, 2, 3):
+        mine = {p["pest_id"] for p in pests_of(crop_id)} & virus_ids
+        assert mine <= {c.id for c in svc.list_pests(crop_id)}
+
+def test_q_finds_a_virus_by_name():
+    assert "모자이크병" in [c.name for c in svc.list_pests(2, "모자이크")]
+```
+
+  In `tests/test_catalog_pest_lists.py`: `test_registered_pest_counts` becomes `[(1, 25), (2, 45), (3, 27)]`; `test_listed_pests_are_exactly_the_registered_pests_of_the_crop` expects registered ∪ virus ids (rename it); `test_candidates_are_not_limited_to_registered_pests` expects `len(listed) == 27` (`candidates - listed` stays non-empty). Also fix any `/pests` count assertion in `tests/test_catalog_pest_api.py`.
 - [ ] **Step 2: Run** `pytest tests/test_catalog_pest_extras.py tests/test_catalog_pest_api.py -v` → FAIL.
-- [ ] **Step 3: Implement** in `get_pest_card`: `months` from `pick_season(...)`; `is_virus` from a cached set of `virus_vector.virus_pest_id`; `carries` from `virus_vector` grouped by `vector_pest_id` (skip null vectors, sorted by name); `pesticide_count` from a cached `{(crop_id, pest_id): n}` built once from `_drugs()` rows (distinct drugs), not a scan per card.
+- [ ] **Step 3: Implement** in `get_pest_card`: `months` from `pick_season(...)`; `is_virus` from a cached set of `virus_vector.virus_pest_id`; `carries` from `virus_vector` grouped by `vector_pest_id` (skip null vectors, sorted by name); `pesticide_count` from a cached `{(crop_id, pest_id): n}` built once from `_drugs()` rows (distinct drugs), not a scan per card. Change the `list_pests` condition to `pest_id in _registered_pest_ids() or pest_id in _virus_ids()`.
 - [ ] **Step 4: Run** `pytest tests/test_catalog_pest_extras.py tests/test_catalog_pest_api.py tests/test_catalog_pest_cards.py tests/test_catalog_pest_lists.py -v` → PASS.
-- [ ] **Step 5: Commit** `feat(catalog): add months, drug count, virus flag and carried viruses to the pest card`.
+- [ ] **Step 5: Commit** `feat(catalog): add months, drug count, virus flag and carried viruses to the pest card, and list virus pests`.
 
 ### Task 5: OCR `matched` (B6)
 
@@ -216,7 +246,7 @@ def test_nothing_read_gives_no_candidates():
 
 **Files:**
 - Modify: `schema.sql` (`spray_log`), `app/spraying/domain/entities.py`, `app/spraying/infrastructure/repository.py`, `app/spraying/application/spray_service.py`
-- Test: `tests/test_spray_cancel.py` (new); `tests/test_schema_sql.py` (add a columns check); fix any existing test that calls `repository.delete`
+- Test: `tests/test_spray_cancel.py` (new); `tests/test_schema_sql.py` (add a columns check); rewrite the existing cancel tests listed in Step 1
 
 **Interfaces:**
 - Produces: `Spray(id, pesticide_id, sprayed_on, source, pest_id: int | None = None, cancelled: bool = False)`; `SprayView(spray, pesticide, pest: PestCard | None = None)`.
@@ -259,6 +289,11 @@ def test_pest_id_is_stored_and_an_unknown_pest_is_422(db, zones):
     assert info.value.details["errors"][0]["loc"] == ["body", "pest_id"]
 ```
   In `test_schema_sql.py` add a check that `spray_log` has `pest_id` and `cancelled_at` columns.
+
+  Rewrite the existing tests that assume cancel = delete (none calls `repository.delete` directly; the rename only touches `spray_service`):
+  - `tests/test_spray_service.py::test_cancel_removes_the_record` still passes (the `total` helper uses the default listing); rename it to say the cancelled row leaves the default listing.
+  - `tests/test_spray_service.py::test_cancel_twice_or_unknown_is_404` (lines 231-238): a repeated cancel no longer raises. Keep only the unknown id (999999) → 404; the repeat case is covered by `test_cancel_twice_is_fine_and_restore_brings_the_row_back`.
+  - `tests/test_e2e_scenario.py` (lines 71-74): after the cancel, `GET /sprays` still returns the cancelled row. Count only items with `cancelled == False` (2 → 1 → 2) instead of `total`.
 - [ ] **Step 2: Edit `schema.sql`**: add `pest_id int` (comment: static pest id, no FK) and `cancelled_at timestamptz` to `spray_log`.
 - [ ] **Step 3: Ask the user for a go-ahead, then change the databases.** Against the test database (`TEST_DATABASE_URL` in `.env`, name ends in `_test`) and the dev database run (Windows: `set PGCLIENTENCODING=UTF8` first):
   `ALTER TABLE spray_log ADD COLUMN pest_id int, ADD COLUMN cancelled_at timestamptz;`
@@ -294,7 +329,7 @@ def test_post_with_pest_id_echoes_the_pest(client, farm): ...        # body["pes
 def test_pest_is_null_when_not_sent(client, farm): ...
 def test_restore_requires_authentication_and_404s_for_foreign_or_missing(client, ...): ...
 ```
-  Add the restore path to `test_requires_authentication`'s parametrization and to the foreign/unknown-zone 404 test.
+  Add the restore path to `test_requires_authentication`'s parametrization and to the foreign/unknown-zone 404 test. Replace `test_cancel_returns_204_and_removes_the_spray` (lines 216-224), which asserts `total == 0` after the cancel and a 404 on the second `DELETE`: both now differ (the row stays with `cancelled: true`, and the second `DELETE` is 204). The new test above covers the 204 and the `cancelled` flag; keep a second-`DELETE` → 204 assertion in it.
 - [ ] **Step 2: Run** `pytest tests/test_spray_api.py -v` → FAIL.
 - [ ] **Step 3: Implement** schemas, `_spray_out`, the `include_cancelled=True` listing and the restore route.
 - [ ] **Step 4: Run** `pytest tests/test_spray_api.py tests/test_zone_summaries.py tests/test_fields_api.py -v` → PASS.
@@ -328,7 +363,7 @@ def test_last_spray_on_the_fields_list_skips_cancelled_rows(client, db, farm):
 ### Task 9: Read-only batch preview (B1)
 
 **Files:**
-- Modify: `app/judgment/application/service.py`, `app/judgment/presentation/schemas.py`, `app/judgment/presentation/router.py`
+- Modify: `app/judgment/application/service.py`, `app/judgment/presentation/schemas.py`, `app/judgment/presentation/router.py`, `app/main.py` (gzip, B9)
 - Test: `tests/test_judgment_preview.py` (new); keep `tests/test_judgment_assess.py` green
 
 **Interfaces:**
@@ -368,12 +403,13 @@ def test_each_result_equals_the_one_a_judgment_would_give(client, farm):
 def test_preview_stores_nothing(client, db, farm):
     # count rows in judgment before and after: unchanged
 ```
+  Add one case for B9: a preview request sent with `Accept-Encoding: gzip` answers with `content-encoding: gzip`, and a tiny response (`GET /health`) does not.
 - [ ] **Step 2: Run** `pytest tests/test_judgment_preview.py -v` → FAIL (404 route).
-- [ ] **Step 3: Implement** the refactor first (`judge_drug`, `_day`; `assess` and `run_judgment` call them), then `preview()` (one `zone_reader.get_zone_context`, one `spray_service.history`, `catalog_service.list_pesticides` for the pool, `judge_drug` per drug), then schema and route (`get_owned_zone` dependency like the POST).
+- [ ] **Step 3: Implement** the refactor first (`judge_drug`, `_day`; `assess` and `run_judgment` call them), then `preview()` (one `zone_reader.get_zone_context`, one `spray_service.history`, `catalog_service.list_pesticides` for the pool, `judge_drug` per drug), then schema and route (`get_owned_zone` dependency like the POST). Last, add `app.add_middleware(GZipMiddleware, minimum_size=1000)` in `app/main.py` (B9; the biggest pool is 274 drugs, each with a full `JudgeResult`).
 - [ ] **Step 4: Run** `pytest tests/test_judgment_preview.py tests/test_judgment_assess.py tests/test_judgment_api.py tests/test_judgment_sweep.py -v` → PASS.
-- [ ] **Step 5: Commit** `feat(judgment): add a read-only batch preview for a zone and pest`.
+- [ ] **Step 5: Commit** `feat(judgment): add a read-only batch preview for a zone and pest, and gzip responses`.
 
-### Task 10: ② harvest-date margin, domain and plumbing (B7 / C1)
+### Task 10: ② harvest-date margin, domain and plumbing (B7 / C1, approved 2026-11-02)
 
 **Files:**
 - Modify: `app/judgment/domain/schemas.py` (`JudgeInput`), `app/judgment/domain/rules.py` (`check_timing`), `app/judgment/application/service.py` (`judge_drug`, `assess`, `preview`, `run_judgment` accept and pass `harvest_at`)
@@ -423,15 +459,32 @@ def test_no_limit_and_needs_check_paths_ignore_the_harvest_date():   # no "margi
 - [ ] **Step 4: Run** `pytest tests/test_judgment_api.py tests/test_judgment_preview.py -v` → PASS.
 - [ ] **Step 5: Commit** `feat(judgment): use the zone's harvest date in the timing check`.
 
+### Task 11b: Field address through signup — BLOCKED until Hyebin's item #3 lands (B11)
+
+**Files:**
+- Modify: `app/identity/presentation/schemas.py` (`SignupIn`), `app/identity/presentation/router.py`, `app/identity/application/service.py` (`signup`)
+- Test: `tests/test_identity_signup.py`, `tests/test_identity_api.py`
+
+**Do not start** until `schema.sql` has `field.address`, `FieldOut` has `address` and `field_service.create_field` accepts an `address` argument (check with `grep -n address schema.sql app/farm/presentation/schemas.py app/farm/application/field_service.py`). If they are not there, stop and tell the user; do not edit `app/farm`. If Hyebin declines item #3, drop this task (the frontend keeps the address in the browser).
+
+**Interfaces:**
+- Produces: `SignupIn.field_address: str | None = None` (stripped, 1–200 characters when given, like `field_name`; a blank or longer value is 422 `loc ["body","field_address"]`); `signup(db, username, password, field_name, farmmap_ids, address=None)` forwards it to `field_service.create_field`; the response `field.address` echoes it.
+
+- [ ] **Step 1: Write the failing tests**: signup with `field_address` → 201 and `field.address` equals it; without it → `field.address is None`; a blank value and a 201-character value → 422 on `["body","field_address"]`; a failed signup (unknown farmmap id) still leaves no user.
+- [ ] **Step 2: Run** `pytest tests/test_identity_signup.py tests/test_identity_api.py -v` → FAIL.
+- [ ] **Step 3: Implement** the schema field, the router pass-through and the service argument.
+- [ ] **Step 4: Run** the same files plus `tests/test_fields_api.py` and `ruff check .` → PASS.
+- [ ] **Step 5: Commit** `feat(identity): accept the first field's address at signup`.
+
 ### Task 12: Documents and final verification
 
 **Files:**
-- Modify: `docs/dev/팜가디언_API_명세.md`, `docs/dev/팜가디언_판정_규칙.md`, `docs/dev/팜가디언_PRD_수정_제안.md`, `docs/dev/팜가디언_아키텍처.md`, `docs/dev/2026-11-02-frontend-integration-design.md`; check `docs/dev/api_playground.html` for the endpoints it lists.
+- Modify: `docs/dev/팜가디언_API_명세.md`, `docs/dev/팜가디언_판정_규칙.md`, `docs/dev/팜가디언_PRD_수정_제안.md` (git-ignored: edit it, it is not part of the commit), `docs/dev/팜가디언_아키텍처.md`, `docs/dev/2026-11-02-frontend-integration-design.md`; check `docs/dev/api_playground.html` for the endpoints it lists.
 
-- [ ] **Step 1: 명세**: endpoint count 28 → 30 (counting the unbuilt weather one) in §0/title text; `Pesticide` → detail fields and `PestCard` → four new fields in §2; new §7 section for `GET /zones/{id}/judgments/preview`; §7 `registration` facts add `dilution`; §7 `timing` facts add `harvest_at`/`margin_days` (only when set); §8 spray: `pest_id`, `pest`, `cancelled`, soft cancel wording, the `restore` route, `GET` includes cancelled rows; OCR candidate `matched`. Mark new choices `【결정】`.
+- [ ] **Step 1: 명세**: endpoint count 28 → 30 (counting the unbuilt weather one) in §0/title text; `Pesticide` → detail fields and `PestCard` → four new fields in §2; new §7 section for `GET /zones/{id}/judgments/preview`; §7 `registration` facts add `dilution`; §7 `timing` facts add `harvest_at`/`margin_days` (only when set); §8 spray: `pest_id`, `pest`, `cancelled`, soft cancel wording, the `restore` route, `GET` includes cancelled rows; OCR candidate `matched`; §2 `ZoneSummary.last_spray` keeps the old four-key `Pesticide` shape while `Spray` now has the detail fields, `pest` and `cancelled`; §6 `GET /pests` also returns virus pests (B10); §7 `JudgeResponse.pesticide` (B8); responses are gzipped (B9); `address` on `Field`, `POST /fields` and signup `field_address` if Task 11b lands. Mark new choices `【결정】`.
 - [ ] **Step 2: 판정 규칙**: §1 row ② and §4 ② describe the margin rule and its messages; §4 ① facts add `dilution`; §9 add the boundary cases from Task 10.
-- [ ] **Step 3: PRD 수정 제안**: add the ② change (harvest date input, BLOCKED/CAUTION by margin) with the reason.
-- [ ] **Step 4: 아키텍처**: §5 `spray_log` columns; §7 API table rows for preview and restore.
+- [ ] **Step 3: PRD 수정 제안**: add the ② change (harvest date input, BLOCKED/CAUTION by margin, unchanged when the date is empty) with the reason (a harvest inside the pre-harvest interval is a shipping ban). The file is git-ignored; tell the user it was edited on disk only.
+- [ ] **Step 4: 아키텍처**: §2 ② 시기 row (margin when `harvest_at` is set) and 살포 기록 row (취소 = 소프트 취소, 복구); §5 `spray_log` columns (and `field.address` if Task 11b lands); §7 `GET /pests` sentence (registered pests **or** virus pests), API table rows for preview and restore; §8 브이월드 지오코더 「미정: 주소를 어느 응답에 넣을지」 → closed by `Field.address`.
 - [ ] **Step 5: Design doc**: Status → approved (2026-11-02) with C1 approved; note which plan tasks implement each B-item.
 - [ ] **Step 6: Final verification** (superpowers:verification-before-completion): run `pytest -q`, `ruff check .`, and `git diff origin/test -- app/farm` (must print nothing). Report the real output; any failure that also failed in Preflight is reported as pre-existing.
-- [ ] **Step 7: Commit** `docs: record the frontend-integration API changes`.
+- [ ] **Step 7: Commit** `docs: record the frontend-integration API changes` (without `팜가디언_PRD_수정_제안.md`, which is git-ignored).
