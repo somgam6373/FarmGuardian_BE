@@ -62,6 +62,7 @@ CREATE TABLE zone (
     name              text   NOT NULL,
     crop_id           int    NOT NULL REFERENCES crop (id),
     planted_at        date,                             -- 정식일. NULL이면 ③ 횟수는 확인 필요
+    harvest_at        date,                             -- 수확 예정일. NULL이면 ②는 수확 가능일만 보여 준다
     history_confirmed boolean NOT NULL DEFAULT false,   -- 「누락 없음」 확인
     geom              geometry(MultiPolygon, 5179) NOT NULL,
     FOREIGN KEY (field_id, user_id) REFERENCES field (id, user_id) ON DELETE CASCADE

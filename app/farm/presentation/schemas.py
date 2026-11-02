@@ -97,6 +97,7 @@ class ZoneSummary(BaseModel):
     name: str
     crop: CropOut
     planted_at: date | None
+    harvest_at: date | None
     history_confirmed: bool
     area_m2: float
     geometry: dict
@@ -149,6 +150,7 @@ class ZoneOut(BaseModel):
     name: str
     crop: CropOut
     planted_at: date | None
+    harvest_at: date | None
     history_confirmed: bool
     area_m2: float
     geometry: dict
@@ -157,10 +159,11 @@ class ZoneOut(BaseModel):
 
 class ZonePatch(BaseModel):
     # 기본값 None은 검증하지 않는다. 안 보내면 그대로 두고, null을 보내면 그 필드 위치로 422다.
-    # 정식일만 null로 비울 수 있다
+    # 정식일·수확 예정일만 null로 비울 수 있다
     name: Name = None
     crop_id: int = None
     planted_at: date | None = None
+    harvest_at: date | None = None
     history_confirmed: bool = None
 
 

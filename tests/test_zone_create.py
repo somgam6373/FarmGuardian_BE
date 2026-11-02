@@ -9,8 +9,8 @@ from app.farm.infrastructure import field_repository
 from app.farm.infrastructure.integrations.farmmap import FarmmapParcel
 
 ZONE_KEYS = {
-    "id", "field_id", "name", "crop", "planted_at", "history_confirmed", "area_m2", "geometry",
-    "bbox",
+    "id", "field_id", "name", "crop", "planted_at", "harvest_at", "history_confirmed", "area_m2",
+    "geometry", "bbox",
 }
 TODAY = date(2026, 10, 30)
 RECT = [[(0, 0), (20, 0), (20, 10), (0, 10), (0, 0)]]
@@ -35,6 +35,7 @@ def test_create_returns_zones_in_order(db, farm):
     uid, field_id = farm
     first, second = field_service.create_zones(db, field_id, uid, "crosswise", [1, 1], SPECS, TODAY)
     assert set(first) == ZONE_KEYS
+    assert first["harvest_at"] is None and second["harvest_at"] is None
     assert first["field_id"] == field_id and first["name"] == "앞"
     assert first["crop"] == {"id": 1, "name": "감자"}
     assert second["crop"] == {"id": 2, "name": "배추"}

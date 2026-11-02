@@ -30,7 +30,7 @@ def summaries(db: Session, field_ids: list[int]) -> dict[int, list[dict]]:
     """밭 id → 구역 요약 (id 순). 구역이 없는 밭은 빠진다."""
     rows = db.execute(
         text(
-            "SELECT z.id, z.field_id, z.name, z.planted_at, z.history_confirmed, "
+            "SELECT z.id, z.field_id, z.name, z.planted_at, z.harvest_at, z.history_confirmed, "
             "c.id AS crop_id, c.name AS crop_name, "
             "round(ST_Area(z.geom)::numeric, 1) AS area_m2, ST_AsGeoJSON(z.geom, 1) AS geojson "
             "FROM zone z JOIN crop c ON c.id = z.crop_id "
@@ -47,6 +47,7 @@ def summaries(db: Session, field_ids: list[int]) -> dict[int, list[dict]]:
                 "name": row.name,
                 "crop": {"id": row.crop_id, "name": row.crop_name},
                 "planted_at": row.planted_at,
+                "harvest_at": row.harvest_at,
                 "history_confirmed": row.history_confirmed,
                 "area_m2": float(row.area_m2),
                 "geometry": geojson(row.geojson),
@@ -64,6 +65,7 @@ def _zone(row) -> dict:
         "name": row.name,
         "crop": {"id": row.crop_id, "name": row.crop_name},
         "planted_at": row.planted_at,
+        "harvest_at": row.harvest_at,
         "history_confirmed": row.history_confirmed,
         "area_m2": float(row.area_m2),
         "geometry": geojson(row.geojson),
@@ -75,7 +77,7 @@ def get_zones(db: Session, zone_ids: list[int]) -> list[dict]:
     """Zone 응답 (id 순)."""
     rows = db.execute(
         text(
-            "SELECT z.id, z.field_id, z.name, z.planted_at, z.history_confirmed, "
+            "SELECT z.id, z.field_id, z.name, z.planted_at, z.harvest_at, z.history_confirmed, "
             "c.id AS crop_id, c.name AS crop_name, "
             "round(ST_Area(z.geom)::numeric, 1) AS area_m2, ST_AsGeoJSON(z.geom, 1) AS geojson, "
             "round(ST_XMin(z.geom)::numeric, 1) AS minx, "
@@ -132,12 +134,15 @@ def check_values(
 
 
 def update_zone(db: Session, zone_id: int, changes: dict, today: date) -> dict:
-    """changes = 보낸 값만 (name, crop_id, planted_at, history_confirmed). 커밋하지 않는다."""
+    """changes = 보낸 값만 (name, crop_id, planted_at, harvest_at, history_confirmed).
+
+    커밋하지 않는다.
+    """
     check_values(db, [(["body"], changes.get("crop_id"), changes.get("planted_at"))], today)
     current = db.execute(
         # 동시 수정에서 한쪽 변경이 사라지지 않게 행을 잠그고 읽는다
         text(
-            "SELECT name, crop_id, planted_at, history_confirmed FROM zone "
+            "SELECT name, crop_id, planted_at, harvest_at, history_confirmed FROM zone "
             "WHERE id = :id FOR UPDATE"
         ),
         {"id": zone_id},
@@ -147,6 +152,26 @@ def update_zone(db: Session, zone_id: int, changes: dict, today: date) -> dict:
     if crop_id != current.crop_id:
         planted_at = None  # 작물이 바뀌면 새 작기다. 정식일은 보낸 값, 없으면 비운다
     planted_at = changes.get("planted_at", planted_at)
+    harvest_at = current.harvest_at
+    if crop_id != current.crop_id:
+        harvest_at = None  # 수확 예정일도 새 작기에 맞게 다시 받는다
+    harvest_at = changes.get("harvest_at", harvest_at)
+    if planted_at and harvest_at and harvest_at < planted_at:
+        field = "harvest_at" if "harvest_at" in changes else "planted_at"
+        raise AppError(
+            "VALIDATION_ERROR",
+            422,
+            "요청 값이 올바르지 않습니다",
+            {
+                "errors": [
+                    {
+                        "loc": ["body", field],
+                        "msg": "수확 예정일은 정식일 이후여야 합니다",
+                        "type": "value_error",
+                    }
+                ]
+            },
+        )
     confirmed = current.history_confirmed
     if planted_at != current.planted_at:
         confirmed = False  # 세는 기간이 바뀌어 「누락 없음」을 다시 확인받는다
@@ -154,13 +179,14 @@ def update_zone(db: Session, zone_id: int, changes: dict, today: date) -> dict:
     db.execute(
         text(
             "UPDATE zone SET name = :name, crop_id = :crop_id, planted_at = :planted_at, "
-            "history_confirmed = :confirmed WHERE id = :id"
+            "harvest_at = :harvest_at, history_confirmed = :confirmed WHERE id = :id"
         ),
         {
             "id": zone_id,
             "name": changes.get("name", current.name),
             "crop_id": crop_id,
             "planted_at": planted_at,
+            "harvest_at": harvest_at,
             "confirmed": confirmed,
         },
     )

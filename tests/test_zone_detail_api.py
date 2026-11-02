@@ -7,8 +7,8 @@ from app.catalog.application import catalog_service
 from tests.farm_support import judge
 
 ZONE_KEYS = {
-    "id", "field_id", "name", "crop", "planted_at", "history_confirmed", "area_m2", "geometry",
-    "bbox",
+    "id", "field_id", "name", "crop", "planted_at", "harvest_at", "history_confirmed", "area_m2",
+    "geometry", "bbox",
 }
 WITH_MOA = next(e.pesticide for e in catalog_service.list_pesticides(1) if e.pesticide.moa)
 
