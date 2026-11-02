@@ -68,10 +68,12 @@ Parcel        {farmmap_id: string, pnu: string, lnm: string, land_use: string, v
                area_m2: number, geometry, matches_query: bool, used_by_field_id: int|null}
                   land_use = 논·밭·과수·시설. matches_query = 조회한 지번과 같은 필지인지
                   used_by_field_id = 이 사용자의 다른 밭이 쓰는 필지면 그 밭 id (X-User-Id가 없으면 항상 null)
-Field         {id, name, area_m2, geometry, bbox, zones: [ZoneSummary]}      zones가 비면 아직 나누지 않은 밭
-Zone          {id, field_id, name, crop: Crop, planted_at: date|null, history_confirmed: bool,
+Field         {id, name, address: string|null, area_m2, geometry, bbox, zones: [ZoneSummary]}      zones가 비면 아직 나누지 않은 밭
+                  address = 밭을 만들 때 받은 주소 (지번). 보내지 않았거나 이 값을 넣기 전에 만든 밭은 null
+Zone          {id, field_id, name, crop: Crop, planted_at: date|null, harvest_at: date|null, history_confirmed: bool,
                area_m2, geometry, bbox}
-ZoneSummary   {id, name, crop: Crop, planted_at: date|null, history_confirmed: bool, area_m2, geometry,
+                  harvest_at = 수확 예정일. 없으면 null (판정 ②가 수확 가능일만 보여 준다)
+ZoneSummary   {id, name, crop: Crop, planted_at: date|null, harvest_at: date|null, history_confirmed: bool, area_m2, geometry,
                last_spray: Spray|null, last_judgment: JudgmentBrief|null}
 ZoneSpec      {name: string, crop_id: int, planted_at?: date}
 SplitPiece    {geometry, area_m2}          순서 = 방향의 시작 쪽부터 (서→동, 조각이 남북으로 늘어서면 남→북), ratios 순서와 같다
@@ -180,7 +182,8 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 
 ### `POST /fields` — 밭 추가
 
-- 요청 본문: `{name: string(1~30자), parcel_farmmap_ids: [string](1~20개)}`
+- 요청 본문: `{name: string(1~30자), parcel_farmmap_ids: [string](1~20개), address?: string}`
+  - `address` **【결정】**: 프론트가 주소 검색에서 고른 `jibun_addr`. 앞뒤 공백을 뺀 1~200자이고, 빈 값이나 201자 이상은 422(`loc ["body","address"]`)다. 만든 뒤에는 고칠 수 없다.
 - 응답 201: `Field` (`zones`는 빈 배열)
 - 오류: 409 `PARCEL_ALREADY_USED`, 422, 502 (`source: "farmmap"`)
 
@@ -212,10 +215,13 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 
 ### `PATCH /zones/{id}`
 
-- 요청 본문 (모두 선택): `{name?: string, crop_id?: int, planted_at?: date|null, history_confirmed?: bool}`
+- 요청 본문 (모두 선택): `{name?: string, crop_id?: int, planted_at?: date|null, harvest_at?: date|null, history_confirmed?: bool}`
   - `planted_at: null`로 정식일을 비울 수 있다. 오늘(KST) 이후 날짜는 422.
   - `crop_id`가 바뀌면 `planted_at`은 요청 값, 없으면 null이 된다 (새 작기).
   - `planted_at` 값이 바뀌면 `history_confirmed`는 false가 된다 (같은 요청에서 명시하면 그 값).
+  - `harvest_at` **【결정】**: 수확 예정일. `null`로 비울 수 있다. 정식일이 있으면 정식일과 같거나 그 이후여야 하고, 어기면 422다. 오늘보다 지난 날짜도 받는다 (판정에서 여유 일수가 음수로 나온다). `crop_id`가 바뀌면 같은 요청에 값이 없는 한 null이 된다 (새 작기). `planted_at`만 바뀌면 그대로 두되, 새 정식일이 수확 예정일보다 늦으면 422다. `history_confirmed`는 바꾸지 않는다.
+  - 422의 `loc`: 요청에 `harvest_at`이 있으면 `["body","harvest_at"]`, 없으면 `["body","planted_at"]`.
+  - 구역을 만들 때(`ZoneSpec`)는 받지 않는다. 새 구역은 null이다.
 - 응답 200: `Zone`
 - 오류: 404, 422
 
