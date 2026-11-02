@@ -21,6 +21,10 @@ class Pesticide:
     name: str  # 상표명
     item_name: str  # 품목명
     moa: Moa | None
+    company: str | None = None  # 가장 작은 use_id 행의 회사
+    form: str | None = None  # 제형 (품목명의 마지막 단어)
+    ingredients: tuple[str, ...] = ()  # 성분 이름 (use_ingredient의 seq 순)
+    kind: str | None = None  # 'insecticide' | 'fungicide' | 'both'
 
 
 @dataclass(frozen=True)

@@ -16,6 +16,7 @@ from app.catalog.domain.pest_rules import (
     pick_season,
     representative_photo,
 )
+from app.catalog.domain.pesticide_fields import form_of, kind_of
 from app.catalog.infrastructure.static_data import load
 from app.core.errors import AppError
 
@@ -40,20 +41,45 @@ def _pest_crops() -> dict[int, int]:
 
 
 @functools.cache
+def _ingredients() -> dict[int, tuple[str, ...]]:
+    """사용 행 id -> 성분 이름 (use_ingredient의 seq 순)."""
+    names = {i["ingredient_id"]: i["name"] for i in load("ingredient")}
+    found: dict[int, list[tuple[int, str]]] = {}
+    for r in load("use_ingredient"):
+        found.setdefault(r["use_id"], []).append((r["seq"], names[r["ingredient_id"]]))
+    return {use_id: tuple(name for _, name in sorted(pairs)) for use_id, pairs in found.items()}
+
+
+@functools.cache
 def _drugs() -> tuple[tuple[Pesticide, tuple[tuple[int, int, str], ...]], ...]:
     """약제 = (품목명, 상표명). 모든 작물에서 가장 작은 use_id가 약제 id다.
-    각 약제와 (작물, 병해충, 변환 구분) 등록 행들을 한 번만 만들어 둔다."""
+    각 약제와 (작물, 병해충, 변환 구분) 등록 행들을 한 번만 만들어 둔다.
+    회사·종류·성분은 가장 작은 use_id 행의 값이다."""
     intl_codes = {m["kr_code"]: m["intl_code"] for m in load("moa")}
     status = {s["use_id"]: s["parse_status"] for s in load("safe_use_std")}
     found: dict[tuple[str, str], dict] = {}
     for u in load("pesticide_use"):
         drug = found.setdefault(
-            (u["product"], u["brand"]), {"id": u["use_id"], "moa": u["moa_code"], "rows": []}
+            (u["product"], u["brand"]),
+            {"id": u["use_id"], "moa": u["moa_code"], "first": u, "rows": []},
         )
-        drug["id"] = min(drug["id"], u["use_id"])
+        if u["use_id"] < drug["id"]:
+            drug["id"], drug["first"] = u["use_id"], u
         drug["rows"].append((_pest_crops()[u["pest_id"]], u["pest_id"], status[u["use_id"]]))
     return tuple(
-        (Pesticide(d["id"], brand, product, _moa(d["moa"], intl_codes)), tuple(d["rows"]))
+        (
+            Pesticide(
+                d["id"],
+                brand,
+                product,
+                _moa(d["moa"], intl_codes),
+                d["first"]["company"],
+                form_of(product),
+                _ingredients().get(d["id"], ()),
+                kind_of(d["first"]["usage"]),
+            ),
+            tuple(d["rows"]),
+        )
         for (product, brand), d in found.items()
     )
 
