@@ -1,7 +1,7 @@
 # 팜가디언 백엔드 API 명세
 
 - 작성일: 2026-10-28
-- 이 문서는 **프론트와 맺는 API 계약**이다. 엔드포인트 28개의 요청·응답·오류를 한곳에 모았다.
+- 이 문서는 **프론트와 맺는 API 계약**이다. 엔드포인트 30개(아직 만들지 않은 `GET /zones/{id}/weather` 포함)의 요청·응답·오류를 한곳에 모았다.
 - 근거: `팜가디언_아키텍처.md` §7(API 표·동작 규칙)·§8(외부 연동), `팜가디언_판정_규칙.md` §2(판정 타입). 판정 규칙의 세부는 judge_rules가 우선한다.
 - 구현 후에는 FastAPI가 만든 `openapi.json`이 기준이 되고, 이 문서와 어긋나면 이 문서를 고친다.
 - **【결정】** 표시는 이 문서를 쓰면서 새로 정한 값이다 (설계 문서에 없던 것). 프론트와 합의 때 확인한다.
@@ -13,7 +13,7 @@
 | 담당 | API |
 |---|---|
 | 혜빈 (9) | `GET /addresses/search`, `GET /parcels`, `POST /fields`, `GET /fields`, `DELETE /fields/{id}`, `POST /fields/{id}/split-preview`, `POST /fields/{id}/zones`, `GET /zones/{id}`, `PATCH /zones/{id}` |
-| 준혁 (19) | `POST /auth/signup`, `POST /auth/login`, `GET /me`, `POST /me/onboarding`, `DELETE /me`, `GET /crops`, `GET /zones/{id}/weather`, `GET /crops/{id}/symptom-parts`, `GET /pests/candidates`, `GET /pests`, `GET /pesticides`, `POST /zones/{id}/judgments`, `POST /zones/{id}/sprays`, `GET /zones/{id}/sprays`, `DELETE /zones/{id}/sprays/{sid}`, `POST /ocr/pesticide-labels`, `POST /inventory`, `GET /inventory`, `DELETE /inventory/{drug_id}` |
+| 준혁 (21) | `POST /auth/signup`, `POST /auth/login`, `GET /me`, `POST /me/onboarding`, `DELETE /me`, `GET /crops`, `GET /zones/{id}/weather`, `GET /crops/{id}/symptom-parts`, `GET /pests/candidates`, `GET /pests`, `GET /pesticides`, `GET /zones/{id}/judgments/preview`, `POST /zones/{id}/judgments`, `POST /zones/{id}/sprays`, `GET /zones/{id}/sprays`, `DELETE /zones/{id}/sprays/{sid}`, `POST /zones/{id}/sprays/{sid}/restore`, `POST /ocr/pesticide-labels`, `POST /inventory`, `GET /inventory`, `DELETE /inventory/{drug_id}` |
 
 `POST /auth/signup`은 준혁의 `identity`가 혜빈의 `field_service`를 호출해 첫 밭을 만든다.
 
@@ -29,7 +29,8 @@
 | 도형 | `geometry` = GeoJSON `MultiPolygon`, EPSG:5179 미터 좌표, y축이 위쪽, 소수 1자리. `bbox` = `[minx, miny, maxx, maxy]`. 프론트가 y축을 뒤집어 SVG로 그린다 |
 | 목록 응답 | 배열을 그대로 돌려준다. 페이징이 있는 두 곳(`GET /addresses/search`, `GET /zones/{id}/sprays`)만 `{total, items}` **【결정】** |
 | 삭제 | 성공하면 본문 없이 204 |
-| 상태 확인 | `GET /health` → `{"status": "ok"}`. 인증 없음. 엔드포인트 28개에 세지 않는다 |
+| 상태 확인 | `GET /health` → `{"status": "ok"}`. 인증 없음. 엔드포인트 30개에 세지 않는다 |
+| 압축 | 1,000바이트 이상 응답은 `Accept-Encoding: gzip` 요청에 gzip으로 보낸다 (판정 미리보기가 크다) |
 
 ### 오류 응답
 
@@ -58,6 +59,11 @@ Moa           {label_kr: string, system: string|null, code: string|null}
 Crop          {id: int, name: string}
 Pesticide     {id: int, name: string, item_name: string, moa: Moa|null}
                   name = 상표명, item_name = 품목명
+PesticideDetail  Pesticide + {company: string|null, form: string|null, ingredients: [string],
+                  kind: "insecticide"|"fungicide"|"both"|null}
+                  `GET /pesticides`, 판정 응답·대안·미리보기, 포장지 OCR 후보, `Spray.pesticide`가 쓴다.
+                  form = 품목명의 마지막 단어 (예 「액상수화제」), kind = 살충·살균·겸용, company = 등록 행 중 첫 행의 제조사
+                  ingredients = 유효 성분 이름 (복합제는 여럿). `ZoneSummary.last_spray.pesticide`는 계속 위 `Pesticide` 모양(4키)이다
 Parcel        {farmmap_id: string, pnu: string, lnm: string, land_use: string, vdpt_yr: int|null,
                area_m2: number, geometry, matches_query: bool, used_by_field_id: int|null}
                   land_use = 논·밭·과수·시설. matches_query = 조회한 지번과 같은 필지인지
@@ -69,7 +75,9 @@ ZoneSummary   {id, name, crop: Crop, planted_at: date|null, history_confirmed: b
                last_spray: Spray|null, last_judgment: JudgmentBrief|null}
 ZoneSpec      {name: string, crop_id: int, planted_at?: date}
 SplitPiece    {geometry, area_m2}          순서 = 방향의 시작 쪽부터 (서→동, 조각이 남북으로 늘어서면 남→북), ratios 순서와 같다
-Spray         {id: int, pesticide: Pesticide, sprayed_on: date, source: "manual"|"app"}
+Spray         {id: int, pesticide: PesticideDetail, pest: {id, name}|null, sprayed_on: date,
+               source: "manual"|"app", cancelled: bool}
+                  `ZoneSummary.last_spray`는 예전 4키 모양 {id, pesticide: Pesticide, sprayed_on, source}을 그대로 쓴다 (취소된 기록은 제외)
 JudgmentBrief {judgment_id: int, created_at: datetime, pesticide: {id, name, item_name},
                pest: {id, name}|null, verdict: Verdict}                       【결정】
 Verdict       "OK" | "CAUTION" | "BLOCKED" | "NEEDS_CHECK"        가능 / 주의 / 불가 / 확인 필요
@@ -79,8 +87,11 @@ CheckResult   {key: "registration"|"timing"|"count"|"moa", status: Verdict, mess
 JudgeResult   {pesticide_id: int, moa: Moa|null, verdict: Verdict, checks: [CheckResult],
                notices: [string], data_asof: date}
                   checks는 항상 4개, 순서 registration → timing → count → moa. data_asof 표기는 "데이터 조회일"
-Alternative   {id: int, name: string, item_name: string, moa: Moa|null}      Pesticide와 같은 모양
-JudgeResponse {judgment_id: int, apply_date: date, result: JudgeResult, alternatives: [Alternative], show_extension_office: bool}
+Alternative   PesticideDetail과 같은 모양
+JudgeResponse {judgment_id: int, apply_date: date, pesticide: PesticideDetail + {at_planting_only: bool}, result: JudgeResult,
+               alternatives: [Alternative], show_extension_office: bool}
+                  pesticide = 고른 약제 (`GET /pesticides` 항목과 같은 모양). 새로고침이나 OCR로 들어와 목록 자료가 없어도 약 정보를 그릴 수 있게 한다
+PreviewItem   {pesticide: PesticideDetail, at_planting_only: bool, result: JudgeResult}
 Rotation      {window_start: date|null, total: int, items: [{moa: Moa|null, count: int}]}
                   window_start가 null이면 정식일이 없어 전체 기록 기준. 비율은 프론트가 count/total
 Weather       {issued_at: datetime, items: [{at: datetime, pty: int, pcp: string, pop: int|null}]}
@@ -89,7 +100,10 @@ Weather       {issued_at: datetime, items: [{at: datetime, pty: int, pcp: string
                   pop = 강수확률(%), 결측이면 null
 PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: string|null, photo_source: string|null,
                description: string|null, occurrence: string|null, occurrence_source: string|null,
-               vectors: [{id, name, guide, source}]}
+               vectors: [{id, name, guide, source}], months: [int], pesticide_count: int, is_virus: bool,
+               carries: [{id, name}]}
+                  months = 발생 월 (고른 발생 시기 행의 월, 자료가 없으면 빈 배열), pesticide_count = 이 작물×병해충에 등록된 약제 수 (없으면 0)
+                  is_virus = 바이러스 병해충인지, carries = 이 벌레가 옮기는 바이러스 (이름순, 없으면 빈 배열)
                   이 작물의 도감 값 (정적 데이터 `pest`·`pest_photo`·`pest_season`, 없으면 null → 화면에 「없음」)
                   photo_source = 사진 출처 (작물명 "토마토", 대체 "양배추(대체)", 보충 "옥수수(보충)", 사진이 없으면 null)
                   description = 증상·피해. occurrence = 발생 시기 (발생 월·근거 문장), occurrence_source = 그 출처 (예 "NCPMS 설명", "PDF 경보")
@@ -155,8 +169,8 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 
 - 포장지 사진에서 약제 후보를 찾는다. 판정 입구와 이력 입력 두 화면에서 부르며 날짜는 보내지 않는다. 아무것도 저장하지 않는다. 고르는 것은 사용자이고, 고른 `pesticide.id`를 `POST /zones/{id}/judgments`나 `POST /zones/{id}/sprays`의 `pesticide_id`에 그대로 쓴다.
 - 요청: `multipart/form-data`, 필드 `image` (파일, 필수). jpeg·png·webp, 5MB(5 × 1024 × 1024바이트) 이하. 형식은 파일 내용으로 판단하고 `Content-Type` 값은 보지 않는다.
-- 응답 200: `{candidates: [{pesticide: Pesticide, score: number}], read: {brand: string|null, product: string|null, company: string|null, text: string}}`
-  - `candidates`: 0~5개, 점수가 높은 순. `pesticide`는 `GET /pesticides`와 같은 모양이고 `id`도 같다. `score`는 0~1(소수 2자리)이며 정렬용이라 화면에 퍼센트로 보이지 않는다.
+- 응답 200: `{candidates: [{pesticide: PesticideDetail, score: number, matched: ["brand"|"product"|"company"]}], read: {brand: string|null, product: string|null, company: string|null, text: string}}`
+  - `candidates`: 0~5개, 점수가 높은 순. `pesticide`는 `GET /pesticides`와 같은 모양이고 `id`도 같다. `matched` = 읽은 값이 약제와 맞은 항목 (항상 brand, product, company 순). 상표명·품목명은 정규화한 유사도 0.9 이상, 제조사는 0.9 이상이거나 한쪽이 다른 쪽을 포함할 때(「경농」·「(주)경농」) 맞은 것으로 본다. 읽지 못한 항목은 맞지 않는다 **【결정】**. `score`와 순위는 `matched`와 무관하다. `score`는 0~1(소수 2자리)이며 정렬용이라 화면에 퍼센트로 보이지 않는다.
   - `read`: 모델이 포장지에서 읽은 내용 (`brand` 상표명, `product` 품목명, `company` 제조사). `text`는 읽은 글자 전체로 최대 2,000자이고, 읽지 못했으면 빈 문자열이다.
   - 읽지 못했거나 비슷한 약제가 없는 경우도 오류가 아니라 200이다 (`candidates: []`, `brand`·`product`·`company`는 null, `text`는 ""). 이때 프론트는 직접 검색으로 전환한다.
 - 오류: 401, 422 `VALIDATION_ERROR` (`loc ["body", "image"]`: 파일 없음, 5MB 초과, 형식이 아님), 502 `UPSTREAM_ERROR` (`source: "anthropic"`: 인식 서비스 장애·시간 초과, 서버에 키가 없을 때)
@@ -226,17 +240,25 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 ### `GET /pests`
 
 - 쿼리: `crop_id` (필수), `q` (선택, 이름 부분 일치)
-- 응답 200: `[PestCard]` — 그 작물에 등록된 병해충, 이름순. 도감에 없는 병해충도 나온다. 페이징 없음 **【결정】**
+- 응답 200: `[PestCard]` — 그 작물에 등록 약제가 있는 병해충, **또는 바이러스 병해충**(`virus_vector`에 바이러스로 있는 것, 등록 약제가 없어 `pesticide_count` = 0), 이름순. 도감에 없는 병해충도 나온다. 작물별 개수는 감자 25, 배추 45, 토마토 27 **【결정】**. 페이징 없음 **【결정】**
 - 오류: 404
 
 ### `GET /pesticides`
 
 - 쿼리: `crop_id` (필수), `pest_id` (선택. 없으면 그 작물 등록 약제 전체)
-- 응답 200: `[Pesticide + {at_planting_only: bool}]` — 작용기작 → 품목명 → 상표명 순 **【결정】**. 페이징 없음 **【결정】**
+- 응답 200: `[PesticideDetail + {at_planting_only: bool}]` — 작용기작 → 품목명 → 상표명 순 **【결정】**. 페이징 없음 **【결정】**
   - `at_planting_only`: 이 작물(·병해충)의 등록 행이 모두 「심을 때」 사용 유형이면 true. 프론트가 「심을 때 쓰는 약」으로 묶어 보여준다 (judge_rules §3). 이 약은 판정에서 ②가 `NEEDS_CHECK`다.
 - 오류: 404
 
 ## 7. 판정
+
+### `GET /zones/{id}/judgments/preview` — 약제 목록 일괄 판정 (저장 안 함)
+
+- 쿼리: `pest_id` (필수 **【결정】**: 병해충 없이 부르면 작물 전체 508~1,008개 약제를 판정해야 한다), `apply_date` (선택, `POST /judgments`와 같은 규칙)
+- 응답 200: `[PreviewItem]` — `GET /pesticides`(이 작물×병해충)와 같은 약제 풀·같은 순서(작용기작 → 품목명 → 상표명). 항목마다 전체 `JudgeResult`가 있다.
+- 아무것도 저장하지 않는다 (`judgment` 행도 만들지 않는다). 구역 정보와 살포 이력은 한 번만 읽고 약제마다 메모리에서 판정한다. 한 항목의 `result`는 같은 입력의 `POST /judgments` 결과와 같다.
+- 풀 크기는 쌍마다 다르다 (91쌍, 중앙값 18, 최대 274). 프론트는 (구역, 병해충)마다 한 번 받아 홈·약 목록·대시보드에서 나눠 쓴다. 응답은 gzip이다.
+- 오류: 401, 404 (남의 구역·없는 구역, 없는 병해충, 다른 작물의 병해충), 422 (`pest_id` 누락 `loc ["query","pest_id"]`, `apply_date`가 2100-12-31보다 늦음)
 
 ### `POST /zones/{id}/judgments`
 
@@ -254,8 +276,8 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 
 | key | facts |
 |---|---|
-| `registration` | `{crop_registered, pest_specified, registered_pests: [string], rows: int}` (경우에 따라 일부만 있다) |
-| `timing` | `{phi_days: int|null, harvest_from: date|null, rows: int, strict_use_method: string|null, no_limit: bool}` |
+| `registration` | `{crop_registered, pest_specified, registered_pests: [string], rows: int, dilution: string|null}` (경우에 따라 일부만 있다. `dilution`은 등록 통과(`OK`) 때만 있고, 근거로 쓴 첫 등록 행의 희석 원문이다. 계산하지 않는다) |
+| `timing` | `{phi_days: int|null, harvest_from: date|null, rows: int, strict_use_method: string|null, no_limit: bool}` + 구역에 수확 예정일이 있고 수확 전 일수를 알 때만 `{harvest_at: date, margin_days: int}` |
 | `count` | `{used: int, max_uses: int|null, remaining: int, remaining_after: int|null, since: date, item_name: string, strict_use_method: string|null, no_limit: bool}` |
 | `moa` | `{label: string, rule: "NO_LIMIT"|"CONSECUTIVE", max_consecutive: int|null, consecutive: int, unknown: int, window: [{id, sprayed_on, item_name, label: string|null}]}` |
 
@@ -263,7 +285,8 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 
 ### `POST /zones/{id}/sprays`
 
-- 요청 본문: `{pesticide_id: int, sprayed_on?: date, source: "manual"|"app", request_id: uuid, allow_duplicate?: bool}`
+- 요청 본문: `{pesticide_id: int, pest_id?: int|null, sprayed_on?: date, source: "manual"|"app", request_id: uuid, allow_duplicate?: bool}`
+  - `pest_id` **【결정】**: 어떤 병해충에 쓴 기록인지. 없는 병해충 id는 422(`loc ["body","pest_id"]`)다. 존재만 확인하고 작물과의 일치는 보지 않는다.
   - `sprayed_on` 기본값 = 오늘(KST), **미래 날짜는 422**
   - `request_id`는 프론트가 「저장」 동작마다 만들고, 재시도에는 같은 값을 쓴다.
 - 처리 순서:
@@ -276,11 +299,20 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 
 - 쿼리: `limit` (기본 20, 최대 100), `offset` (기본 0) **【결정】**
 - 응답 200: `{total: int, items: [Spray]}` — `sprayed_on` 내림차순, 같으면 `id` 내림차순 **【결정】**
+  - **취소한 기록도 `cancelled: true`로 함께 나오고 `total`에도 센다.** 「올해 N회」처럼 세는 값은 프론트가 `cancelled`가 아닌 항목만 센다 **【결정】**.
 - 오류: 404, 422
 
 ### `DELETE /zones/{id}/sprays/{sid}`
 
-- 기록 취소(삭제). 응답 204. 404.
+- 기록 취소. **행을 지우지 않고** 취소 시각만 남기는 소프트 취소다 (`GET`에 `cancelled: true`로 계속 나온다). 응답 204.
+- 이미 취소한 기록을 다시 취소해도 204다 **【결정】**. 없는 기록이거나 다른 구역의 기록이면 404.
+- 취소한 기록은 판정(③ 횟수·④ 연속 사용), 작용기작 요약, 중복 검사, `ZoneSummary.last_spray`에서 빠진다.
+
+### `POST /zones/{id}/sprays/{sid}/restore`
+
+- 취소한 기록을 되살린다. 응답 200 `Spray`. 없는 기록이거나 다른 구역의 기록이면 404. 취소하지 않은 기록에 불러도 200이다.
+- 되살린 기록이 같은 날 같은 약제의 다른 기록과 겹쳐도 허용한다 **【결정】**.
+- 같은 `request_id`로 `POST`를 다시 보내면, 그 사이 취소됐더라도 원래 기록을 `cancelled: true`로 돌려준다 **【결정】**.
 
 ### 창고 (내가 가진 약제)
 
