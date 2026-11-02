@@ -212,3 +212,18 @@ def test_assess_is_repeatable():
     second = assess(pesticide_id=chosen, pest_id=pest_id)
 
     assert first == second
+
+
+def test_harvest_at_reaches_the_timing_check():
+    pest, drug = counting_selection()
+    base = assess(pesticide_id=drug.id, pest_id=pest)
+    timing = next(c for c in base.result.checks if c.key == "timing")
+    phi = timing.facts["phi_days"]
+    late = assess(
+        pesticide_id=drug.id, pest_id=pest, harvest_at=TODAY + timedelta(days=phi - 1)
+    )
+    late_timing = next(c for c in late.result.checks if c.key == "timing")
+
+    assert "margin_days" not in timing.facts
+    assert (late_timing.status, late_timing.facts["margin_days"]) == (Verdict.BLOCKED, -1)
+    assert late.result.verdict is Verdict.BLOCKED

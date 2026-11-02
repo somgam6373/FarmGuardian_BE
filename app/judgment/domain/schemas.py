@@ -59,6 +59,7 @@ class JudgeInput(_Model):
     registrations: list[Registration]
     history: list[SprayRecord]
     psis_asof: date  # 데이터 기준일. 고려할 행이 없을 때 data_asof로 쓴다
+    harvest_at: date | None = None  # 구역의 수확 예정일. 있으면 ②가 여유 일수를 따진다
 
 
 class Evidence(_Model):

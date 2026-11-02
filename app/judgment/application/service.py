@@ -86,6 +86,7 @@ def assess(
     pesticide_id: int,
     pest_id: int | None,
     today: date,
+    harvest_at: date | None = None,
 ) -> Assessment:
     """DB 없이 판정과 대안을 만든다. 없는 약제·병해충은 404."""
     chosen = catalog_service.get_pesticide(pesticide_id)
@@ -111,6 +112,7 @@ def assess(
                 ],
                 history=records,
                 psis_asof=asof,
+                harvest_at=harvest_at,
             )
         )
 
