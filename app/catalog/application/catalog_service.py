@@ -205,6 +205,11 @@ def _pesticide_counts() -> dict[tuple[int, int], int]:
     return counts
 
 
+def get_pest_ref(pest_id: int) -> PestRef | None:
+    pest = _pests().get(pest_id)
+    return PestRef(pest_id, pest["name"]) if pest else None
+
+
 def get_pest_card(pest_id: int) -> PestCard | None:
     pest = _pests().get(pest_id)
     if pest is None:

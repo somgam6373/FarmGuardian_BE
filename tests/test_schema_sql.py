@@ -23,6 +23,26 @@ def test_no_foreign_key_points_into_static_data():
     assert not re.search(r"REFERENCES\s+(pesticide|pest|moa|registration)\b", SCHEMA)
 
 
+def test_spray_log_keeps_the_pest_and_the_cancel_time():
+    spray_log = re.search(r"CREATE TABLE spray_log \((.*?)\n\);", SCHEMA, re.S).group(1)
+
+    assert re.search(r"^\s+pest_id\s+int\b", spray_log, re.M)
+    assert re.search(r"^\s+cancelled_at\s+timestamptz\b", spray_log, re.M)
+
+
+def test_spray_log_table_has_the_pest_and_cancel_columns(db):
+    columns = set(
+        db.scalars(
+            text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND table_name = 'spray_log'"
+            )
+        )
+    )
+
+    assert {"pest_id", "cancelled_at"} <= columns  # 없으면 schema.sql의 ALTER TABLE을 적용한다
+
+
 def test_inventory_table_matches_the_schema_file(db):
     columns = set(
         db.scalars(

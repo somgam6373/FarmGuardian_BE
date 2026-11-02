@@ -75,7 +75,9 @@ CREATE TABLE spray_log (
     sprayed_on   date   NOT NULL,
     source       text   NOT NULL CHECK (source IN ('manual', 'app')),
     request_id   uuid   NOT NULL UNIQUE,                -- 재시도를 한 번만 반영
-    created_at   timestamptz NOT NULL DEFAULT now()
+    created_at   timestamptz NOT NULL DEFAULT now(),
+    pest_id      int,                                   -- 정적 데이터의 병해충 id (FK 없음)
+    cancelled_at timestamptz                            -- 취소하면 시각이 찍힌다 (행은 남는다)
 );
 CREATE INDEX spray_log_zone_date_idx ON spray_log (zone_id, sprayed_on DESC);
 
