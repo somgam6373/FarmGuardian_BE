@@ -84,7 +84,7 @@ def check_registration(inp: JudgeInput) -> CheckResult:
     return result(
         Verdict.OK,
         "이 병해충에 등록된 약제입니다",
-        {"pest_specified": True, "rows": len(rows)},
+        {"pest_specified": True, "rows": len(rows), "dilution": first.dilut_raw},
         " · ".join(parts) or NONE_TEXT,
     )
 
