@@ -445,7 +445,7 @@ def test_no_limit_and_needs_check_paths_ignore_the_harvest_date():   # no "margi
 - [ ] **Step 4: Run** `pytest tests/test_judge_timing.py tests/test_judgment_wording.py tests/test_judge_verdict.py tests/test_judgment_assess.py -v` and `ruff check .` → PASS.
 - [ ] **Step 5: Commit** `feat(judgment): judge the harvest-date margin when the zone has a harvest date`.
 
-### Task 11: Wire the zone's `harvest_at` into judgments — BLOCKED until Hyebin's item #1 lands
+### Task 11: Wire the zone's `harvest_at` into judgments — done (item #1 landed via `2026-11-02-farm-harvest-address-plan.md`)
 
 **Files:**
 - Modify: `app/judgment/application/service.py` (`run_judgment`, `preview`)
@@ -459,7 +459,7 @@ def test_no_limit_and_needs_check_paths_ignore_the_harvest_date():   # no "margi
 - [ ] **Step 4: Run** `pytest tests/test_judgment_api.py tests/test_judgment_preview.py -v` → PASS.
 - [ ] **Step 5: Commit** `feat(judgment): use the zone's harvest date in the timing check`.
 
-### Task 11b: Field address through signup — BLOCKED until Hyebin's item #3 lands (B11)
+### Task 11b: Field address through signup (B11) — done (item #3 landed via `2026-11-02-farm-harvest-address-plan.md`)
 
 **Files:**
 - Modify: `app/identity/presentation/schemas.py` (`SignupIn`), `app/identity/presentation/router.py`, `app/identity/application/service.py` (`signup`)

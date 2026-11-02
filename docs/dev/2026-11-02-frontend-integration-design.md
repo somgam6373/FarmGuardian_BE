@@ -2,8 +2,8 @@
 
 - Date: 2026-11-02
 - Owner: Junhyeok (backend lead; `catalog`, `judgment`, `spraying`, `identity` contexts) + frontend wiring
-- Status: **approved 2026-11-02 (C1 included).** Backend items B1–B10 are built (plan Tasks 1–10: B2/B8 → 1–2, B3 → 3, B5/B10 → 4, B6 → 5, B4 → 6–8, B1/B9 → 9, B7 → 10).
-  Still open: wiring the zone's `harvest_at` into judgments (plan Task 11) and B11 (Task 11b), both waiting for Hyebin's #1 and #3. The open items at the end still need a team answer.
+- Status: **approved 2026-11-02 (C1 included).** Backend items B1–B11 are built (plan Tasks 1–11b: B2/B8 → 1–2, B3 → 3, B5/B10 → 4, B6 → 5, B4 → 6–8, B1/B9 → 9, B7 → 10–11, B11 → 11b).
+  `zone.harvest_at` and `field.address` (Hyebin's #1 and #3) were built by the backend lead on 2026-11-02 (`2026-11-02-farm-harvest-address-plan.md`). The open items at the end still need a team answer.
 - Basis: a screen-by-screen read of `frontend/src` (10 screens, `AppState`, `mock.ts`, `lib/verdict.ts`) against the
   27 implemented endpoints (`GET /zones/{id}/weather` is in the spec but not built, which is why weather stays mock);
   `팜가디언_API_명세.md`, `팜가디언_판정_규칙.md`, `팜가디언_아키텍처.md`, `팜가디언_PRD_수정_제안.md`,

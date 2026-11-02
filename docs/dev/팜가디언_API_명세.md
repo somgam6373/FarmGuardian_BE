@@ -117,11 +117,12 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 
 ### `POST /auth/signup` — 가입과 첫 밭 생성
 
-- 요청 본문: `{username, password, field_name, parcel_farmmap_ids}`
+- 요청 본문: `{username, password, field_name, parcel_farmmap_ids, field_address?}`
   - `username` 3~30자, 영문·숫자·`_` **【결정】**
   - `password` 4~72자 **【결정】** (시연용, 복잡도 규칙 없음)
   - `field_name` 1~30자
   - `parcel_farmmap_ids` 문자열 1~20개, 중복 없음
+  - `field_address` **【결정】**: 첫 밭의 주소. `POST /fields`의 `address`와 같은 규칙(공백을 뺀 1~200자, 빈 값·201자 이상은 422 `loc ["body","field_address"]`). 응답의 `field.address`로 돌려준다.
 - 응답 201: `{id: int, username: string, field: Field}`
 - 오류: 409 `USERNAME_TAKEN`, 422 `VALIDATION_ERROR`(없는 `farmmap_id`면 `errors[].loc`가 `["body", "parcel_farmmap_ids", 순번]`, `type`은 `not_found` **【결정】**), 502 `UPSTREAM_ERROR`(`source: "farmmap"`; 이때 사용자도 만들어지지 않는다)
 - 한 트랜잭션: 사용자 생성 → 필지 도형 조회(병렬, 동시 8개 이하) → 밭 저장.
