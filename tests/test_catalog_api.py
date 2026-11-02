@@ -1,5 +1,7 @@
 from app.catalog.infrastructure.static_data import load
 
+DETAIL_KEYS = {"id", "name", "item_name", "moa", "company", "form", "ingredients", "kind"}
+
 
 def auth(uid):
     return {"X-User-Id": str(uid)}
@@ -34,7 +36,8 @@ def test_pesticides_shape(client, make_user):
 
     assert r.status_code == 200
     assert len(items) == 1008
-    assert all(set(i) == {"id", "name", "item_name", "moa", "at_planting_only"} for i in items)
+    assert all(set(i) == DETAIL_KEYS | {"at_planting_only"} for i in items)
+    assert all(i["company"] and i["form"] and i["kind"] and i["ingredients"] for i in items)
     assert all(isinstance(i["at_planting_only"], bool) for i in items)
     assert len({i["id"] for i in items}) == len(items)
     with_moa = [i["moa"] for i in items if i["moa"] is not None]

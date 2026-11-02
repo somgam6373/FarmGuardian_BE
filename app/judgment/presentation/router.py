@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.catalog.presentation.schemas import pesticide_base
+from app.catalog.presentation.schemas import pesticide_detail, pesticide_out
 from app.core.auth import current_user, get_owned_zone
 from app.core.db import get_db
 from app.core.time import today_kst
@@ -31,7 +31,8 @@ def create_judgment(
     return JudgeResponse(
         judgment_id=judgment.id,
         apply_date=judgment.apply_date,
+        pesticide=pesticide_out(assessment.pesticide, assessment.at_planting_only),
         result=assessment.result,
-        alternatives=[pesticide_base(drug) for drug in assessment.alternatives],
+        alternatives=[pesticide_detail(drug) for drug in assessment.alternatives],
         show_extension_office=assessment.show_extension_office,
     )

@@ -35,6 +35,8 @@ class Assessment:
     result: JudgeResult
     alternatives: list[Pesticide]  # 계열 → 품목명 → 상표명 순
     show_extension_office: bool
+    pesticide: Pesticide  # 판정한 약제
+    at_planting_only: bool  # 이 작물(·병해충)의 등록 행이 모두 「심을 때」 사용
 
 
 def _moa(moa: CatalogMoa | None) -> Moa | None:
@@ -121,10 +123,17 @@ def assess(
     )
     if pest_id is None and result.verdict is Verdict.BLOCKED:
         result = result.model_copy(update={"notices": [*result.notices, NO_ALTERNATIVE_NOTICE]})
+    rows = [
+        r
+        for r in catalog_service.get_registrations(chosen.id, crop_id)
+        if pest_id is None or r.pest_id == pest_id
+    ]
     return Assessment(
         result,
         alternatives,
         show_extension_office(pest_id is not None, result.verdict, len(alternatives)),
+        chosen,
+        bool(rows) and all(r.parse_status == "stage" for r in rows),
     )
 
 

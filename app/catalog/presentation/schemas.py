@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel
 
 from app.catalog.domain.entities import Pesticide
@@ -21,13 +23,34 @@ class PesticideBase(BaseModel):
     moa: MoaOut | None
 
 
-class PesticideOut(PesticideBase):
+class PesticideDetail(PesticideBase):
+    company: str | None
+    form: str | None
+    ingredients: list[str]
+    kind: Literal["insecticide", "fungicide", "both"] | None
+
+
+class PesticideOut(PesticideDetail):
     at_planting_only: bool
 
 
 def pesticide_base(p: Pesticide) -> PesticideBase:
     moa = MoaOut(label_kr=p.moa.label_kr, system=p.moa.system, code=p.moa.code) if p.moa else None
     return PesticideBase(id=p.id, name=p.name, item_name=p.item_name, moa=moa)
+
+
+def pesticide_detail(p: Pesticide) -> PesticideDetail:
+    return PesticideDetail(
+        **pesticide_base(p).model_dump(),
+        company=p.company,
+        form=p.form,
+        ingredients=list(p.ingredients),
+        kind=p.kind,
+    )
+
+
+def pesticide_out(p: Pesticide, at_planting_only: bool) -> PesticideOut:
+    return PesticideOut(**pesticide_detail(p).model_dump(), at_planting_only=at_planting_only)
 
 
 class VectorOut(BaseModel):
@@ -57,7 +80,7 @@ class LabelReadOut(BaseModel):
 
 
 class LabelCandidateOut(BaseModel):
-    pesticide: PesticideBase
+    pesticide: PesticideDetail
     score: float
 
 

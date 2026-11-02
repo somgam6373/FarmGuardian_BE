@@ -10,6 +10,7 @@ JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 64
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
 WEBP = b"RIFF\x00\x00\x00\x00WEBP" + b"\x00" * 64
 MAX_BYTES = 5 * 1024 * 1024
+DETAIL_KEYS = {"id", "name", "item_name", "moa", "company", "form", "ingredients", "kind"}
 
 
 def auth(uid):
@@ -55,7 +56,7 @@ def test_response_shape(client, make_user, monkeypatch):
     }
     first = body["candidates"][0]
     assert set(first) == {"pesticide", "score"}
-    assert set(first["pesticide"]) == {"id", "name", "item_name", "moa"}
+    assert set(first["pesticide"]) == DETAIL_KEYS
     assert (first["pesticide"]["id"], first["score"]) == (drug.id, 1.0)
 
 

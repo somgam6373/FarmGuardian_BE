@@ -3,10 +3,12 @@ import uuid
 import pytest
 from sqlalchemy import text
 
+from app.catalog.application import catalog_service
 from app.core.time import today_kst
 from tests.judgment_scenarios import (
     PLANTED,
     TODAY,
+    assess,
     counting_selection,
     pest_with_alternatives,
     pests_with_drugs,
@@ -14,10 +16,17 @@ from tests.judgment_scenarios import (
     unregistered_drug,
 )
 
-RESPONSE_KEYS = {"judgment_id", "apply_date", "result", "alternatives", "show_extension_office"}
+RESPONSE_KEYS = {
+    "judgment_id",
+    "apply_date",
+    "pesticide",
+    "result",
+    "alternatives",
+    "show_extension_office",
+}
 RESULT_KEYS = {"pesticide_id", "moa", "verdict", "checks", "notices", "data_asof"}
 CHECK_KEYS = {"key", "status", "message", "facts", "evidence"}
-ALT_KEYS = {"id", "name", "item_name", "moa"}
+ALT_KEYS = {"id", "name", "item_name", "moa", "company", "form", "ingredients", "kind"}
 NOTICE = "병해충을 지정하면 대안을 볼 수 있습니다"
 PEST = pests_with_drugs(1)[0]
 DRUG = pool(1, PEST)[0]
@@ -134,6 +143,32 @@ def test_response_has_exactly_the_spec_shape(client, db, farm):
     assert result["data_asof"] == "2026-10-05"
     assert all(set(a) == ALT_KEYS for a in body["alternatives"])
     assert isinstance(body["show_extension_office"], bool)
+
+
+def test_response_carries_the_chosen_drug(client, farm):
+    uid, zone = farm
+    body = judge(client, uid, zone, pesticide_id=DRUG.id, pest_id=PEST).json()
+    params = {"crop_id": 1, "pest_id": PEST}
+    listed = client.get("/pesticides", params=params, headers=auth(uid)).json()
+
+    # GET /pesticides와 같은 모양과 같은 at_planting_only
+    assert body["pesticide"] == next(d for d in listed if d["id"] == DRUG.id)
+
+
+def test_at_planting_only_agrees_with_the_pesticide_list():
+    for entry in catalog_service.list_pesticides(1):  # 병해충 미지목: 작물의 모든 행
+        got = assess(pesticide_id=entry.pesticide.id)
+        assert (got.pesticide, got.at_planting_only) == (entry.pesticide, entry.at_planting_only)
+    with_flag = [
+        p
+        for p in pests_with_drugs(1)
+        if any(e.at_planting_only for e in catalog_service.list_pesticides(1, p))
+    ]
+    pest = min(with_flag, key=lambda p: len(pool(1, p)))
+    for entry in catalog_service.list_pesticides(1, pest):
+        got = assess(pesticide_id=entry.pesticide.id, pest_id=pest)
+        assert got.at_planting_only == entry.at_planting_only
+    assert not assess(pesticide_id=unregistered_drug().id, pest_id=pest).at_planting_only
 
 
 def test_the_judgment_is_stored(client, db, farm):
