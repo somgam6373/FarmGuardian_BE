@@ -24,7 +24,12 @@ UserId = Annotated[int, Depends(current_user)]
 @router.post("/auth/signup", response_model=SignupOut, status_code=201)
 def signup(body: SignupIn, db: Session = Depends(get_db)):
     return service.signup(
-        db, body.username, body.password, body.field_name, body.parcel_farmmap_ids
+        db,
+        body.username,
+        body.password,
+        body.field_name,
+        body.parcel_farmmap_ids,
+        body.field_address,
     )
 
 

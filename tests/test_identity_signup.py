@@ -65,6 +65,19 @@ def test_invalid_bodies_are_rejected(changes):
         SignupIn.model_validate(body(**changes))
 
 
+def test_field_address_is_optional_and_stripped():
+    assert SignupIn.model_validate(body()).field_address is None
+    parsed = SignupIn.model_validate(body(field_address="  평창군 대관령면 횡계리 1  "))
+    assert parsed.field_address == "평창군 대관령면 횡계리 1"
+    assert SignupIn.model_validate(body(field_address="가" * 200)).field_address == "가" * 200
+
+
+@pytest.mark.parametrize("value", ["", "   ", "가" * 201])
+def test_a_blank_or_too_long_field_address_is_rejected(value):
+    with pytest.raises(ValidationError):
+        SignupIn.model_validate(body(field_address=value))
+
+
 @pytest.mark.parametrize("missing", list(VALID))
 def test_a_missing_key_is_rejected(missing):
     with pytest.raises(ValidationError):
@@ -99,6 +112,20 @@ def test_signup_creates_the_user_and_the_first_field(client, fake_farmmap):
     assert fields.json() == [field]
     login = client.post("/auth/login", json={"username": "farmer_1", "password": "pw1234"})
     assert (login.status_code, login.json()) == (200, {"id": data["id"], "username": "farmer_1"})
+
+
+def test_signup_saves_the_first_fields_address(client, fake_farmmap):
+    response = signup(client, field_address=" 강원 평창군 대관령면 횡계리 1 ")
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["field"]["address"] == "강원 평창군 대관령면 횡계리 1"
+    fields = client.get("/fields", headers={"X-User-Id": str(data["id"])})
+    assert fields.json() == [data["field"]]
+
+
+def test_signup_without_an_address_leaves_it_null(client, fake_farmmap):
+    assert signup(client).json()["field"]["address"] is None
 
 
 def test_taken_username_is_409_before_any_farmmap_call(client, db, fake_farmmap):
@@ -155,6 +182,8 @@ def test_farmmap_failure_is_502_leaves_no_user_and_the_name_is_free_again(
         {"username": "ab"},
         {"password": "abc"},
         {"field_name": " "},
+        {"field_address": " "},
+        {"field_address": "가" * 201},
     ],
 )
 def test_invalid_body_is_422_before_any_user_or_farmmap_call(client, db, fake_farmmap, changes):
@@ -165,4 +194,18 @@ def test_invalid_body_is_422_before_any_user_or_farmmap_call(client, db, fake_fa
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
     assert fake_farmmap[0] == []
+    assert total_users(db) == before
+
+
+def test_a_blank_address_reports_its_own_position(client, fake_farmmap):
+    response = signup(client, field_address="")
+
+    assert response.json()["error"]["details"]["errors"][0]["loc"] == ["body", "field_address"]
+
+
+def test_unknown_parcel_still_leaves_no_user_when_an_address_is_sent(client, db, fake_farmmap):
+    fake_farmmap[1].add("2")
+    before = total_users(db)
+
+    assert signup(client, field_address="평창군 1").status_code == 422
     assert total_users(db) == before
