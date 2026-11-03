@@ -58,6 +58,7 @@ def test_null_date_clears_it(client, zone):
         {"crop_id": None},
         {"history_confirmed": None},
         {"name": "   "},
+        {"name": "​"},
         {"name": "가" * 31},
         {"crop_id": 999},
         {"planted_at": "tomorrow"},

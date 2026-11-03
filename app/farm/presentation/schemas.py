@@ -56,7 +56,18 @@ def check_unique(ids: list[str]) -> list[str]:
     return ids
 
 
-Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=30)]
+def check_visible(value: str) -> str:
+    # strip은 폭 없는 공백(U+200B 등)을 남기므로 보이는 글자가 하나는 있어야 한다
+    if not any(ch.isprintable() and not ch.isspace() for ch in value):
+        raise ValueError("이름에 보이는 글자가 있어야 합니다")
+    return value
+
+
+Name = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=30),
+    AfterValidator(check_visible),
+]
 Address = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 
 

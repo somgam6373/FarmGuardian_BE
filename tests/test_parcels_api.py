@@ -64,7 +64,15 @@ def test_coordinates_and_area_rounded_to_one_decimal(monkeypatch):
     assert parcel["area_m2"] == 993833.4
 
 
-@pytest.mark.parametrize("pnu", ["123", "418203252110161000a", "41820325211016100031"])
+@pytest.mark.parametrize(
+    "pnu",
+    [
+        "123",
+        "418203252110161000a",
+        "41820325211016100031",
+        "４１８２０３２５２１１０１６１０００３",  # 전각 숫자
+    ],
+)
 def test_bad_pnu_is_validation_error(farmmap_calls, pnu):
     r = client.get("/parcels", params={"pnu": pnu})
 
