@@ -61,8 +61,9 @@ def test_invalid_body_is_422(client, make_user, fake_farmmap, body):
     assert fake_farmmap[0] == []
 
 
-def test_blank_name_is_422(client, make_user, fake_farmmap):
-    assert create(client, make_user("farmer"), ["1"], name="   ").status_code == 422
+@pytest.mark.parametrize("name", ["   ", "​", " ​‍ "])
+def test_blank_name_is_422(client, make_user, fake_farmmap, name):
+    assert create(client, make_user("farmer"), ["1"], name=name).status_code == 422
 
 
 def test_name_is_stripped(client, make_user, fake_farmmap):
