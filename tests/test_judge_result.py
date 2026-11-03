@@ -13,7 +13,7 @@ OK, CAUTION, NEEDS_CHECK, BLOCKED = (
     Verdict.BLOCKED,
 )
 KEYS = ["registration", "timing", "count", "moa"]
-NOTICE = "병해충을 지정하지 않아 가장 엄격한 기준을 적용했습니다"
+NOTICE = "병해충을 지정하지 않아 가장 엄격한 기준을 적용했어요"
 FORBIDDEN = ["추천", "예측", "예상", "가능성", "위험", "확률", "안전", "문제없"]
 OTHER = dict(pest_id=2, pest_name="역병")
 

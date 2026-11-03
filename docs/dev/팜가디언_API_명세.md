@@ -284,8 +284,8 @@ PestCard      {id: int, name: string, kind: "병"|"해충"|null, photo_url: stri
 | key | facts |
 |---|---|
 | `registration` | `{crop_registered, pest_specified, registered_pests: [string], rows: int, dilution: string|null}` (경우에 따라 일부만 있다. `dilution`은 등록 통과(`OK`) 때만 있고, 근거로 쓴 첫 등록 행의 희석 원문이다. 계산하지 않는다) |
-| `timing` | `{phi_days: int|null, harvest_from: date|null, rows: int, strict_use_method: string|null, no_limit: bool}` + 구역에 수확 예정일이 있고 수확 전 일수를 알 때만 `{harvest_at: date, margin_days: int}` |
-| `count` | `{used: int, max_uses: int|null, remaining: int, remaining_after: int|null, since: date, item_name: string, strict_use_method: string|null, no_limit: bool}` |
+| `timing` | `{phi_days: int|null, harvest_from: date|null, rows: int, strict_use_method: string|null, no_limit: bool, reason?: "not_registered"|"at_planting"|"unreadable"}` (`reason`은 `NEEDS_CHECK`일 때만) + 구역에 수확 예정일이 있고 수확 전 일수를 알 때만 `{harvest_at: date, margin_days: int}` |
+| `count` | `{used: int, max_uses: int|null, remaining: int, remaining_after: int|null, since: date, item_name: string, strict_use_method: string|null, no_limit: bool, reason?: "not_registered"|"unreadable"|"no_planting"|"unconfirmed"}` (`reason`은 `NEEDS_CHECK`일 때만) |
 | `moa` | `{label: string, rule: "NO_LIMIT"|"CONSECUTIVE", max_consecutive: int|null, consecutive: int, unknown: int, window: [{id, sprayed_on, item_name, label: string|null}]}` |
 
 ## 8. 살포 기록

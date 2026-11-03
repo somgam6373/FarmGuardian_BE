@@ -9,7 +9,7 @@ from tests.judge_support import TODAY, make_input, reg
 OTHER = dict(pest_id=2, pest_name="역병")
 OK, NEEDS_CHECK = Verdict.OK, Verdict.NEEDS_CHECK
 BLOCKED, CAUTION = Verdict.BLOCKED, Verdict.CAUTION
-NO_LIMIT_MESSAGE = "수확 전 사용 일수 제한이 없는 약제입니다. 라벨의 사용 방법을 확인해 주세요"
+NO_LIMIT_MESSAGE = "수확 전 사용 일수 제한이 없는 약제예요. 라벨의 사용 방법을 확인해 주세요"
 
 
 def timing(**kw):
@@ -17,18 +17,19 @@ def timing(**kw):
     return check_timing(inp, check_registration(inp))
 
 
-def facts(phi=None, harvest=None, rows=1, method=None, no_limit=False):
-    return {
+def facts(phi=None, harvest=None, rows=1, method=None, no_limit=False, reason=None):
+    out = {
         "phi_days": phi,
         "harvest_from": harvest,
         "rows": rows,
         "strict_use_method": method,
         "no_limit": no_limit,
     }
+    return out if reason is None else {**out, "reason": reason}
 
 
 def unreadable(raw):
-    return f"수확 전 사용 기준을 읽지 못했습니다. 원문: {raw}"
+    return "수확 전 사용 기준을 읽지 못했어요"
 
 
 def test_t1_base():
@@ -36,7 +37,7 @@ def test_t1_base():
 
     assert (r.key, r.status) == ("timing", OK)
     assert r.message == (
-        "오늘 살포하면 10월 11일부터 수확할 수 있습니다 (수확 7일 전까지 사용)"
+        "오늘 살포하면 10월 11일부터 수확할 수 있어요 (수확 7일 전까지 사용)"
     )
     assert r.facts == facts(7, "2026-10-11", 1, "발생 초부터 경엽처리")
     assert r.evidence.source_text == "수확 7일 전까지"
@@ -46,7 +47,7 @@ def test_t1_base():
 def test_t2_phi_zero_is_harvest_day():
     r = timing(registrations=[reg(phi_days=0)])
 
-    assert (r.status, r.message) == (OK, "수확 당일까지 사용할 수 있습니다")
+    assert (r.status, r.message) == (OK, "수확 당일까지 사용할 수 있어요")
     assert r.facts == facts(0, "2026-10-04", 1, "발생 초부터 경엽처리")
 
 
@@ -54,7 +55,7 @@ def test_t3_unreadable_phi_shows_the_raw_text():
     r = timing(registrations=[reg(phi_days=None, use_suittime_raw="수확 직전")])
 
     assert (r.status, r.message) == (NEEDS_CHECK, unreadable("수확 직전"))
-    assert r.facts == facts()
+    assert r.facts == facts(reason="unreadable")
     assert r.evidence.source_text == "수확 직전"
 
 
@@ -77,14 +78,14 @@ def test_t6_one_unreadable_row_makes_it_needs_check():
     r = timing(registrations=[reg(phi_days=7), reg(phi_days=None)])
 
     assert r.status is NEEDS_CHECK
-    assert r.facts == facts(rows=2)
+    assert r.facts == facts(rows=2, reason="unreadable")
 
 
 def test_t7_date_text_crosses_the_year():
     r = timing(today=date(2026, 12, 25), registrations=[reg(phi_days=14)])
 
     assert r.message == (
-        "오늘 살포하면 2027년 1월 8일부터 수확할 수 있습니다 (수확 14일 전까지 사용)"
+        "오늘 살포하면 2027년 1월 8일부터 수확할 수 있어요 (수확 14일 전까지 사용)"
     )
     assert r.facts["harvest_from"] == "2027-01-08"
 
@@ -104,10 +105,11 @@ def test_t9_all_at_planting():
 
     assert r.status is NEEDS_CHECK
     assert r.message == (
-        "이 약은 심을 때(정식기·파종기) 쓰는 약입니다. 수확 전 사용 기준이 없어 "
-        "수확 가능일을 계산할 수 없습니다. 원문: 정식기"
+        "이 약은 심을 때(정식기·파종기) 쓰는 약이에요. 수확 전 사용 기준이 없어 "
+        "수확 가능일을 계산할 수 없어요"
     )
     assert r.evidence.source_text == "정식기"
+    assert r.facts == facts(reason="at_planting")
 
 
 def test_t10_planting_row_is_left_out_of_the_calculation():
@@ -129,6 +131,7 @@ def test_t12_check_row_without_numbers():
     r = timing(registrations=[row])
 
     assert (r.status, r.message) == (NEEDS_CHECK, unreadable("수확7일"))
+    assert r.evidence.source_text == "수확7일"
 
 
 def test_t13_strictest_use_method_is_named():
@@ -137,7 +140,7 @@ def test_t13_strictest_use_method_is_named():
 
     assert r.facts == facts(21, "2026-10-25", 2, "무인항공")
     assert r.message == (
-        "오늘 살포하면 10월 25일부터 수확할 수 있습니다 (수확 21일 전까지 사용) (무인항공 기준)"
+        "오늘 살포하면 10월 25일부터 수확할 수 있어요 (수확 21일 전까지 사용) (무인항공 기준)"
     )
 
 
@@ -156,7 +159,7 @@ def test_t15_check_row_with_numbers_is_still_unreadable():  # 실제 데이터 u
     r = timing(registrations=[row])
 
     assert (r.status, r.message) == (NEEDS_CHECK, unreadable("수확50일전"))
-    assert r.facts == facts()
+    assert r.facts == facts(reason="unreadable")
 
 
 def test_t16_raw_text_is_the_first_unreadable_rows_and_none_when_empty():
@@ -186,8 +189,8 @@ def test_t18_one_use_method_adds_no_suffix():
 def test_blocked_registration_makes_timing_needs_check(kw):  # R2, R3의 ② 부분
     r = timing(**kw)
 
-    assert (r.status, r.message) == (NEEDS_CHECK, "등록 정보가 없어 확인할 수 없습니다")
-    assert r.facts == facts(rows=0)
+    assert (r.status, r.message) == (NEEDS_CHECK, "등록 정보가 없어 확인할 수 없어요")
+    assert r.facts == facts(rows=0, reason="not_registered")
     assert r.evidence.source_text == "없음"
     assert r.evidence.data_asof == date(2026, 10, 3)
 
@@ -214,19 +217,19 @@ def test_margin_boundaries(harvest_at, status, margin):
 
 def test_margin_messages():
     assert timing(harvest_at=date(2026, 10, 10)).message == (
-        "수확 예정일(10월 10일)까지 6일 남아 수확 7일 전까지 사용하는 기준을 지킬 수 없습니다"
+        "수확 예정일(10월 10일)까지 6일 남아 수확 7일 전까지 사용하는 기준을 지킬 수 없어요"
     )
     assert timing(harvest_at=date(2026, 10, 11)).message == (
-        "수확 예정일(10월 11일)까지 여유가 0일입니다 (수확 7일 전까지 사용)"
+        "수확 예정일(10월 11일)까지 여유가 0일이에요 (수확 7일 전까지 사용)"
     )
     ok = timing(harvest_at=date(2026, 10, 14))
-    assert ok.message == "오늘 살포하면 10월 11일부터 수확할 수 있습니다 (수확 7일 전까지 사용)"
+    assert ok.message == "오늘 살포하면 10월 11일부터 수확할 수 있어요 (수확 7일 전까지 사용)"
 
 
 def test_a_harvest_date_in_the_past_is_blocked_with_its_own_message():
     r = timing(harvest_at=date(2026, 10, 1))
 
-    assert (r.status, r.message) == (BLOCKED, "수확 예정일(10월 1일)이 지났습니다")
+    assert (r.status, r.message) == (BLOCKED, "수확 예정일(10월 1일)이 지났어요")
     assert r.facts["margin_days"] == -10
 
 
@@ -241,7 +244,7 @@ def test_the_method_suffix_follows_the_margin_message():
     r = timing(registrations=rows, harvest_at=date(2026, 10, 22))
 
     assert r.status is BLOCKED
-    assert r.message.endswith("기준을 지킬 수 없습니다 (무인항공 기준)")
+    assert r.message.endswith("기준을 지킬 수 없어요 (무인항공 기준)")
 
 
 def test_no_harvest_date_changes_nothing():

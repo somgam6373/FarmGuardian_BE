@@ -15,7 +15,7 @@ from tests.judgment_scenarios import (
     unregistered_drug,
 )
 
-NOTICE = "병해충을 지정하면 대안을 볼 수 있습니다"
+NOTICE = "병해충을 지정하면 대안을 볼 수 있어요"
 
 
 def history_for(crop_id):

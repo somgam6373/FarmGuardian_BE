@@ -15,7 +15,7 @@ def test_r1_registered_for_the_pest():
     r = run()
 
     assert (r.key, r.status) == ("registration", Verdict.OK)
-    assert r.message == "이 병해충에 등록된 약제입니다"
+    assert r.message == "이 병해충에 등록된 약제예요"
     assert r.facts == {"pest_specified": True, "rows": 1, "dilution": "1000배"}
     assert r.evidence.source_text == "발생 초부터 경엽처리 · 1000배"
     assert r.evidence.data_asof == date(2026, 10, 1)
@@ -29,7 +29,7 @@ def test_r2_only_other_pests_registered():
     r = run(registrations=[reg(**OTHER)])
 
     assert r.status is Verdict.BLOCKED
-    assert r.message == "이 병해충에는 등록되어 있지 않습니다 (이 작물에 등록된 병해충 1종)"
+    assert r.message == "이 병해충에는 등록되어 있지 않아요 (이 작물에 등록된 병해충 1종)"
     assert r.facts == {"crop_registered": True, "registered_pests": ["역병"]}
     assert r.evidence.source_text == "등록 병해충: 역병"
     assert r.evidence.data_asof == date(2026, 10, 3)
@@ -39,7 +39,7 @@ def test_r3_nothing_registered_for_the_crop():
     r = run(registrations=[])
 
     assert r.status is Verdict.BLOCKED
-    assert r.message == "이 작물에는 등록되어 있지 않습니다"
+    assert r.message == "이 작물에는 등록되어 있지 않아요"
     assert r.facts == {"crop_registered": False}
     assert r.evidence.source_text == "없음"
     assert r.evidence.data_asof == date(2026, 10, 3)
@@ -50,7 +50,7 @@ def test_r4_pest_not_specified():
 
     assert r.status is Verdict.NEEDS_CHECK
     assert r.message == (
-        "병해충을 지정하지 않아 등록 여부를 확인할 수 없습니다 (이 작물에는 등록되어 있습니다)"
+        "병해충을 지정하지 않아 등록 여부를 확인할 수 없어요 (이 작물에는 등록되어 있어요)"
     )
     assert r.facts == {
         "crop_registered": True,

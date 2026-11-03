@@ -23,7 +23,7 @@ from tests.judgment_scenarios import (
 )
 
 USAGE = {"ok": "NORMAL", "stage": "AT_PLANTING", "no_std": "NO_LIMIT", "failed": "CHECK"}
-NOTICE = "병해충을 지정하면 대안을 볼 수 있습니다"
+NOTICE = "병해충을 지정하면 대안을 볼 수 있어요"
 
 
 def to_moa(moa):
