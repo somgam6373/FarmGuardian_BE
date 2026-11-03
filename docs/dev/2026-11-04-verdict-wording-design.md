@@ -37,7 +37,9 @@ Weather stays mock and unlabelled (decided by the user; not part of this work).
 - Rewording beyond the sentence ending. Vocabulary (약제, 작용기작, 정식일, 살포) stays; only 「~입니다/습니다/
   됩니다」 endings become 「~예요/이에요/어요」.
 - API error messages (`AppError` such as 「약제를 찾을 수 없습니다」, the `apply_date` 422). They are not verdict copy.
-- Removing the duplicate sentence between the verdict hero reason and the check card (not requested).
+- Removing the duplicate sentence between the verdict hero reason and the check card, except for the at-planting
+  case: there the hero reason is replaced by a 「지금은 쓸 수 없어요」 pill (no icon), approved by Hyebin on
+  2026-11-04 after the first build. 불가, 주의 and 확인 필요 keep their reason, since their headline does not say why.
 - Weather.
 - Rewriting stored judgments. Rows already saved keep their old text.
 
