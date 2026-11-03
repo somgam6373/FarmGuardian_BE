@@ -114,14 +114,15 @@ is carried only in `evidence.source_text`.
 
 ### 「심을 때」 status (`src/lib/serverVerdict.ts`)
 
-`toVerdict` gets the zone's `plantedAt` and reads `at_planting_only` from the preview item / judge response
-(both already carry it).
+`toVerdict(item, planted)` gets whether the zone has a `plantedAt` and reads `facts.reason` per check.
 
 - Timing check with `facts.reason = "at_planting"` (this is what `at_planting_only` means for the chosen drug)
   becomes status `preplant` with the state label 「심을 때」 (not 「심기 전」). The verdict's overall status becomes
   `preplant` unless a check is `no`.
-- Count check with `facts.reason = "no_planting"` becomes `preplant` with the existing state label 「심기 전」. The
-  overall status becomes `preplant` unless a check is `no`. This case already has the right headline
+- Count check with `facts.reason = "no_planting"` becomes `preplant` with the existing state label 「심기 전」.
+- Zone without `plantedAt`: every drug whose overall status is not `no` becomes `preplant`, including drugs whose
+  count never reaches the `no_planting` branch (no count limit, unreadable limit). When no check itself is
+  `preplant`, the hero reason is 「심은 날을 넣으면 따져 드려요.」. This case already has the right headline
   (「심은 뒤에 판정할 수 있어요」) and the 「심은 날 입력하기」 link.
 - Both at once (an at-planting drug on a zone without a planting date): the drug wins. Headline
   「심을 때 쓰는 약이에요」, no 「심은 날 입력하기」 link, at-planting record note. The count card still shows
@@ -133,7 +134,7 @@ is carried only in `evidence.source_text`.
 
 ### Verdict screen (`src/screens/Verdict.tsx`, `src/lib/verdict.ts`)
 
-- The `Verdict` gets an optional `headline` override. For `at_planting_only` the hero shows 「심을 때 쓰는 약이에요」
+- The `Verdict` gets an `atPlanting` flag (timing reason is `at_planting`). With it the hero shows 「심을 때 쓰는 약이에요」
   instead of 「심은 뒤에 판정할 수 있어요」, and the 「심은 날 입력하기」 link is hidden.
 - A `Check` gets an optional `stateLabel` override (used for 「심을 때」) and an optional `source` (raw text).
 - Recording stays blocked for `preplant` as today. For `at_planting_only` the note under the button reads
