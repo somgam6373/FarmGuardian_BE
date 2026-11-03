@@ -17,14 +17,15 @@ def timing(**kw):
     return check_timing(inp, check_registration(inp))
 
 
-def facts(phi=None, harvest=None, rows=1, method=None, no_limit=False):
-    return {
+def facts(phi=None, harvest=None, rows=1, method=None, no_limit=False, reason=None):
+    out = {
         "phi_days": phi,
         "harvest_from": harvest,
         "rows": rows,
         "strict_use_method": method,
         "no_limit": no_limit,
     }
+    return out if reason is None else {**out, "reason": reason}
 
 
 def unreadable(raw):
@@ -54,7 +55,7 @@ def test_t3_unreadable_phi_shows_the_raw_text():
     r = timing(registrations=[reg(phi_days=None, use_suittime_raw="수확 직전")])
 
     assert (r.status, r.message) == (NEEDS_CHECK, unreadable("수확 직전"))
-    assert r.facts == facts()
+    assert r.facts == facts(reason="unreadable")
     assert r.evidence.source_text == "수확 직전"
 
 
@@ -77,7 +78,7 @@ def test_t6_one_unreadable_row_makes_it_needs_check():
     r = timing(registrations=[reg(phi_days=7), reg(phi_days=None)])
 
     assert r.status is NEEDS_CHECK
-    assert r.facts == facts(rows=2)
+    assert r.facts == facts(rows=2, reason="unreadable")
 
 
 def test_t7_date_text_crosses_the_year():
@@ -108,6 +109,7 @@ def test_t9_all_at_planting():
         "수확 가능일을 계산할 수 없습니다. 원문: 정식기"
     )
     assert r.evidence.source_text == "정식기"
+    assert r.facts == facts(reason="at_planting")
 
 
 def test_t10_planting_row_is_left_out_of_the_calculation():
@@ -156,7 +158,7 @@ def test_t15_check_row_with_numbers_is_still_unreadable():  # 실제 데이터 u
     r = timing(registrations=[row])
 
     assert (r.status, r.message) == (NEEDS_CHECK, unreadable("수확50일전"))
-    assert r.facts == facts()
+    assert r.facts == facts(reason="unreadable")
 
 
 def test_t16_raw_text_is_the_first_unreadable_rows_and_none_when_empty():
@@ -187,7 +189,7 @@ def test_blocked_registration_makes_timing_needs_check(kw):  # R2, R3의 ② 부
     r = timing(**kw)
 
     assert (r.status, r.message) == (NEEDS_CHECK, "등록 정보가 없어 확인할 수 없습니다")
-    assert r.facts == facts(rows=0)
+    assert r.facts == facts(rows=0, reason="not_registered")
     assert r.evidence.source_text == "없음"
     assert r.evidence.data_asof == date(2026, 10, 3)
 

@@ -137,7 +137,12 @@ def check_timing(inp: JudgeInput, registration: CheckResult) -> CheckResult:
         )
 
     if registration.status is Verdict.BLOCKED or not rows:
-        return result(Verdict.NEEDS_CHECK, "등록 정보가 없어 확인할 수 없습니다", NONE_TEXT)
+        return result(
+            Verdict.NEEDS_CHECK,
+            "등록 정보가 없어 확인할 수 없습니다",
+            NONE_TEXT,
+            reason="not_registered",
+        )
 
     calc = calc_rows(rows)
     if all(r.usage_type == "AT_PLANTING" for r in calc):
@@ -147,6 +152,7 @@ def check_timing(inp: JudgeInput, registration: CheckResult) -> CheckResult:
             "이 약은 심을 때(정식기·파종기) 쓰는 약입니다. "
             f"수확 전 사용 기준이 없어 수확 가능일을 계산할 수 없습니다. 원문: {raw}",
             raw,
+            reason="at_planting",
         )
     if all(r.usage_type == "NO_LIMIT" for r in calc):
         return result(Verdict.OK, NO_LIMIT_MESSAGE, calc[0].use_suittime_raw, no_limit=True)
@@ -154,7 +160,12 @@ def check_timing(inp: JudgeInput, registration: CheckResult) -> CheckResult:
     unreadable = next((r for r in calc if _phi(r) is None), None)
     if unreadable is not None:
         raw = unreadable.use_suittime_raw or NONE_TEXT
-        return result(Verdict.NEEDS_CHECK, f"수확 전 사용 기준을 읽지 못했습니다. 원문: {raw}", raw)
+        return result(
+            Verdict.NEEDS_CHECK,
+            f"수확 전 사용 기준을 읽지 못했습니다. 원문: {raw}",
+            raw,
+            reason="unreadable",
+        )
 
     phi = max(_phi(r) for r in calc)
     strict = next(r for r in calc if _phi(r) == phi)
@@ -364,7 +375,12 @@ def check_count(inp: JudgeInput, registration: CheckResult) -> CheckResult:
         )
 
     if registration.status is Verdict.BLOCKED or not rows:
-        return result(Verdict.NEEDS_CHECK, "등록 정보가 없어 확인할 수 없습니다", NONE_TEXT)
+        return result(
+            Verdict.NEEDS_CHECK,
+            "등록 정보가 없어 확인할 수 없습니다",
+            NONE_TEXT,
+            reason="not_registered",
+        )
 
     calc = calc_rows(rows)
     if all(r.usage_type == "NO_LIMIT" for r in calc):
@@ -379,15 +395,22 @@ def check_count(inp: JudgeInput, registration: CheckResult) -> CheckResult:
     if unreadable is not None:
         raw = unreadable.use_num_raw or NONE_TEXT
         return result(
-            Verdict.NEEDS_CHECK, f"최대 사용 횟수 기준을 읽지 못했습니다. 원문: {raw}", raw
+            Verdict.NEEDS_CHECK,
+            f"최대 사용 횟수 기준을 읽지 못했습니다. 원문: {raw}",
+            raw,
+            reason="unreadable",
         )
 
     max_uses = min(_max_uses(r) for r in calc)
     strict = next(r for r in calc if _max_uses(r) == max_uses)
     if inp.planted_at is None:
-        return result(Verdict.NEEDS_CHECK, NO_PLANTING_MESSAGE, strict.use_num_raw)
+        return result(
+            Verdict.NEEDS_CHECK, NO_PLANTING_MESSAGE, strict.use_num_raw, reason="no_planting"
+        )
     if not inp.history_confirmed:
-        return result(Verdict.NEEDS_CHECK, UNCONFIRMED_MESSAGE, strict.use_num_raw)
+        return result(
+            Verdict.NEEDS_CHECK, UNCONFIRMED_MESSAGE, strict.use_num_raw, reason="unconfirmed"
+        )
 
     used = sum(
         1

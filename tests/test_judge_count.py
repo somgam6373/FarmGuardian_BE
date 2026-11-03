@@ -24,8 +24,8 @@ def count(**kw):
 
 
 def cfacts(used=None, mx=None, remaining=None, after=None, since="2026-05-01",
-           method=None, no_limit=False):
-    return {
+           method=None, no_limit=False, reason=None):
+    out = {
         "used": used,
         "max_uses": mx,
         "remaining": remaining,
@@ -35,6 +35,7 @@ def cfacts(used=None, mx=None, remaining=None, after=None, since="2026-05-01",
         "strict_use_method": method,
         "no_limit": no_limit,
     }
+    return out if reason is None else {**out, "reason": reason}
 
 
 def a(sid, month, day, **kw):  # 품목A(가1) 살포
@@ -87,7 +88,7 @@ def test_c6_no_planting_date():
     r = count(planted_at=None, history=[a(1, 6, 1)])
 
     assert (r.status, r.message) == (NEEDS_CHECK, NO_PLANTING)
-    assert r.facts == cfacts(since=None)
+    assert r.facts == cfacts(since=None, reason="no_planting")
 
 
 def test_c9_and_c15_unconfirmed_history():
@@ -95,7 +96,7 @@ def test_c9_and_c15_unconfirmed_history():
         r = count(history=history, history_confirmed=False)
 
         assert (r.status, r.message) == (NEEDS_CHECK, UNCONFIRMED)
-        assert r.facts == cfacts()
+        assert r.facts == cfacts(reason="unconfirmed")
 
 
 def test_c16_planting_date_is_asked_before_the_confirmation():
@@ -109,7 +110,7 @@ def test_c11_unreadable_max_shows_the_raw_text_and_beats_the_planting_date():
 
     assert (r.status, r.message) == (NEEDS_CHECK, unreadable("-"))
     assert r.evidence.source_text == "-"
-    assert r.facts == cfacts(since=None)
+    assert r.facts == cfacts(since=None, reason="unreadable")
 
 
 def test_check_row_with_numbers_is_still_unreadable():
@@ -178,7 +179,7 @@ def test_blocked_registration_makes_count_needs_check():
 
     assert (r.status, r.message) == (NEEDS_CHECK, "등록 정보가 없어 확인할 수 없습니다")
     assert r.evidence.source_text == "없음"
-    assert r.facts == cfacts()
+    assert r.facts == cfacts(reason="not_registered")
 
 
 def test_blocked_message_names_the_year_when_it_differs():
