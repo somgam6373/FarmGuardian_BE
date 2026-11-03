@@ -33,7 +33,7 @@ def optional_user(
 
 @router.get("/parcels", response_model=list[Parcel])
 def list_parcels(
-    pnu: Annotated[str, Query(pattern=r"^\d{19}$")],
+    pnu: Annotated[str, Query(pattern=r"^[0-9]{19}$")],
     user_id: Annotated[int | None, Depends(optional_user)],
     db: Session = Depends(get_db),
 ):

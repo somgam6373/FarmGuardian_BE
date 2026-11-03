@@ -51,6 +51,7 @@ def test_boundary_values_are_accepted():
         {"password": "x" * 73},
         {"field_name": ""},
         {"field_name": "   "},
+        {"field_name": "​"},
         {"field_name": "f" * 31},
         {"parcel_farmmap_ids": []},
         {"parcel_farmmap_ids": [str(i) for i in range(1, 22)]},

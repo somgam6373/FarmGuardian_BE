@@ -1,8 +1,8 @@
 from typing import Annotated
 
-from pydantic import AfterValidator, BaseModel, Field, StringConstraints
+from pydantic import AfterValidator, BaseModel, Field
 
-from app.farm.presentation.schemas import Address, FarmmapId, FieldOut, check_unique
+from app.farm.presentation.schemas import Address, FarmmapId, FieldOut, Name, check_unique
 
 
 class LoginIn(BaseModel):
@@ -14,9 +14,7 @@ class LoginIn(BaseModel):
 class SignupIn(BaseModel):
     username: str = Field(pattern=r"^[A-Za-z0-9_]{3,30}$")
     password: str = Field(min_length=4, max_length=72)
-    field_name: Annotated[
-        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=30)
-    ]
+    field_name: Name
     parcel_farmmap_ids: Annotated[
         list[FarmmapId], Field(min_length=1, max_length=20), AfterValidator(check_unique)
     ]
