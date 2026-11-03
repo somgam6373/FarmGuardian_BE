@@ -17,13 +17,13 @@ from app.judgment.domain.schemas import (
 )
 
 NONE_TEXT = "없음"  # 근거 원문이 비었을 때 보여 줄 문구
-NO_LIMIT_MESSAGE = "수확 전 사용 일수 제한이 없는 약제입니다. 라벨의 사용 방법을 확인해 주세요"
+NO_LIMIT_MESSAGE = "수확 전 사용 일수 제한이 없는 약제예요. 라벨의 사용 방법을 확인해 주세요"
 UNCONFIRMED_MESSAGE = (
-    "살포 기록에 빠진 것이 없는지 확인되지 않았습니다. "
+    "살포 기록에 빠진 것이 없는지 확인되지 않았어요. "
     "기록을 입력하고 「누락 없음」을 선택해 주세요"
 )
-NO_PLANTING_MESSAGE = "정식일이 없어 이번 작기 사용 횟수를 셀 수 없습니다. 정식일을 입력해 주세요"
-NO_PEST_NOTICE = "병해충을 지정하지 않아 가장 엄격한 기준을 적용했습니다"
+NO_PLANTING_MESSAGE = "정식일이 없어 이번 작기 사용 횟수를 셀 수 없어요. 정식일을 입력해 주세요"
+NO_PEST_NOTICE = "병해충을 지정하지 않아 가장 엄격한 기준을 적용했어요"
 CAUTION_MARGIN_DAYS = 2  # 수확 예정일까지 여유가 이 일수 이하면 주의 (프로토타입의 기준)
 
 
@@ -56,7 +56,7 @@ def check_registration(inp: JudgeInput) -> CheckResult:
     if not inp.registrations:
         return result(
             Verdict.BLOCKED,
-            "이 작물에는 등록되어 있지 않습니다",
+            "이 작물에는 등록되어 있지 않아요",
             {"crop_registered": False},
             NONE_TEXT,
         )
@@ -68,14 +68,14 @@ def check_registration(inp: JudgeInput) -> CheckResult:
     if inp.pest_id is None:
         return result(
             Verdict.NEEDS_CHECK,
-            "병해충을 지정하지 않아 등록 여부를 확인할 수 없습니다 (이 작물에는 등록되어 있습니다)",
+            "병해충을 지정하지 않아 등록 여부를 확인할 수 없어요 (이 작물에는 등록되어 있어요)",
             {"crop_registered": True, "pest_specified": False, "registered_pests": pests},
             listed,
         )
     if not rows:
         return result(
             Verdict.BLOCKED,
-            f"이 병해충에는 등록되어 있지 않습니다 (이 작물에 등록된 병해충 {len(pests)}종)",
+            f"이 병해충에는 등록되어 있지 않아요 (이 작물에 등록된 병해충 {len(pests)}종)",
             {"crop_registered": True, "registered_pests": pests},
             listed,
         )
@@ -84,7 +84,7 @@ def check_registration(inp: JudgeInput) -> CheckResult:
     parts = [text for text in (first.use_method, first.dilut_raw) if text]
     return result(
         Verdict.OK,
-        "이 병해충에 등록된 약제입니다",
+        "이 병해충에 등록된 약제예요",
         {"pest_specified": True, "rows": len(rows), "dilution": first.dilut_raw},
         " · ".join(parts) or NONE_TEXT,
     )
@@ -139,7 +139,7 @@ def check_timing(inp: JudgeInput, registration: CheckResult) -> CheckResult:
     if registration.status is Verdict.BLOCKED or not rows:
         return result(
             Verdict.NEEDS_CHECK,
-            "등록 정보가 없어 확인할 수 없습니다",
+            "등록 정보가 없어 확인할 수 없어요",
             NONE_TEXT,
             reason="not_registered",
         )
@@ -149,8 +149,8 @@ def check_timing(inp: JudgeInput, registration: CheckResult) -> CheckResult:
         raw = calc[0].use_suittime_raw or NONE_TEXT
         return result(
             Verdict.NEEDS_CHECK,
-            "이 약은 심을 때(정식기·파종기) 쓰는 약입니다. "
-            f"수확 전 사용 기준이 없어 수확 가능일을 계산할 수 없습니다. 원문: {raw}",
+            "이 약은 심을 때(정식기·파종기) 쓰는 약이에요. "
+            "수확 전 사용 기준이 없어 수확 가능일을 계산할 수 없어요",
             raw,
             reason="at_planting",
         )
@@ -162,7 +162,7 @@ def check_timing(inp: JudgeInput, registration: CheckResult) -> CheckResult:
         raw = unreadable.use_suittime_raw or NONE_TEXT
         return result(
             Verdict.NEEDS_CHECK,
-            f"수확 전 사용 기준을 읽지 못했습니다. 원문: {raw}",
+            "수확 전 사용 기준을 읽지 못했어요",
             raw,
             reason="unreadable",
         )
@@ -173,10 +173,10 @@ def check_timing(inp: JudgeInput, registration: CheckResult) -> CheckResult:
     methods = {r.use_method for r in calc if r.use_method}
     suffix = f" ({strict.use_method} 기준)" if len(methods) >= 2 and strict.use_method else ""
     if phi == 0:
-        message = "수확 당일까지 사용할 수 있습니다" + suffix
+        message = "수확 당일까지 사용할 수 있어요" + suffix
     else:
         message = (
-            f"오늘 살포하면 {format_date_kr(harvest_from, inp.today)}부터 수확할 수 있습니다 "
+            f"오늘 살포하면 {format_date_kr(harvest_from, inp.today)}부터 수확할 수 있어요 "
             f"(수확 {phi}일 전까지 사용)" + suffix
         )
     status, margin_facts = Verdict.OK, {}
@@ -188,15 +188,15 @@ def check_timing(inp: JudgeInput, registration: CheckResult) -> CheckResult:
         if margin < 0:
             status = Verdict.BLOCKED
             message = (
-                f"수확 예정일({due})이 지났습니다"
+                f"수확 예정일({due})이 지났어요"
                 if left < 0
                 else f"수확 예정일({due})까지 {left}일 남아 수확 {phi}일 전까지 사용하는 "
-                f"기준을 지킬 수 없습니다{suffix}"
+                f"기준을 지킬 수 없어요{suffix}"
             )
         elif margin <= CAUTION_MARGIN_DAYS:
             status = Verdict.CAUTION
             message = (
-                f"수확 예정일({due})까지 여유가 {margin}일입니다 "
+                f"수확 예정일({due})까지 여유가 {margin}일이에요 "
                 f"(수확 {phi}일 전까지 사용)" + suffix
             )
     return result(
@@ -287,7 +287,7 @@ def check_moa(inp: JudgeInput) -> CheckResult:
         }
         return result(
             Verdict.NEEDS_CHECK,
-            "이 약제의 작용기작 정보가 없어 비교할 수 없습니다",
+            "이 약제의 작용기작 정보가 없어 비교할 수 없어요",
             facts,
             NONE_TEXT,
         )
@@ -324,21 +324,21 @@ def check_moa(inp: JudgeInput) -> CheckResult:
     if not inp.history_confirmed:
         return result(Verdict.NEEDS_CHECK, UNCONFIRMED_MESSAGE, facts, rule.source)
     if rule.kind == "NO_LIMIT":
-        message = f"{label} — 같은 계열을 반복해도 제한이 없는 계열입니다" + note
+        message = f"{label} — 같은 계열을 반복해도 제한이 없는 계열이에요" + note
         return result(Verdict.OK, message, facts, rule.source)
     if not inp.history:
-        return result(Verdict.OK, "살포 이력이 없습니다", facts, rule.source)
+        return result(Verdict.OK, "살포 이력이 없어요", facts, rule.source)
     if consecutive >= rule.max_consecutive:
         message = (
-            f"{label} — 직전까지 같은 계열을 연속 {consecutive}회 사용했습니다. "
-            f"연속 {rule.max_consecutive}회까지가 기준이라 같은 작용기작이 반복됩니다" + note
+            f"{label} — 직전까지 같은 계열을 연속 {consecutive}회 사용했어요. "
+            f"연속 {rule.max_consecutive}회까지가 기준이라 같은 작용기작이 반복돼요" + note
         )
         return result(Verdict.CAUTION, message, facts, rule.source)
     if consecutive == 0:
-        message = f"{label} — 직전 살포는 다른 계열입니다" + note
+        message = f"{label} — 직전 살포는 다른 계열이에요" + note
         return result(Verdict.OK, message, facts, rule.source)
     message = (
-        f"{label} — 직전까지 같은 계열을 연속 {consecutive}회 사용했습니다 "
+        f"{label} — 직전까지 같은 계열을 연속 {consecutive}회 사용했어요 "
         f"(연속 {rule.max_consecutive}회까지 기준)" + note
     )
     return result(Verdict.OK, message, facts, rule.source)
@@ -377,7 +377,7 @@ def check_count(inp: JudgeInput, registration: CheckResult) -> CheckResult:
     if registration.status is Verdict.BLOCKED or not rows:
         return result(
             Verdict.NEEDS_CHECK,
-            "등록 정보가 없어 확인할 수 없습니다",
+            "등록 정보가 없어 확인할 수 없어요",
             NONE_TEXT,
             reason="not_registered",
         )
@@ -386,7 +386,7 @@ def check_count(inp: JudgeInput, registration: CheckResult) -> CheckResult:
     if all(r.usage_type == "NO_LIMIT" for r in calc):
         return result(
             Verdict.OK,
-            "사용 횟수 제한이 없는 약제입니다. 라벨의 사용 방법을 확인해 주세요",
+            "사용 횟수 제한이 없는 약제예요. 라벨의 사용 방법을 확인해 주세요",
             calc[0].use_num_raw,
             no_limit=True,
         )
@@ -396,7 +396,7 @@ def check_count(inp: JudgeInput, registration: CheckResult) -> CheckResult:
         raw = unreadable.use_num_raw or NONE_TEXT
         return result(
             Verdict.NEEDS_CHECK,
-            f"최대 사용 횟수 기준을 읽지 못했습니다. 원문: {raw}",
+            "최대 사용 횟수 기준을 읽지 못했어요",
             raw,
             reason="unreadable",
         )
@@ -423,7 +423,7 @@ def check_count(inp: JudgeInput, registration: CheckResult) -> CheckResult:
     if used >= max_uses:
         message = (
             f"{format_date_kr(inp.planted_at, inp.today)}부터 {used}회 사용해 "
-            f"최대 {max_uses}회를 채웠습니다. 남은 횟수는 0회입니다" + suffix
+            f"최대 {max_uses}회를 채웠어요. 남은 횟수는 0회예요" + suffix
         )
         return result(
             Verdict.BLOCKED,
@@ -438,12 +438,12 @@ def check_count(inp: JudgeInput, registration: CheckResult) -> CheckResult:
     remaining = max_uses - used
     if remaining == 1:
         message = (
-            f"남은 횟수 1회, 이번 사용 후 0회입니다 (최대 {max_uses}회). "
-            "이번이 마지막 사용입니다" + suffix
+            f"남은 횟수 1회, 이번 사용 후 0회예요 (최대 {max_uses}회). "
+            "이번이 마지막 사용이에요" + suffix
         )
     else:
         message = (
-            f"남은 횟수 {remaining}회, 이번 사용 후 {remaining - 1}회입니다 "
+            f"남은 횟수 {remaining}회, 이번 사용 후 {remaining - 1}회예요 "
             f"(최대 {max_uses}회)" + suffix
         )
     return result(

@@ -9,13 +9,13 @@ from tests.judge_support import make_input, reg, spray
 OK, BLOCKED, NEEDS_CHECK = Verdict.OK, Verdict.BLOCKED, Verdict.NEEDS_CHECK
 METHOD = "발생 초부터 경엽처리"
 UNCONFIRMED = (
-    "살포 기록에 빠진 것이 없는지 확인되지 않았습니다. "
+    "살포 기록에 빠진 것이 없는지 확인되지 않았어요. "
     "기록을 입력하고 「누락 없음」을 선택해 주세요"
 )
-NO_PLANTING = "정식일이 없어 이번 작기 사용 횟수를 셀 수 없습니다. 정식일을 입력해 주세요"
-OPEN = "남은 횟수 {r}회, 이번 사용 후 {after}회입니다 (최대 {mx}회)"
-LAST = "남은 횟수 1회, 이번 사용 후 0회입니다 (최대 {mx}회). 이번이 마지막 사용입니다"
-FULL = "{since}부터 {used}회 사용해 최대 {mx}회를 채웠습니다. 남은 횟수는 0회입니다"
+NO_PLANTING = "정식일이 없어 이번 작기 사용 횟수를 셀 수 없어요. 정식일을 입력해 주세요"
+OPEN = "남은 횟수 {r}회, 이번 사용 후 {after}회예요 (최대 {mx}회)"
+LAST = "남은 횟수 1회, 이번 사용 후 0회예요 (최대 {mx}회). 이번이 마지막 사용이에요"
+FULL = "{since}부터 {used}회 사용해 최대 {mx}회를 채웠어요. 남은 횟수는 0회예요"
 
 
 def count(**kw):
@@ -43,7 +43,7 @@ def a(sid, month, day, **kw):  # 품목A(가1) 살포
 
 
 def unreadable(raw):
-    return f"최대 사용 횟수 기준을 읽지 못했습니다. 원문: {raw}"
+    return "최대 사용 횟수 기준을 읽지 못했어요"
 
 
 OTHER_ITEM = [spray(1, "나2", date(2026, 6, 1), item_name="품목B")]
@@ -117,6 +117,7 @@ def test_check_row_with_numbers_is_still_unreadable():
     r = count(registrations=[reg(usage_type="CHECK", max_uses=3, use_num_raw="연1회")])
 
     assert (r.status, r.message) == (NEEDS_CHECK, unreadable("연1회"))
+    assert r.evidence.source_text == "연1회"
 
 
 def test_unreadable_raw_text_is_the_first_unreadable_rows_and_none_when_empty():
@@ -141,7 +142,7 @@ def test_c18_all_no_limit_ignores_planting_date_and_confirmation():
 
     assert (r.status, r.message) == (
         OK,
-        "사용 횟수 제한이 없는 약제입니다. 라벨의 사용 방법을 확인해 주세요",
+        "사용 횟수 제한이 없는 약제예요. 라벨의 사용 방법을 확인해 주세요",
     )
     assert r.facts == cfacts(since=None, no_limit=True)
     assert r.evidence.source_text == "-"
@@ -177,7 +178,7 @@ def test_c21_no_limit_row_is_left_out():
 def test_blocked_registration_makes_count_needs_check():
     r = count(registrations=[])
 
-    assert (r.status, r.message) == (NEEDS_CHECK, "등록 정보가 없어 확인할 수 없습니다")
+    assert (r.status, r.message) == (NEEDS_CHECK, "등록 정보가 없어 확인할 수 없어요")
     assert r.evidence.source_text == "없음"
     assert r.facts == cfacts(reason="not_registered")
 

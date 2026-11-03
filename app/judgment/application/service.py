@@ -22,7 +22,7 @@ from app.judgment.infrastructure import repository
 from app.spraying.application import spray_service
 from app.spraying.application.spray_service import SprayView
 
-NO_ALTERNATIVE_NOTICE = "병해충을 지정하면 대안을 볼 수 있습니다"
+NO_ALTERNATIVE_NOTICE = "병해충을 지정하면 대안을 볼 수 있어요"
 # 수확 가능일(오늘 + 수확 전 일수)이 날짜 범위를 넘지 않도록 하는 상한
 MAX_APPLY_DATE = date(2100, 12, 31)
 

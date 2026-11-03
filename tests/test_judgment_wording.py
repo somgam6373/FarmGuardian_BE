@@ -56,10 +56,18 @@ def test_no_template_contains_a_forbidden_word():
 def test_the_scan_sees_the_known_templates():
     rules, service = _literals("rules"), _literals("service")
 
-    assert any("이 병해충에 등록된 약제입니다" in text for _, text in rules)
+    assert any("이 병해충에 등록된 약제예요" in text for _, text in rules)
     assert any("작용기작 미상" in text for _, text in rules)
-    assert any("병해충을 지정하면 대안을 볼 수 있습니다" in text for _, text in service)
+    assert any("병해충을 지정하면 대안을 볼 수 있어요" in text for _, text in service)
     assert len(rules) + len(service) > 40  # 지금은 62개. 스캔이 텅 비어 통과하지 않게 한다
+
+
+def test_templates_use_haeyo_endings():
+    hits = [(line, text) for line, text in _literals("rules") if "니다" in text]
+    assert not hits, hits
+    from app.judgment.application.service import NO_ALTERNATIVE_NOTICE
+
+    assert "니다" not in NO_ALTERNATIVE_NOTICE
 
 
 def test_the_scanner_flags_a_forbidden_literal():

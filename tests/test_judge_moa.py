@@ -10,10 +10,10 @@ PHENYL = "FRAC Phenylamides (last updated March 2020)"
 OK, CAUTION, NEEDS_CHECK = Verdict.OK, Verdict.CAUTION, Verdict.NEEDS_CHECK
 LABEL = "가1 (FRAC 4)"
 UNCONFIRMED = (
-    "살포 기록에 빠진 것이 없는지 확인되지 않았습니다. "
+    "살포 기록에 빠진 것이 없는지 확인되지 않았어요. "
     "기록을 입력하고 「누락 없음」을 선택해 주세요"
 )
-NO_LIMIT_TEXT = "같은 계열을 반복해도 제한이 없는 계열입니다"
+NO_LIMIT_TEXT = "같은 계열을 반복해도 제한이 없는 계열이에요"
 
 
 def run(**kw):
@@ -38,7 +38,7 @@ def win(rec_id, iso, label):
 def test_m1_no_history():
     r = run(history=[])
 
-    assert (r.key, r.status, r.message) == ("moa", OK, "살포 이력이 없습니다")
+    assert (r.key, r.status, r.message) == ("moa", OK, "살포 이력이 없어요")
     assert r.facts == mfacts()
     assert r.evidence.source_text == PHENYL
     assert r.evidence.data_asof == date(2026, 10, 1)
@@ -54,7 +54,7 @@ def test_m3_one_in_a_row_is_ok():
     r = run(history=recent("가1", "나2", "가1"))
 
     assert r.status is OK
-    assert r.message == f"{LABEL} — 직전까지 같은 계열을 연속 1회 사용했습니다 (연속 2회까지 기준)"
+    assert r.message == f"{LABEL} — 직전까지 같은 계열을 연속 1회 사용했어요 (연속 2회까지 기준)"
     assert r.facts["consecutive"] == 1
     assert r.evidence.source_text == PHENYL
 
@@ -64,8 +64,8 @@ def test_m4_reaching_the_limit_is_caution_with_a_three_record_window():
 
     assert r.status is CAUTION
     assert r.message == (
-        f"{LABEL} — 직전까지 같은 계열을 연속 2회 사용했습니다. "
-        "연속 2회까지가 기준이라 같은 작용기작이 반복됩니다"
+        f"{LABEL} — 직전까지 같은 계열을 연속 2회 사용했어요. "
+        "연속 2회까지가 기준이라 같은 작용기작이 반복돼요"
     )
     assert r.facts == mfacts(
         consecutive=2,
@@ -80,7 +80,7 @@ def test_m4_reaching_the_limit_is_caution_with_a_three_record_window():
 def test_m5_newest_record_of_another_group_breaks_the_run():
     r = run(history=recent("나2", "가1", "가1"))
 
-    assert (r.status, r.message) == (OK, f"{LABEL} — 직전 살포는 다른 계열입니다")
+    assert (r.status, r.message) == (OK, f"{LABEL} — 직전 살포는 다른 계열이에요")
     assert r.facts["consecutive"] == 0
 
 
@@ -89,7 +89,7 @@ def test_m6_chosen_drug_without_moa():
 
     assert (r.status, r.message) == (
         NEEDS_CHECK,
-        "이 약제의 작용기작 정보가 없어 비교할 수 없습니다",
+        "이 약제의 작용기작 정보가 없어 비교할 수 없어요",
     )
     assert r.evidence.source_text == "없음"
     assert r.facts == {
@@ -106,7 +106,7 @@ def test_m7_unknown_record_breaks_the_run_and_is_counted():
     r = run(history=recent(None, "가1", "가1"))
 
     assert r.status is OK
-    assert r.message == f"{LABEL} — 직전 살포는 다른 계열입니다 (작용기작 미상 1건 포함)"
+    assert r.message == f"{LABEL} — 직전 살포는 다른 계열이에요 (작용기작 미상 1건 포함)"
     assert (r.facts["consecutive"], r.facts["unknown"]) == (0, 1)
     assert r.facts["window"][0]["label"] is None
 
@@ -187,11 +187,11 @@ def test_unknown_note_is_added_to_the_caution_message_too():
     r = run(history=recent("가1", "가1", None))
 
     assert r.status is CAUTION
-    assert r.message.endswith("같은 작용기작이 반복됩니다 (작용기작 미상 1건 포함)")
+    assert r.message.endswith("같은 작용기작이 반복돼요 (작용기작 미상 1건 포함)")
 
 
 def test_works_without_planting_date_and_ignores_registration():  # C6의 ④ 부분
     r = run(planted_at=None, registrations=[], history=recent("가1"))
 
     assert r.status is OK
-    assert r.message == f"{LABEL} — 직전까지 같은 계열을 연속 1회 사용했습니다 (연속 2회까지 기준)"
+    assert r.message == f"{LABEL} — 직전까지 같은 계열을 연속 1회 사용했어요 (연속 2회까지 기준)"

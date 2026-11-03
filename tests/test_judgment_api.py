@@ -28,7 +28,7 @@ RESPONSE_KEYS = {
 RESULT_KEYS = {"pesticide_id", "moa", "verdict", "checks", "notices", "data_asof"}
 CHECK_KEYS = {"key", "status", "message", "facts", "evidence"}
 ALT_KEYS = {"id", "name", "item_name", "moa", "company", "form", "ingredients", "kind"}
-NOTICE = "병해충을 지정하면 대안을 볼 수 있습니다"
+NOTICE = "병해충을 지정하면 대안을 볼 수 있어요"
 PEST = pests_with_drugs(1)[0]
 DRUG = pool(1, PEST)[0]
 
