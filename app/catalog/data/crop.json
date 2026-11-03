@@ -28,5 +28,51 @@
     ],
     "row_spacing_cm": null,
     "col_spacing_cm": null
+  },
+  {
+    "crop_id": 4,
+    "name": "무",
+    "psis_crop_names": [
+      "무"
+    ],
+    "row_spacing_cm": null,
+    "col_spacing_cm": null
+  },
+  {
+    "crop_id": 5,
+    "name": "양배추",
+    "psis_crop_names": [
+      "양배추"
+    ],
+    "row_spacing_cm": null,
+    "col_spacing_cm": null
+  },
+  {
+    "crop_id": 6,
+    "name": "당근",
+    "psis_crop_names": [
+      "당근"
+    ],
+    "row_spacing_cm": null,
+    "col_spacing_cm": null
+  },
+  {
+    "crop_id": 7,
+    "name": "브로콜리",
+    "psis_crop_names": [
+      "꽃양배추(브로콜리, 콜리플라워 포함)"
+    ],
+    "row_spacing_cm": null,
+    "col_spacing_cm": null
+  },
+  {
+    "crop_id": 8,
+    "name": "대파",
+    "psis_crop_names": [
+      "파",
+      "파(쪽파 포함)"
+    ],
+    "row_spacing_cm": null,
+    "col_spacing_cm": null
   }
 ]

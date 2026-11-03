@@ -94,5 +94,95 @@
     "pest_id": 99,
     "source": "PSIS",
     "alias_name": "뿔나방류"
+  },
+  {
+    "alias_id": 17,
+    "pest_id": 219,
+    "source": "PSIS",
+    "alias_name": "거세미나방류"
+  },
+  {
+    "alias_id": 18,
+    "pest_id": 280,
+    "source": "PSIS",
+    "alias_name": "거세미나방류"
+  },
+  {
+    "alias_id": 19,
+    "pest_id": 161,
+    "source": "PSIS",
+    "alias_name": "거세미나방류"
+  },
+  {
+    "alias_id": 20,
+    "pest_id": 164,
+    "source": "PSIS",
+    "alias_name": "달팽이(민달팽이류)"
+  },
+  {
+    "alias_id": 21,
+    "pest_id": 150,
+    "source": "PSIS",
+    "alias_name": "달팽이(명주달팽이)"
+  },
+  {
+    "alias_id": 22,
+    "pest_id": 152,
+    "source": "PSIS",
+    "alias_name": "무테두리진딧물"
+  },
+  {
+    "alias_id": 23,
+    "pest_id": 139,
+    "source": "PSIS",
+    "alias_name": "뿌리혹병"
+  },
+  {
+    "alias_id": 24,
+    "pest_id": 240,
+    "source": "PSIS",
+    "alias_name": "거세미나방류"
+  },
+  {
+    "alias_id": 25,
+    "pest_id": 244,
+    "source": "PSIS",
+    "alias_name": "달팽이(명주달팽이)"
+  },
+  {
+    "alias_id": 26,
+    "pest_id": 248,
+    "source": "PSIS",
+    "alias_name": "무테두리진딧물"
+  },
+  {
+    "alias_id": 27,
+    "pest_id": 253,
+    "source": "PSIS",
+    "alias_name": "뿌리혹병"
+  },
+  {
+    "alias_id": 28,
+    "pest_id": 191,
+    "source": "PSIS",
+    "alias_name": "거세미나방류"
+  },
+  {
+    "alias_id": 29,
+    "pest_id": 194,
+    "source": "PSIS",
+    "alias_name": "달팽이(명주달팽이)"
+  },
+  {
+    "alias_id": 30,
+    "pest_id": 198,
+    "source": "PSIS",
+    "alias_name": "무테두리진딧물"
+  },
+  {
+    "alias_id": 31,
+    "pest_id": 185,
+    "source": "PSIS",
+    "alias_name": "뿌리혹병"
   }
 ]

@@ -558,5 +558,21 @@
     "usage_type": "fungicide",
     "target_site": "식물 추출물 (생물학적 제제)",
     "is_multi_site": true
+  },
+  {
+    "moa_id": 71,
+    "kr_code": "20b",
+    "intl_code": "IRAC 20B",
+    "usage_type": "insecticide",
+    "target_site": "아세퀴노실",
+    "is_multi_site": false
+  },
+  {
+    "moa_id": 72,
+    "kr_code": "나4",
+    "intl_code": "FRAC 20",
+    "usage_type": "fungicide",
+    "target_site": "세포분열 저해 (페닐우레아계)",
+    "is_multi_site": false
   }
 ]

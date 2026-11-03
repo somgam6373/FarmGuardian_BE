@@ -6,18 +6,18 @@ from sqlalchemy import text
 from app.catalog.infrastructure.static_data import load
 
 COUNTS = {
-    "crop": 3,
-    "moa": 70,
-    "ingredient": 216,
-    "pest": 129,
-    "pest_alias": 16,
-    "pest_photo": 185,
-    "pest_season": 51,
-    "pesticide_use": 4133,
-    "safe_use_std": 4133,
-    "use_ingredient": 4949,
+    "crop": 8,
+    "moa": 72,
+    "ingredient": 226,
+    "pest": 287,
+    "pest_alias": 31,
+    "pest_photo": 435,
+    "pest_season": 78,
+    "pesticide_use": 11374,
+    "safe_use_std": 11374,
+    "use_ingredient": 12991,
     "rotation_rule": 6,
-    "virus_vector": 12,
+    "virus_vector": 19,
 }
 
 
@@ -35,7 +35,7 @@ def test_unknown_name_is_rejected(name):
 
 
 def test_korean_text_is_decoded():
-    assert [c["name"] for c in load("crop")] == ["감자", "배추", "토마토"]
+    assert [c["name"] for c in load("crop")] == ["감자", "배추", "토마토", "무", "양배추", "당근", "브로콜리", "대파"]
 
 
 def test_load_is_cached():
@@ -73,7 +73,7 @@ def test_ids_are_unique(name, key):
 
 
 def test_use_ids_run_1_to_n_in_both_use_files():
-    expected = set(range(1, 4134))
+    expected = set(range(1, 11375))
 
     assert {r["use_id"] for r in load("pesticide_use")} == expected
     assert {r["use_id"] for r in load("safe_use_std")} == expected
@@ -103,33 +103,33 @@ def test_references_resolve(child, key, parent, parent_key):
 def test_every_use_has_one_or_two_ingredients():
     per_use = Counter(r["use_id"] for r in load("use_ingredient"))
 
-    assert set(per_use) == set(range(1, 4134))
-    assert Counter(per_use.values()) == {1: 3317, 2: 816}
+    assert set(per_use) == set(range(1, 11375))
+    assert Counter(per_use.values()) == {1: 9757, 2: 1617}
 
 
 def test_parse_status_and_null_rules():
     rows = load("safe_use_std")
 
     assert Counter(r["parse_status"] for r in rows) == {
-        "ok": 3531,
-        "stage": 554,
-        "no_std": 41,
-        "failed": 7,
+        "ok": 10103,
+        "stage": 1210,
+        "no_std": 53,
+        "failed": 8,
     }
     ok = [r for r in rows if r["parse_status"] == "ok"]
     assert all(r["phi_days"] is not None and r["max_count"] is not None for r in ok)
     no_phi = Counter(r["parse_status"] for r in rows if r["phi_days"] is None)
-    assert no_phi == {"stage": 554, "no_std": 41, "failed": 6}
+    assert no_phi == {"stage": 1210, "no_std": 53, "failed": 7}
     no_max = Counter(r["parse_status"] for r in rows if r["max_count"] is None)
-    assert no_max == {"no_std": 41, "failed": 1}
-    assert {r["base_date"] for r in rows} == {"2026-10-05"}
+    assert no_max == {"no_std": 53, "failed": 2}
+    assert {r["base_date"] for r in rows} == {"2026-10-05", "2026-11-03"}
 
 
 def test_moa_codes_resolve_part_by_part():
     kr = {m["kr_code"] for m in load("moa")}
     codes = [u["moa_code"] for u in load("pesticide_use")]
 
-    assert sum(1 for c in codes if not c) == 17  # 계열 코드가 없는 줄 (④ NEEDS_CHECK)
+    assert sum(1 for c in codes if not c) == 27  # 계열 코드가 없는 줄 (④ NEEDS_CHECK)
     assert all(set(c.split("+")) <= kr for c in codes if c)  # 복합 계열은 성분별로 풀린다
 
 
@@ -152,8 +152,8 @@ def test_pesticide_identity_is_stable():
 
     for use_id, product, brand in SAMPLES:
         assert (uses[use_id]["product"], uses[use_id]["brand"]) == (product, brand)
-    assert len({u["product"] for u in uses.values()}) == 652
-    assert len({(u["product"], u["brand"]) for u in uses.values()}) == 1363
+    assert len({u["product"] for u in uses.values()}) == 736
+    assert len({(u["product"], u["brand"]) for u in uses.values()}) == 1568
 
 
 def test_crop_json_matches_the_crop_table(db):

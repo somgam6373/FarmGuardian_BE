@@ -1078,5 +1078,55 @@
     "ingredient_id": 216,
     "name": "플루실라졸",
     "moa_id": 17
+  },
+  {
+    "ingredient_id": 217,
+    "name": "아세퀴노실",
+    "moa_id": 71
+  },
+  {
+    "ingredient_id": 218,
+    "name": "테부펜피라드",
+    "moa_id": 60
+  },
+  {
+    "ingredient_id": 219,
+    "name": "프로피코나졸",
+    "moa_id": 17
+  },
+  {
+    "ingredient_id": 220,
+    "name": "트리아디메폰",
+    "moa_id": 17
+  },
+  {
+    "ingredient_id": 221,
+    "name": "펜사이큐론",
+    "moa_id": 72
+  },
+  {
+    "ingredient_id": 222,
+    "name": "디메토에이트",
+    "moa_id": 10
+  },
+  {
+    "ingredient_id": 223,
+    "name": "이미녹타딘트리아세테이트",
+    "moa_id": 14
+  },
+  {
+    "ingredient_id": 224,
+    "name": "비터타놀",
+    "moa_id": 17
+  },
+  {
+    "ingredient_id": 225,
+    "name": "프로클로라즈",
+    "moa_id": 17
+  },
+  {
+    "ingredient_id": 226,
+    "name": "황",
+    "moa_id": 14
   }
 ]
