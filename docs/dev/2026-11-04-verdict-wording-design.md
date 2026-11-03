@@ -142,8 +142,9 @@ is carried only in `evidence.source_text`.
 - The `Verdict` gets an `atPlanting` flag (timing reason is `at_planting`). With it the hero shows 「심을 때 쓰는 약이에요」
   instead of 「심은 뒤에 판정할 수 있어요」, and the 「심은 날 입력하기」 link is hidden.
 - A `Check` gets an optional `stateLabel` override (used for 「심을 때」) and an optional `source` (raw text).
-- Recording stays blocked for `preplant` as today. For `at_planting_only` the note under the button reads
-  「심을 때 쓰는 약은 여기서 기록할 수 없어요」 instead of 「심은 뒤에 기록할 수 있어요」.
+- Recording from this screen stays blocked for `preplant`. For `at_planting_only` the disabled button and its note are
+  replaced by one soft button 「심을 때 뿌린 약으로 기록하기」 that opens spray history with the 「지난 기록 추가」
+  form already open (approved by Hyebin on 2026-11-04). The normal record button reads 「오늘 뿌린 약으로 기록하기」.
 
 ### Raw text line
 
