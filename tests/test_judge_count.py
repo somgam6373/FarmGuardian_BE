@@ -13,9 +13,20 @@ UNCONFIRMED = (
     "기록을 입력하고 「누락 없음」을 선택해 주세요"
 )
 NO_PLANTING = "정식일이 없어 이번 작기 사용 횟수를 셀 수 없어요. 정식일을 입력해 주세요"
-OPEN = "남은 횟수 {r}회, 이번 사용 후 {after}회예요 (최대 {mx}회)"
-LAST = "남은 횟수 1회, 이번 사용 후 0회예요 (최대 {mx}회). 이번이 마지막 사용이에요"
-FULL = "{since}부터 {used}회 사용해 최대 {mx}회를 채웠어요. 남은 횟수는 0회예요"
+def used_text(u):
+    return "아직 쓰지 않았어요" if u == 0 else f"{u}회 썼어요"
+
+
+def open_msg(u, mx):
+    return f"{used_text(u)} (최대 {mx}회). 이번에 쓰면 {mx - u - 1}회 남아요"
+
+
+def last_msg(u, mx):
+    return f"{used_text(u)} (최대 {mx}회). 이번에 쓰면 더 쓸 수 없어요"
+
+
+def full_msg(since, used, mx):
+    return f"{since}부터 {used}회 썼어요. 최대 {mx}회를 채웠어요"
 
 
 def count(**kw):
@@ -50,18 +61,18 @@ OTHER_ITEM = [spray(1, "나2", date(2026, 6, 1), item_name="품목B")]
 THREE = [a(1, 6, 1), a(2, 6, 15), a(3, 7, 1)]
 
 COUNTED = [
-    ("C1", OTHER_ITEM, 0, OK, OPEN.format(r=3, after=2, mx=3)),
-    ("C2", [a(1, 6, 1)], 1, OK, OPEN.format(r=2, after=1, mx=3)),
-    ("C3", [a(1, 6, 1), a(2, 6, 15)], 2, OK, LAST.format(mx=3)),
-    ("C4", THREE, 3, BLOCKED, FULL.format(since="5월 1일", used=3, mx=3)),
-    ("C5", [a(1, 4, 20), a(2, 6, 1)], 1, OK, OPEN.format(r=2, after=1, mx=3)),
-    ("C7", [a(1, 6, 1, pesticide_id=10), a(2, 6, 10, pesticide_id=11)], 2, OK, LAST.format(mx=3)),
-    ("C10", [], 0, OK, OPEN.format(r=3, after=2, mx=3)),
-    ("C12", [a(1, 6, 1), a(2, 6, 1)], 2, OK, LAST.format(mx=3)),
-    ("C14", [a(1, 4, 1)], 0, OK, OPEN.format(r=3, after=2, mx=3)),
-    ("C17", THREE + [a(4, 8, 1)], 4, BLOCKED, FULL.format(since="5월 1일", used=4, mx=3)),
-    ("on-planting-day", [a(1, 5, 1)], 1, OK, OPEN.format(r=2, after=1, mx=3)),
-    ("day-before", [a(1, 4, 30)], 0, OK, OPEN.format(r=3, after=2, mx=3)),
+    ("C1", OTHER_ITEM, 0, OK, open_msg(0, 3)),
+    ("C2", [a(1, 6, 1)], 1, OK, open_msg(1, 3)),
+    ("C3", [a(1, 6, 1), a(2, 6, 15)], 2, OK, last_msg(2, 3)),
+    ("C4", THREE, 3, BLOCKED, full_msg("5월 1일", 3, 3)),
+    ("C5", [a(1, 4, 20), a(2, 6, 1)], 1, OK, open_msg(1, 3)),
+    ("C7", [a(1, 6, 1, pesticide_id=10), a(2, 6, 10, pesticide_id=11)], 2, OK, last_msg(2, 3)),
+    ("C10", [], 0, OK, open_msg(0, 3)),
+    ("C12", [a(1, 6, 1), a(2, 6, 1)], 2, OK, last_msg(2, 3)),
+    ("C14", [a(1, 4, 1)], 0, OK, open_msg(0, 3)),
+    ("C17", THREE + [a(4, 8, 1)], 4, BLOCKED, full_msg("5월 1일", 4, 3)),
+    ("on-planting-day", [a(1, 5, 1)], 1, OK, open_msg(1, 3)),
+    ("day-before", [a(1, 4, 30)], 0, OK, open_msg(0, 3)),
 ]
 
 
@@ -153,7 +164,7 @@ def test_c19_all_at_planting_still_counts():
     r = count(registrations=[row], history=[])
 
     assert (r.status, r.facts["used"], r.facts["max_uses"]) == (OK, 0, 1)
-    assert r.message == LAST.format(mx=1)
+    assert r.message == last_msg(0, 1)
 
 
 def test_c20_strictest_use_method_is_named():
@@ -164,7 +175,7 @@ def test_c20_strictest_use_method_is_named():
     r = count(registrations=rows)
 
     assert r.facts["strict_use_method"] == "무인항공"
-    assert r.message == LAST.format(mx=1) + " (무인항공 기준)"
+    assert r.message == last_msg(0, 1) + " (무인항공 기준)"
     assert r.evidence.source_text == "1회"
 
 
@@ -188,4 +199,4 @@ def test_blocked_message_names_the_year_when_it_differs():
     r = count(planted_at=date(2025, 11, 1), history=history)
 
     assert r.status is BLOCKED
-    assert r.message.startswith("2025년 11월 1일부터 4회 사용해")
+    assert r.message.startswith("2025년 11월 1일부터 4회 썼어요")

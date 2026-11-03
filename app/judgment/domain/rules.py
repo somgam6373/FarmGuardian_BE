@@ -422,8 +422,8 @@ def check_count(inp: JudgeInput, registration: CheckResult) -> CheckResult:
 
     if used >= max_uses:
         message = (
-            f"{format_date_kr(inp.planted_at, inp.today)}부터 {used}회 사용해 "
-            f"최대 {max_uses}회를 채웠어요. 남은 횟수는 0회예요" + suffix
+            f"{format_date_kr(inp.planted_at, inp.today)}부터 {used}회 썼어요. "
+            f"최대 {max_uses}회를 채웠어요" + suffix
         )
         return result(
             Verdict.BLOCKED,
@@ -436,16 +436,9 @@ def check_count(inp: JudgeInput, registration: CheckResult) -> CheckResult:
         )
 
     remaining = max_uses - used
-    if remaining == 1:
-        message = (
-            f"남은 횟수 1회, 이번 사용 후 0회예요 (최대 {max_uses}회). "
-            "이번이 마지막 사용이에요" + suffix
-        )
-    else:
-        message = (
-            f"남은 횟수 {remaining}회, 이번 사용 후 {remaining - 1}회예요 "
-            f"(최대 {max_uses}회)" + suffix
-        )
+    so_far = "아직 쓰지 않았어요" if used == 0 else f"{used}회 썼어요"
+    after = "더 쓸 수 없어요" if remaining == 1 else f"{remaining - 1}회 남아요"
+    message = f"{so_far} (최대 {max_uses}회). 이번에 쓰면 {after}" + suffix
     return result(
         Verdict.OK,
         message,

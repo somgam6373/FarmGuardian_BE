@@ -61,10 +61,10 @@ The status, `facts` and `evidence` of every check stay the same; only `message`/
 | ② BLOCKED | 수확 예정일({due})이 지났습니다 | 수확 예정일({due})이 지났어요 |
 | ② BLOCKED | 수확 예정일({due})까지 {left}일 남아 수확 {phi}일 전까지 사용하는 기준을 지킬 수 없습니다 | …기준을 지킬 수 없어요 |
 | ② CAUTION | 수확 예정일({due})까지 여유가 {margin}일입니다 (수확 {phi}일 전까지 사용) | 수확 예정일({due})까지 여유가 {margin}일이에요 (수확 {phi}일 전까지 사용) |
-| ③ OK | 남은 횟수 {r}회, 이번 사용 후 {r-1}회입니다 (최대 {max}회) | 남은 횟수 {r}회, 이번 사용 후 {r-1}회예요 (최대 {max}회) |
-| ③ OK | 남은 횟수 1회, 이번 사용 후 0회입니다 (최대 {max}회). 이번이 마지막 사용입니다 | 남은 횟수 1회, 이번 사용 후 0회예요 (최대 {max}회). 이번이 마지막 사용이에요 |
+| ③ OK | 남은 횟수 {r}회, 이번 사용 후 {r-1}회입니다 (최대 {max}회) | {used_text} (최대 {max}회). 이번에 쓰면 {r-1}회 남아요 |
+| ③ OK | 남은 횟수 1회, 이번 사용 후 0회입니다 (최대 {max}회). 이번이 마지막 사용입니다 | {used_text} (최대 {max}회). 이번에 쓰면 더 쓸 수 없어요 |
 | ③ OK `NO_LIMIT` | 사용 횟수 제한이 없는 약제입니다. 라벨의 사용 방법을 확인해 주세요 | 사용 횟수 제한이 없는 약제예요. 라벨의 사용 방법을 확인해 주세요 |
-| ③ BLOCKED | {since}부터 {used}회 사용해 최대 {max}회를 채웠습니다. 남은 횟수는 0회입니다 | {since}부터 {used}회 사용해 최대 {max}회를 채웠어요. 남은 횟수는 0회예요 |
+| ③ BLOCKED | {since}부터 {used}회 사용해 최대 {max}회를 채웠습니다. 남은 횟수는 0회입니다 | {since}부터 {used}회 썼어요. 최대 {max}회를 채웠어요 |
 | ③ NEEDS_CHECK | 정식일이 없어 이번 작기 사용 횟수를 셀 수 없습니다. 정식일을 입력해 주세요 | 정식일이 없어 이번 작기 사용 횟수를 셀 수 없어요. 정식일을 입력해 주세요 |
 | ③④ NEEDS_CHECK | 살포 기록에 빠진 것이 없는지 확인되지 않았습니다. 기록을 입력하고 「누락 없음」을 선택해 주세요 | 살포 기록에 빠진 것이 없는지 확인되지 않았어요. 기록을 입력하고 「누락 없음」을 선택해 주세요 |
 | ③ NEEDS_CHECK `max` NULL | 최대 사용 횟수 기준을 읽지 못했습니다. 원문: {raw} | 최대 사용 횟수 기준을 읽지 못했어요 |
@@ -76,6 +76,8 @@ The status, `facts` and `evidence` of every check stay the same; only `message`/
 | ④ NEEDS_CHECK | 이 약제의 작용기작 정보가 없어 비교할 수 없습니다 | 이 약제의 작용기작 정보가 없어 비교할 수 없어요 |
 | notice | 병해충을 지정하지 않아 가장 엄격한 기준을 적용했습니다 | 병해충을 지정하지 않아 가장 엄격한 기준을 적용했어요 |
 | notice | 병해충을 지정하면 대안을 볼 수 있습니다 | 병해충을 지정하면 대안을 볼 수 있어요 |
+
+The three ③ rows were also reworded (not only the ending), approved by Hyebin on 2026-11-04 after the first build: `{used_text}` is 「아직 쓰지 않았어요」 when `used` is 0, else 「{used}회 썼어요」.
 
 Suffixes 「 ({use_method} 기준)」 and 「 (작용기작 미상 {n}건 포함)」 stay as they are. The three 「원문」 cases keep
 the same `evidence.source_text` (the raw text, or 「없음」), so nothing is lost.
@@ -171,4 +173,4 @@ raw text. Merge both before the demo.
 - Error messages are out of scope.
 - An additive `facts.reason` on timing/count `NEEDS_CHECK` so the frontend does not match message text.
 - When an at-planting drug meets a zone without a planting date, the drug's headline wins.
-- The manual check uses 감자밭 as it is now: its count card shows 「남은 횟수 1회…」, so it has a planting date.
+- The manual check uses 감자밭 as it is now: its count card shows a count sentence, not the no-planting-date one, so it has a planting date.
