@@ -1,11 +1,13 @@
 import base64
 import json
-
-import anthropic
+from typing import TYPE_CHECKING
 
 from app.catalog.domain.entities import LabelRead
 from app.core.config import settings
 from app.core.upstream import upstream_error
+
+if TYPE_CHECKING:
+    import anthropic
 
 MODEL = "claude-haiku-5-5"
 MAX_TOKENS = 2000
@@ -41,13 +43,15 @@ INSTRUCTION = "Read this pesticide label."
 
 
 def read_label(
-    image: bytes, media_type: str, *, client: anthropic.Anthropic | None = None
+    image: bytes, media_type: str, *, client: "anthropic.Anthropic | None" = None
 ) -> LabelRead:
     """포장지 사진에서 상표·품목·제조사·글자를 읽는다 (모델은 글자만 옮긴다).
 
     읽지 못한 답(거절·잘림·형식 오류)은 오류가 아니라 빈 LabelRead다.
     연결·시간 초과·API 오류와 키 없음은 502 UPSTREAM_ERROR다.
     """
+    import anthropic  # 로딩이 몇 초 걸려 OCR을 쓸 때만 불러온다 (Vercel 첫 접속 시간)
+
     if client is None:
         if not settings.anthropic_api_key:
             raise upstream_error("anthropic", _MESSAGE, cause="MissingApiKey")

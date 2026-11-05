@@ -49,6 +49,13 @@ pytest                            # 실제 PostGIS 테스트 DB가 필요하다
 ruff check .
 ```
 
+## 배포 (Vercel)
+
+레포를 Vercel 프로젝트로 가져오면 `app/main.py`를 자동으로 찾는다. 지역(서울)은 `vercel.json`, Python 버전은 `.python-version`에 있다.
+
+- 환경변수: `DATABASE_URL`, `CORS_ORIGINS`(프론트 배포 주소), `FARMMAP_API_KEY`, `VWORLD_API_KEY`, `ANTHROPIC_API_KEY`
+- `DATABASE_URL`은 Supabase transaction 풀러(6543 포트) 주소를 `postgresql+psycopg://`로 시작하게 넣는다. Vercel에서는 연결을 재사용하지 않고 prepared statement를 끈다 (`app/core/db.py`).
+
 ## API 테스트 페이지
 
 지금 구현된 API를 브라우저에서 눌러 보는 개발용 페이지다. 서버가 `/openapi.json`으로 알려 주는 구현 여부를 보고, 아직 없는 API는 「아직 구현 안 됨」으로 표시한다.
