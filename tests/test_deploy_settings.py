@@ -1,6 +1,7 @@
 import json
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 from sqlalchemy.pool import NullPool
@@ -35,3 +36,11 @@ def test_vercel_runs_in_seoul_next_to_the_database():
 def test_vercel_uses_the_python_version_the_tests_run_on():
     version = (ROOT / ".python-version").read_text(encoding="utf-8").strip()
     assert version == f"{sys.version_info.major}.{sys.version_info.minor}"
+
+
+def test_pyproject_lists_the_same_packages_as_requirements():
+    # Vercel은 pyproject.toml이 있으면 그 목록으로 설치한다. 목록이 없으면 fastapi도 설치되지 않는다
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    required = (ROOT / "requirements.txt").read_text(encoding="utf-8").split()
+
+    assert project["dependencies"] == required

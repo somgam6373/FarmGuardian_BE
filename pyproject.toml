@@ -1,3 +1,19 @@
+[project]
+name = "farmguardian-be"
+version = "0.1.0"
+requires-python = ">=3.14"
+# Vercel은 이 목록으로 설치한다. requirements.txt와 같게 둔다
+dependencies = [
+    "fastapi>=0.142",
+    "uvicorn>=0.54",
+    "sqlalchemy>=2",
+    "psycopg[binary]>=3.3",
+    "pydantic-settings>=2.15",
+    "httpx2>=2.13",
+    "anthropic>=2.3",
+    "python-multipart>=0.0.33",
+]
+
 [tool.ruff]
 line-length = 100
 target-version = "py313"
