@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.core.auth import current_user
+from app.core.auth import current_user, forbid_demo_account
 from app.core.db import get_db
 from app.core.errors import AppError
 from app.identity.application import service
@@ -55,4 +55,5 @@ def complete_onboarding(user_id: UserId, db: Session = Depends(get_db)):
 
 @router.delete("/me", status_code=204)
 def withdraw(user_id: UserId, db: Session = Depends(get_db)):
+    forbid_demo_account(db, user_id, "탈퇴할")
     service.withdraw(db, user_id)

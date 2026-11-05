@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, Query
 from sqlalchemy.orm import Session
 
-from app.core.auth import current_user, get_owned_field, get_owned_zone
+from app.core.auth import current_user, forbid_demo_account, get_owned_field, get_owned_zone
 from app.core.db import get_db
 from app.core.time import today_kst
 from app.farm.application import field_service, zone_service
@@ -68,8 +68,11 @@ def list_fields(user_id: Annotated[int, Depends(current_user)], db: Session = De
 
 @router.delete("/fields/{field_id}", status_code=204)
 def delete_field(
-    field_id: Annotated[int, Depends(get_owned_field)], db: Session = Depends(get_db)
+    field_id: Annotated[int, Depends(get_owned_field)],
+    user_id: Annotated[int, Depends(current_user)],
+    db: Session = Depends(get_db),
 ):
+    forbid_demo_account(db, user_id, "밭을 삭제할")
     field_service.delete_field(db, field_id)
     db.commit()
 

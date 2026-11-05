@@ -15,6 +15,16 @@ _OWNED_FIELD = text("SELECT 1 FROM field WHERE id = :id AND user_id = :uid")
 _OWNED_ZONE = text("SELECT 1 FROM zone WHERE id = :id AND user_id = :uid")
 
 
+# 시연 때 여럿이 같이 쓰는 계정. 탈퇴·밭 삭제로 모두의 데이터가 사라지지 않게 막는다
+DEMO_USERNAME = "test1"
+
+
+def forbid_demo_account(db: Session, user_id: int, action: str) -> None:
+    username = db.scalar(text("SELECT username FROM users WHERE id = :id"), {"id": user_id})
+    if username == DEMO_USERNAME:
+        raise AppError("DEMO_ACCOUNT", 403, f"체험 계정에서는 {action} 수 없어요")
+
+
 def _unauthorized() -> AppError:
     # 헤더 없음·형식 오류·없는 사용자를 구분하지 않고, 받은 값도 돌려주지 않는다
     return AppError("UNAUTHORIZED", 401, "인증이 필요합니다")
