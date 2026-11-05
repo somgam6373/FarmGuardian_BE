@@ -41,7 +41,7 @@ def test_the_user_scenario_end_to_end(client, db, monkeypatch):
     auth = {"X-User-Id": str(uid)}
     assert field["zones"] == [] and abs(field["area_m2"] - 200) < 1, "signup: field"
     assert expect(client.get("/me", headers=auth), 200, "me")["onboarded"] is False
-    assert len(expect(client.get("/crops", headers=auth), 200, "crops")) == 3
+    assert len(expect(client.get("/crops", headers=auth), 200, "crops")) == 8
 
     # 2. 분할 미리보기와 구역 생성 (혜빈님 API는 호출만 한다)
     split = {"direction": "crosswise", "ratios": [6, 4]}

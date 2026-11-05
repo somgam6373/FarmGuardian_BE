@@ -35,7 +35,16 @@ def test_unknown_name_is_rejected(name):
 
 
 def test_korean_text_is_decoded():
-    assert [c["name"] for c in load("crop")] == ["감자", "배추", "토마토", "무", "양배추", "당근", "브로콜리", "대파"]
+    assert [c["name"] for c in load("crop")] == [
+        "감자",
+        "배추",
+        "토마토",
+        "무",
+        "양배추",
+        "당근",
+        "브로콜리",
+        "대파",
+    ]
 
 
 def test_load_is_cached():

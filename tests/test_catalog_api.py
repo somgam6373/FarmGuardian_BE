@@ -27,6 +27,11 @@ def test_crops_shape(client, make_user):
         {"id": 1, "name": "감자"},
         {"id": 2, "name": "배추"},
         {"id": 3, "name": "토마토"},
+        {"id": 4, "name": "무"},
+        {"id": 5, "name": "양배추"},
+        {"id": 6, "name": "당근"},
+        {"id": 7, "name": "브로콜리"},
+        {"id": 8, "name": "대파"},
     ]
 
 

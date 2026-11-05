@@ -30,9 +30,9 @@ def test_kind_follows_the_usage_column(usage, kind):
 def test_every_drug_has_company_form_kind_and_ingredients():
     drugs = svc.all_pesticides()
 
-    assert len(drugs) == 1363
+    assert len(drugs) == 1568
     assert all(d.company and d.form and d.kind and d.ingredients for d in drugs)
-    assert Counter(d.kind for d in drugs) == {"insecticide": 763, "fungicide": 583, "both": 17}
+    assert Counter(d.kind for d in drugs) == {"insecticide": 831, "fungicide": 715, "both": 22}
 
 
 def test_company_of_a_multi_company_drug_is_the_first_rows_company():
