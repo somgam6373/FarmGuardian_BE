@@ -91,7 +91,7 @@ def test_registered_pests_without_a_pest_guide_entry_are_listed():
     no_guide = {
         p["pest_id"] for p in load("pest") if not p["has_doc"] and p["pest_id"] in registered_ids()
     }
-    listed = {c.id for crop_id in (1, 2, 3) for c in svc.list_pests(crop_id)}
+    listed = {c.id for crop_id in range(1, 9) for c in svc.list_pests(crop_id)}
 
     assert no_guide and no_guide <= listed
 

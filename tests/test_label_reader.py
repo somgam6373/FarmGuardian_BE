@@ -129,9 +129,7 @@ def test_transport_and_api_failures_become_502(make_error, upstream_code):
 
 def test_missing_key_is_502_before_any_call(monkeypatch):
     monkeypatch.setattr(settings, "anthropic_api_key", "")
-    monkeypatch.setattr(
-        label_reader.anthropic, "Anthropic", lambda **kwargs: pytest.fail("client was built")
-    )
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **kwargs: pytest.fail("client was built"))
 
     with pytest.raises(AppError) as exc:
         label_reader.read_label(IMAGE, "image/jpeg")
@@ -147,7 +145,7 @@ def test_client_is_built_with_the_key_timeout_and_no_retries(monkeypatch):
         return FakeClient(response(answer()))
 
     monkeypatch.setattr(settings, "anthropic_api_key", "k-123")
-    monkeypatch.setattr(label_reader.anthropic, "Anthropic", build)
+    monkeypatch.setattr(anthropic, "Anthropic", build)
 
     label_reader.read_label(IMAGE, "image/jpeg")
 

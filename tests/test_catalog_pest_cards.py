@@ -98,10 +98,10 @@ def test_non_virus_has_no_vectors():
     assert svc.get_pest_card(1).vectors == ()
 
 
-def test_all_129_cards_build_with_the_expected_totals():
+def test_all_287_cards_build_with_the_expected_totals():
     cards = [svc.get_pest_card(p["pest_id"]) for p in raw("pest")]
 
-    assert len(cards) == 129
-    assert sum(c.photo_url is not None for c in cards) == 102
-    assert sum(c.occurrence is not None for c in cards) == 49
-    assert sum(bool(c.vectors) for c in cards) == 5
+    assert len(cards) == 287
+    assert sum(c.photo_url is not None for c in cards) == 216
+    assert sum(c.occurrence is not None for c in cards) == 75
+    assert sum(bool(c.vectors) for c in cards) == 7

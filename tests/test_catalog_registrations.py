@@ -3,10 +3,12 @@ from datetime import date
 from app.catalog.application import catalog_service as svc
 from app.catalog.infrastructure.static_data import load
 
+CROP_IDS = range(1, 9)
+
 
 def all_drugs():
     return {
-        e.pesticide.id: e.pesticide for crop_id in (1, 2, 3) for e in svc.list_pesticides(crop_id)
+        e.pesticide.id: e.pesticide for crop_id in CROP_IDS for e in svc.list_pesticides(crop_id)
     }
 
 
@@ -61,10 +63,10 @@ def test_every_pesticide_use_row_is_returned_exactly_once():
     total = sum(
         len(svc.get_registrations(drug.id, crop_id))
         for drug in all_drugs().values()
-        for crop_id in (1, 2, 3)
+        for crop_id in CROP_IDS
     )
 
-    assert total == len(load("pesticide_use")) == 4133
+    assert total == len(load("pesticide_use")) == 11374
 
 
 def test_unknown_drug_or_crop_has_no_rows():

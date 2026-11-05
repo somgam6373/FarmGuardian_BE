@@ -31,7 +31,16 @@ def raw_flags(crop_id, pest_id=None):
 def test_crops_in_id_order():
     crops = svc.list_crops()
 
-    assert [(c.id, c.name) for c in crops] == [(1, "감자"), (2, "배추"), (3, "토마토")]
+    assert [(c.id, c.name) for c in crops] == [
+        (1, "감자"),
+        (2, "배추"),
+        (3, "토마토"),
+        (4, "무"),
+        (5, "양배추"),
+        (6, "당근"),
+        (7, "브로콜리"),
+        (8, "대파"),
+    ]
 
 
 @pytest.mark.parametrize("crop_id,count", [(1, 508), (2, 1008), (3, 515)])
