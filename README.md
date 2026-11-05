@@ -49,6 +49,14 @@ pytest                            # 실제 PostGIS 테스트 DB가 필요하다
 ruff check .
 ```
 
+## 체험 계정 (시연용)
+
+아이디 `test1`, 비밀번호 `test1`. 밭 2개, 구역 6개, 살포 기록, 창고가 들어 있고, 탈퇴와 밭 삭제는 막혀 있다.
+
+```
+python -m app.seed_demo --demo    # 처음 상태로 되돌린다. 이 계정의 기존 데이터는 지워진다
+```
+
 ## 배포 (Vercel)
 
 레포를 Vercel 프로젝트로 가져오면 `app/main.py`를 자동으로 찾는다. 지역(서울)은 `vercel.json`, Python 버전은 `.python-version`에 있다.
